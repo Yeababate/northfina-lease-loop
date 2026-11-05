@@ -27,6 +27,10 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `coefficient.ts` | Worked example: finds the monthly factor for a financed amount and term. |
 | `price-list.ts`  | Worked example: finds the net list price of an asset on a date.          |
 | `money.ts`       | Formats cents as euros for a locale. Use it only in the UI.              |
+| `rounding.ts`    | The one rounding rule: integer maths, rounded once, half up.             |
+| `vat.ts`         | VAT rate on a date, the next rate change, VAT on a net amount.           |
+| `pricing.ts`     | Monthly rent, VAT, buyout and total for a term and down payment.         |
+| `catalogue.ts`   | Catalogue filters and sorting, read safely from the URL; badges.         |
 
 ## What teams are expected to add
 
@@ -41,6 +45,10 @@ Create these as you need them. Do not commit empty files.
 - `second-life`: refurbishment cost, matching a returned item to the waiting list, CO2 saved.
 
 ## Contract price lock
+
+`contract-pricing.ts` selects the signing-date list and builds the snapshot using
+`quoteLease()` from `pricing.ts`, the same calculation used by the sliders.
+Contract pricing tests live alongside the unchanged quote tests.
 
 Signing locks the net price from the catalogue valid on the signing date, rather
 than preserving an earlier quote. If the displayed quote has become stale, the

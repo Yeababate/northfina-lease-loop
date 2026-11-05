@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CoefficientTable, PriceList } from '@/data/schemas';
-import { priceContract, type PricingInput } from '@/domain/pricing';
+import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import { ApiError } from './api-response';
 import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';

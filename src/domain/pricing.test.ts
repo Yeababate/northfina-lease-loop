@@ -1,136 +1,137 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
-import { invoicePrice, priceContract } from './pricing';
+import { loadCoefficientTable } from '@/data/load';
+import type { CoefficientTable } from '@/data/schemas';
+import {
+  availableTerms,
+  buyoutCents,
+  maxDownPaymentCents,
+  minDownPaymentCents,
+  quoteLease,
+} from './pricing';
 
-let lists: Awaited<ReturnType<typeof loadPriceLists>>;
-let table: Awaited<ReturnType<typeof loadCoefficientTable>>;
-let vat: Awaited<ReturnType<typeof loadVatRates>>;
+let table: CoefficientTable;
 beforeAll(async () => {
-  [lists, table, vat] = await Promise.all([
-    loadPriceLists(),
-    loadCoefficientTable(),
-    loadVatRates(),
-  ]);
+  table = await loadCoefficientTable();
 });
-const input = { assetId: 'ebike-003', termMonths: 36, downPaymentCents: 0 };
 
-describe('priceContract', () => {
-  it('matches the worked example, with an independent snapshot', () => {
-    const result = priceContract(lists, table, input, '2026-11-05');
+const quote = (listPriceCents: number, downPaymentCents: number, termMonths: number) =>
+  quoteLease(table, { listPriceCents, downPaymentCents, termMonths, vatRatePercent: 25.5 });
+
+describe('quoteLease', () => {
+  it('matches the worked example: ebike-003, 36 months, no down payment', () => {
+    expect(quote(389_000, 0, 36)).toEqual({
+      ok: true,
+      quote: expect.objectContaining({
+        financedCents: 389_000,
+        band: expect.objectContaining({ band: 'B' }),
+        factor: 0.027584,
+        monthlyNetCents: 10_730, // 10 730.176 → 10 730
+        monthlyVatCents: 2736,
+        monthlyGrossCents: 13_466,
+        buyoutCents: 58_350,
+        totalNetCents: 386_280, // 36 × 10 730
+      }),
+    });
+  });
+
+  it('subtracts the down payment before picking the band', () => {
+    // 2 100 € list − 200 € down = 1 900 € financed: band A, not band B.
+    const result = quote(210_000, 20_000, 24);
     expect(result).toMatchObject({
       ok: true,
-      price: {
-        monthlyNetCents: 10730,
-        buyoutNetCents: 58350,
-        financedCents: 389000,
-        priceListVersion: 1,
-        endOn: '2029-11-05',
-      },
+      quote: { financedCents: 190_000, band: { band: 'A' }, monthlyNetCents: 6961 },
     });
-    if (!result.ok) throw new Error('price failed');
-    const changed = structuredClone(lists);
-    changed[0]!.prices['ebike-003'] = 100000;
-    expect(priceContract(changed, table, input, '2026-11-05')).not.toEqual(result);
-    expect(result.price.monthlyNetCents).toBe(10730);
+    // 190 000 × 0.036637 = 6961.03 → 6961; total includes the down payment.
+    expect(result.ok && result.quote.totalNetCents).toBe(20_000 + 6961 * 24);
   });
-  it('uses signing date rather than earlier quote date', () => {
-    const laptop = { ...input, assetId: 'laptop-004' };
-    const quote = priceContract(lists, table, laptop, '2026-11-05');
-    const signed = priceContract(lists, table, laptop, '2026-11-06');
-    expect(quote).toMatchObject({ ok: true, price: { priceListVersion: 1 } });
-    expect(signed).toMatchObject({ ok: true, price: { priceListVersion: 2 } });
-    if (quote.ok && signed.ok)
-      expect(signed.price.listPriceCents).toBe(lists[1]!.prices['laptop-004']);
+
+  it('puts the band boundary on the financed amount: 1 999.99 € vs 2 000.00 €', () => {
+    expect(quote(199_999, 0, 36)).toMatchObject({ ok: true, quote: { band: { band: 'A' } } });
+    expect(quote(200_000, 0, 36)).toMatchObject({ ok: true, quote: { band: { band: 'B' } } });
   });
-  it.each([-1, 389001])('rejects invalid down payment %s', (downPaymentCents) => {
-    expect(priceContract(lists, table, { ...input, downPaymentCents }, '2026-11-05')).toEqual({
-      ok: false,
-      reason: 'invalid_down_payment',
+
+  it('uses the VAT rate it is given', () => {
+    const at26 = quoteLease(table, {
+      listPriceCents: 389_000,
+      downPaymentCents: 0,
+      termMonths: 36,
+      vatRatePercent: 26,
+    });
+    expect(at26).toMatchObject({
+      ok: true,
+      quote: { monthlyNetCents: 10_730, monthlyVatCents: 2790, monthlyGrossCents: 13_520 },
     });
   });
-  it('rejects fractions and invalid dates', () => {
-    expect(() =>
-      priceContract(lists, table, { ...input, downPaymentCents: 0.5 }, '2026-11-05')
-    ).toThrow();
-    expect(() => priceContract(lists, table, input, '2026-02-30')).toThrow();
+
+  it('refuses a negative down payment or one above the price', () => {
+    expect(quote(389_000, -1, 36)).toEqual({ ok: false, reason: 'down_payment_negative' });
+    expect(quote(389_000, 389_001, 36)).toEqual({ ok: false, reason: 'down_payment_above_price' });
   });
-  it.each([
-    ['below_minimum', 389000],
-    ['unknown_term', 0],
-  ])('handles %s', (reason, downPaymentCents) => {
-    expect(
-      priceContract(
-        lists,
-        table,
-        { ...input, downPaymentCents, termMonths: reason === 'unknown_term' ? 13 : 36 },
-        '2026-11-05'
-      )
-    ).toEqual({ ok: false, reason });
+
+  it('refuses to finance less than the smallest band, including a full down payment', () => {
+    expect(quote(29_999, 0, 12)).toEqual({ ok: false, reason: 'below_minimum' });
+    expect(quote(389_000, 389_000, 36)).toEqual({ ok: false, reason: 'below_minimum' });
   });
-  it('handles missing data and future coefficients', () => {
-    expect(priceContract([], table, input, '2026-11-05')).toEqual({
-      ok: false,
-      reason: 'no_price_list_on_date',
+
+  it('refuses too much, unless enough is paid down', () => {
+    expect(quote(26_000_000, 0, 48)).toEqual({ ok: false, reason: 'above_maximum' });
+    expect(quote(26_000_000, 1_000_000, 48)).toMatchObject({ ok: true });
+  });
+
+  it('refuses a term that is not in the table', () => {
+    expect(quote(389_000, 0, 30)).toEqual({ ok: false, reason: 'unknown_term' });
+  });
+
+  it('throws on fractions of a cent', () => {
+    expect(() => quote(389_000.5, 0, 36)).toThrow(RangeError);
+  });
+
+  it('prices a big ticket: farm-002 with 20 000 € down over 48 months', () => {
+    expect(quote(14_500_000, 2_000_000, 48)).toMatchObject({
+      ok: true,
+      // 12 500 000 × 0.021763 = 272 037.5 → 272 038 (half up)
+      quote: { band: { band: 'D' }, monthlyNetCents: 272_038, buyoutCents: 1_000_000 },
     });
-    expect(priceContract(lists, table, { ...input, assetId: 'missing' }, '2026-11-05')).toEqual({
-      ok: false,
-      reason: 'unknown_asset',
-    });
-    expect(
-      priceContract(lists, { ...table, valid_from: '2027-01-01' }, input, '2026-11-05')
-    ).toEqual({ ok: false, reason: 'no_coefficient_on_date' });
-    expect(
-      priceContract(
-        lists,
-        { ...table, end_of_term_buyout_percent_of_financed: {} },
-        input,
-        '2026-11-05'
-      )
-    ).toEqual({ ok: false, reason: 'unknown_term' });
-  });
-  it('selects bands after subtracting down payment', () => {
-    expect(
-      priceContract(lists, table, { ...input, downPaymentCents: 189001 }, '2026-11-05')
-    ).toMatchObject({ ok: true, price: { band: 'A', financedCents: 199999 } });
-    expect(
-      priceContract(lists, table, { ...input, downPaymentCents: 189000 }, '2026-11-05')
-    ).toMatchObject({ ok: true, price: { band: 'B', financedCents: 200000 } });
   });
 });
 
-describe('invoicePrice', () => {
-  it('keeps net rent locked across the fictional tax boundary', () => {
-    expect(invoicePrice({ monthlyNetCents: 10730 }, vat, '2026-12-31')).toEqual({
-      ok: true,
-      netCents: 10730,
-      vatPercent: 25.5,
-      vatCents: 2736,
-      totalCents: 13466,
-    });
-    expect(invoicePrice({ monthlyNetCents: 10730 }, vat, '2027-01-01')).toEqual({
-      ok: true,
-      netCents: 10730,
-      vatPercent: 26,
-      vatCents: 2790,
-      totalCents: 13520,
-    });
+describe('buyoutCents', () => {
+  it('uses the percent for the term', () => {
+    expect(buyoutCents(table, 389_000, 12)).toBe(155_600);
+    expect(buyoutCents(table, 389_000, 48)).toBe(31_120);
   });
-  it('rounds half cents up and handles zero', () => {
-    expect(invoicePrice({ monthlyNetCents: 100 }, vat, '2026-11-05')).toMatchObject({
-      vatCents: 26,
-    });
-    expect(invoicePrice({ monthlyNetCents: 0 }, vat, '2026-11-05')).toMatchObject({
-      totalCents: 0,
-    });
+
+  it('rounds half up', () => {
+    expect(buyoutCents(table, 10, 36)).toBe(2); // 1.5 → 2
   });
-  it('handles missing VAT and invalid input', () => {
-    expect(invoicePrice({ monthlyNetCents: 1 }, { ...vat, rates: [] }, '2026-11-05')).toEqual({
-      ok: false,
-      reason: 'no_vat_on_date',
-    });
-    expect(invoicePrice({ monthlyNetCents: 1 }, vat, '1900-01-01')).toMatchObject({ ok: false });
-    expect(() => invoicePrice({ monthlyNetCents: -1 }, vat, '2026-11-05')).toThrow();
-    expect(() => invoicePrice({ monthlyNetCents: 0.5 }, vat, '2026-11-05')).toThrow();
-    expect(() => invoicePrice({ monthlyNetCents: 1 }, vat, 'invalid')).toThrow();
+
+  it('throws for an unknown term', () => {
+    expect(() => buyoutCents(table, 389_000, 30)).toThrow(RangeError);
+  });
+});
+
+describe('availableTerms', () => {
+  it('lists the terms every band supports, shortest first', () => {
+    expect(availableTerms(table)).toEqual([12, 24, 36, 48]);
+  });
+
+  it('leaves out a term that a band does not price', () => {
+    const [first, ...rest] = table.bands;
+    const { '48': _dropped, ...factors } = first!.monthly_factor_by_term;
+    const partial = { ...table, bands: [{ ...first!, monthly_factor_by_term: factors }, ...rest] };
+    expect(availableTerms(partial)).toEqual([12, 24, 36]);
+  });
+});
+
+describe('down payment limits', () => {
+  it('lets the down payment go up to price − 300 €', () => {
+    expect(maxDownPaymentCents(table, 389_000)).toBe(359_000);
+    expect(maxDownPaymentCents(table, 30_000)).toBe(0);
+    expect(maxDownPaymentCents(table, 10_000)).toBe(0);
+  });
+
+  it('needs a down payment only above 250 000 €', () => {
+    expect(minDownPaymentCents(table, 25_000_000)).toBe(0);
+    expect(minDownPaymentCents(table, 26_000_000)).toBe(1_000_000);
   });
 });

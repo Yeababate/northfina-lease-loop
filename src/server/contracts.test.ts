@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/contracts/route';
 import { loadAssets, loadCoefficientTable, loadPriceLists } from '@/data/load';
-import { priceContract } from '@/domain/pricing';
+import { quoteLease } from '@/domain/pricing';
+import { priceContract } from '@/domain/contract-pricing';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
 import { signContract } from './contracts';
@@ -42,6 +43,16 @@ beforeEach(async () => {
 });
 it('persists the full snapshot and audit, reserves the item and rejects repeat signing', async () => {
   const contract = await signContract(db, input, '2026-11-05', lists, table);
+  const slider = quoteLease(table, {
+    listPriceCents: lists[0]!.prices[input.assetId]!,
+    downPaymentCents: input.downPaymentCents,
+    termMonths: input.termMonths,
+    vatRatePercent: 25.5,
+  });
+  expect(slider.ok).toBe(true);
+  if (!slider.ok) throw new Error('Slider pricing failed');
+  expect(contract.monthlyNetCents).toBe(slider.quote.monthlyNetCents);
+  expect(contract.buyoutNetCents).toBe(slider.quote.buyoutCents);
   expect(contract).toMatchObject({
     monthlyNetCents: 10730,
     buyoutNetCents: 58350,

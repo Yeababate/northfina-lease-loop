@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { isoDateSchema } from '@/data/schemas';
 import { loadVatRates } from '@/data/load';
-import { invoicePrice } from '@/domain/pricing';
+import { invoicePrice } from '@/domain/contract-pricing';
 import { formatEuro } from '@/domain/money';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';

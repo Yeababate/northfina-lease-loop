@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
-import { invoicePrice, priceContract } from '@/domain/pricing';
+import { invoicePrice, priceContract } from '@/domain/contract-pricing';
 import { formatEuro } from '@/domain/money';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
