@@ -6,6 +6,7 @@ import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
 import { readExitView, requestEarlyExit, withdrawEarlyExit } from './exit-requests';
 import { acknowledgeEarlyExit, finalizeDueReturns } from './exit-completion';
+import { runLifecycleTick } from './lifecycle-worker';
 import type { PrismaClient } from './prisma-client';
 
 vi.mock('@/server/db', () => ({
@@ -192,7 +193,7 @@ describe('provider confirmation and completion', () => {
       await db.contractLifecycle.findUnique({ where: { contractId: 'contract' } })
     ).toMatchObject({ status: 'active' });
     expect(await finalizeDueReturns(db, '2026-08-30')).toEqual({ completed: 0, failedIds: [] });
-    expect(await finalizeDueReturns(db, boundary)).toEqual({ completed: 1, failedIds: [] });
+    expect(await runLifecycleTick(db, boundary)).toEqual({ completed: 1, failedIds: [] });
     expect(await finalizeDueReturns(db, boundary)).toEqual({ completed: 0, failedIds: [] });
     expect(
       await db.contractLifecycle.findUnique({ where: { contractId: 'contract' } })
