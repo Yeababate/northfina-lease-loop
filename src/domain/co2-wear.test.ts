@@ -19,7 +19,11 @@ beforeAll(async () => {
 });
 
 const noReset: UsageHistory = { kind: 'no_reset_recorded' };
-const ebike = (condition: AssetCondition, km: number, history = noReset): WearInput => ({
+const ebike = (
+  condition: AssetCondition,
+  km: number,
+  history: UsageHistory = noReset
+): WearInput => ({
   category: 'e_bike',
   condition,
   usage: { unit: 'km', value: km },
