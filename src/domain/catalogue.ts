@@ -140,7 +140,7 @@ export function catalogueBadge(asset: Asset): CatalogueBadge {
 
 /** Whether the customer may start pricing and applying for this item. */
 export function isLeasable(asset: Asset): boolean {
-  return asset.status !== 'reserved';
+  return asset.status === 'available';
 }
 
 function comparator(sort: CatalogueSort) {

@@ -210,11 +210,18 @@ describe('badges and leasability', () => {
     expect(catalogueBadge(asset({ status: 'returned', previous_lives: 2 }))).toBe('second_life');
     expect(catalogueBadge(asset({ status: 'available', previous_lives: 0 }))).toBe('available');
     expect(isLeasable(asset({ status: 'available' }))).toBe(true);
+    expect(isLeasable(asset({ status: 'returned' }))).toBe(false);
   });
 
-  it('finds the reserved item in the data pack', () => {
+  it('holds reserved and returned stock until it is actually available', () => {
     expect(items.filter((item) => !isLeasable(item.asset)).map((i) => i.asset.id)).toEqual([
+      'ebike-007',
+      'ebike-008',
       'ebike-009',
+      'ebike-011',
+      'laptop-006',
+      'laptop-007',
+      'farm-005',
     ]);
   });
 });
