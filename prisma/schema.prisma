@@ -87,3 +87,33 @@ model Invoice {
 
   @@unique([contractId, period])
 }
+
+// A provider's grouping of physical items meant to be leased together. No prices: it only
+// says which assets belong together and for which terms. Editing bumps `revision`.
+model BundleOffer {
+  id          String            @id
+  providerId  String
+  name        String
+  description String
+  /// Supported terms in months as JSON text, e.g. [24,36].
+  terms_json  String
+  published   Boolean           @default(false)
+  revision    Int               @default(1)
+  created_at  DateTime          @default(now())
+  updated_at  DateTime          @updatedAt
+  items       BundleOfferItem[]
+
+  @@index([providerId])
+}
+
+// One distinct physical asset in a bundle. An asset appears at most once per bundle.
+model BundleOfferItem {
+  offerId  String
+  offer    BundleOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  assetId  String
+  /// The provider's display order, starting at 0.
+  position Int
+
+  @@id([offerId, assetId])
+  @@index([assetId])
+}
