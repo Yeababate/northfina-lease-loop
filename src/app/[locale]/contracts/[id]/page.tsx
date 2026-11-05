@@ -11,6 +11,7 @@ import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
 import { getParticipantContract } from '@/server/profile';
 import { ApiError } from '@/server/api-response';
+import { InvoiceList } from '@/components/invoice-list';
 
 export default async function ContractPage({
   params,
@@ -28,6 +29,10 @@ export default async function ContractPage({
   const document = await db.contractDocument.findUnique({
     where: { contractId: id },
     select: { locale: true },
+  });
+  const invoices = await db.invoice.findMany({
+    where: { contractId: id },
+    orderBy: { period: 'asc' },
   });
   const t = getT(locale);
   const query = await searchParams;
@@ -75,6 +80,7 @@ export default async function ContractPage({
             })
           : t('contract.unavailable')}
       </p>
+      <InvoiceList invoices={invoices} contractId={id} actor={contract.actor} locale={locale} />
     </div>
   );
 }

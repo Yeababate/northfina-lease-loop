@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { NavLinks } from '@/components/nav-links';
+import { SignInLink } from '@/components/sign-in-link';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
-import { currentPrincipal } from '@/server/current-principal';
+import { readDemoName } from '@/server/demo-session';
+import { signOut } from './sign-in/actions';
 import '../globals.css';
 
 export async function generateMetadata({ params }: LayoutProps<'/[locale]'>): Promise<Metadata> {
@@ -21,7 +23,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = getT(locale);
-  const customer = await currentPrincipal();
+  const name = await readDemoName();
 
   return (
     <html lang={locale}>
@@ -47,9 +49,25 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
             />
             <div className="ml-auto flex items-center gap-6">
               <LanguageSwitcher current={locale} label={t('nav.language')} />
-              {customer ? (
-                <p className="text-sm">{t('nav.greeting', { name: customer.displayName })}</p>
-              ) : null}
+              {name ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <p>{t('nav.greeting', { name })}</p>
+                  <span aria-hidden="true" className="text-stone-400">
+                    ·
+                  </span>
+                  <form action={signOut}>
+                    <input type="hidden" name="locale" value={locale} />
+                    <button
+                      type="submit"
+                      className="text-blue-700 underline underline-offset-2 hover:text-blue-900 dark:text-blue-300"
+                    >
+                      {t('nav.signOut')}
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <SignInLink locale={locale} label={t('nav.signIn')} />
+              )}
             </div>
           </div>
         </header>

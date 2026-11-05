@@ -24,6 +24,7 @@ export async function signContract(
   input: PricingInput & {
     actor: string;
     expectedMonthlyNetCents: number;
+    expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
     participants?: SigningParticipants;
   },
@@ -46,6 +47,7 @@ export async function signContract(
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
   if (
     result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+    result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
     result.price.priceListVersion !== input.expectedPriceListVersion
   )
     throw new ApiError(
@@ -87,7 +89,7 @@ export async function signContract(
       if (reserved.count !== 1)
         throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
       const { assetId, ...linePrice } = result.price;
-      return tx.contract.create({
+      const contract = await tx.contract.create({
         data: {
           id,
           actor: input.actor,
@@ -114,6 +116,14 @@ export async function signContract(
           document: { create: document },
         },
       });
+      // Record who provides this lease, from current ownership, in the same transaction.
+      // The link never changes, so the provider keeps access after any later sale.
+      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
+      if (owner)
+        await tx.contractProvider.create({
+          data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
+        });
+      return contract;
     }
   );
 }
@@ -126,6 +136,7 @@ export type SignApplicationInput = {
   /** The customer's answers. The application is decided again here, from scratch. */
   answers: Answers;
   expectedMonthlyNetCents: number;
+  expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
   locale?: Locale;
 };

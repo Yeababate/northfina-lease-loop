@@ -18,6 +18,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { readDemoName } from '@/server/demo-session';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
 
@@ -41,6 +42,7 @@ export default async function ApplyPage({
   const t = getT(locale);
   const principal = await currentPrincipal();
   const today = todayIso();
+  const demoName = await readDemoName();
   const query = await searchParams;
   const { termMonths, startDate } = parseCatalogueQuery(query, {
     today,
@@ -107,6 +109,7 @@ export default async function ApplyPage({
               startDate,
               principal?.id
             )}
+            prefill={demoName ? { q_full_name: demoName } : undefined}
             links={{
               item: itemHref,
               sign: `/${locale}/items/${asset.id}/sign?${leaseParams}&${new URLSearchParams({ quoted: quotedOn })}`,

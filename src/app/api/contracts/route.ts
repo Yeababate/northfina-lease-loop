@@ -23,6 +23,7 @@ const schema = z.strictObject({
   startOn: isoDateSchema,
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,
+  expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
   locale: z.enum(['en', 'fi', 'sv', 'et']).default('en'),
 });

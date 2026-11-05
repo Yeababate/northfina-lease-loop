@@ -137,6 +137,16 @@ export default async function SignPage({
       </Link>
       <div className="mt-4">
         <ReviewAndSign
+          key={JSON.stringify([
+            asset.id,
+            termMonths,
+            downPaymentCents,
+            startDate,
+            price.monthlyNetCents,
+            price.buyoutNetCents,
+            price.priceListVersion,
+            startVat.rate.rate_percent,
+          ])}
           locale={locale}
           lease={{
             assetId: asset.id,

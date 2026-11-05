@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { loadCoefficientTable, loadQuestions } from '@/data/load';
 import type { CoefficientTable, Question } from '@/data/schemas';
 import type { Answers } from './answer-check';
-import { checkApplicationForSigning, priceLockNote } from './application-signing';
+import {
+  checkApplicationForSigning,
+  priceLockNote,
+  signingOfferKey,
+  type SigningOffer,
+} from './application-signing';
 import { checkBusinessId } from './business-id';
 import type { Deal } from './question-flow';
 
@@ -137,4 +142,30 @@ describe('priceLockNote', () => {
       )
     ).toEqual({ listChanged: true, direction: 'same', differenceCents: 0 });
   });
+});
+
+it('requires new consent for every change to the displayed lease offer', () => {
+  const offer: SigningOffer = {
+    assetId: 'ebike-003',
+    termMonths: 36,
+    downPaymentCents: 0,
+    startOn: '2026-11-05',
+    monthlyNetCents: 10730,
+    buyoutCents: 58350,
+    priceListVersion: 1,
+    monthlyGrossCents: 13466,
+  };
+  const accepted = signingOfferKey(offer);
+  expect(signingOfferKey({ ...offer })).toBe(accepted);
+  for (const patch of [
+    { assetId: 'ebike-004' },
+    { termMonths: 24 },
+    { downPaymentCents: 10000 },
+    { startOn: '2027-01-31' },
+    { monthlyNetCents: 10731 },
+    { buyoutCents: 58351 },
+    { priceListVersion: 2 },
+    { monthlyGrossCents: 13520 },
+  ])
+    expect(signingOfferKey({ ...offer, ...patch })).not.toBe(accepted);
 });

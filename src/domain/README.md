@@ -22,20 +22,22 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 
 ## What is here
 
-| File               | What it does                                                             |
-| ------------------ | ------------------------------------------------------------------------ |
-| `coefficient.ts`   | Worked example: finds the monthly factor for a financed amount and term. |
-| `price-list.ts`    | Worked example: finds the net list price of an asset on a date.          |
-| `money.ts`         | Formats cents as euros for a locale. Use it only in the UI.              |
-| `rounding.ts`      | The one rounding rule: integer maths, rounded once, half up.             |
-| `vat.ts`           | VAT rate on a date, the next rate change, VAT on a net amount.           |
-| `pricing.ts`       | Monthly rent, VAT, buyout and total for a term and down payment.         |
-| `catalogue.ts`     | Catalogue filters and sorting, read safely from the URL; badges.         |
-| `iso-date.ts`      | Checks ISO dates and works out an age on a given day.                    |
-| `business-id.ts`   | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
-| `answer-check.ts`  | Checks one application answer against its question type.                 |
-| `question-flow.ts` | Picks the next question and drops answers that stop applying.            |
-| `eligibility.ts`   | Approved, declined or manual review, with the checks behind it.          |
+| File                     | What it does                                                             |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `coefficient.ts`         | Worked example: finds the monthly factor for a financed amount and term. |
+| `price-list.ts`          | Worked example: finds the net list price of an asset on a date.          |
+| `money.ts`               | Formats cents as euros for a locale. Use it only in the UI.              |
+| `rounding.ts`            | The one rounding rule: integer maths, rounded once, half up.             |
+| `vat.ts`                 | VAT rate on a date, the next rate change, VAT on a net amount.           |
+| `pricing.ts`             | Monthly rent, VAT, buyout and total for a term and down payment.         |
+| `catalogue.ts`           | Catalogue filters and sorting, read safely from the URL; badges.         |
+| `iso-date.ts`            | Checks ISO dates and works out an age on a given day.                    |
+| `business-id.ts`         | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
+| `answer-check.ts`        | Checks one application answer against its question type.                 |
+| `question-flow.ts`       | Picks the next question and drops answers that stop applying.            |
+| `eligibility.ts`         | Approved, declined or manual review, with the checks behind it.          |
+| `refurbishment-rules.ts` | Required work for a returned item, from the data-pack rules (no costs).  |
+| `next-life.ts`           | Returned item state machine: receipt, inspection, work, guarded relist.  |
 
 ### How the question flow works
 
@@ -74,7 +76,8 @@ The stored contract includes the list price and version, coefficient identity an
 version, band, factor, down payment, financed amount, monthly net rent, buyout,
 signing date and term. Later catalogue or coefficient edits do not modify it.
 
-The locked period starts on signing and ends at the exclusive monthly anniversary
+The locked period starts on the saved customer-selected `startOn` (on or after
+signing) and ends at the exclusive monthly anniversary
 stored as `endOn`. Short months clamp to their last day. Each monthly net rent and
 the buyout are rounded once to nearest whole euro cent, with half cents rounded up.
 The net rental total is monthly net rent multiplied by the agreed number of months;
@@ -83,8 +86,43 @@ the down payment and optional buyout are separate amounts.
 VAT is not locked. `invoicePrice` takes the stored monthly net rent and selects the
 VAT rate by invoice date (inclusive validity boundaries), rounding tax once per
 invoice to the nearest cent, half up. The contract page lets the renter compare
-invoice dates; it previews tax and does not issue or persist invoices.
+invoice dates; this date comparison previews tax only. The separate invoice list shows persisted invoices.
 
 Signing uses `withAudit` to create the contract and reserve the available item in
-one transaction. This MVP follows the starter's caller-supplied actor convention;
-it does not add customer eligibility or authentication.
+one transaction. The public API reruns application eligibility and derives the
+signer from approved answers. The name alone cannot authorise signing; customer
+authentication remains outside this MVP.
+
+## Monthly invoices
+
+`invoices.ts` schedules exactly `termMonths` full rental invoices in advance.
+The first invoice date and payment due date are the saved lease start date
+(`startOn`), which may be later than signing. For a mid-month
+start, the first period runs from that day to the next monthly anniversary: there
+is no calendar-month proration or extra stub-period charge. Invoice date and due
+date are deliberately identical; no additional payment grace period is assumed.
+
+Each date is calculated from the original lease start day with `contractEndOn`,
+clamping independently to the last day of each shorter month. A 31 January 2026
+start bills on 28 February 2026, 31 March 2026 and 29 February 2028. The final
+invoice precedes the exclusive contract end date.
+
+Every net amount is the saved contract's locked monthly net rent, already rounded
+at signing. The net rental total is exactly rent × term. Down payment and optional
+buyout are separate, excluded from rental invoices. VAT is selected using each
+invoice date and rounded once per invoice to whole cents, half up; gross totals
+sum those individual net and tax lines, never an independently rounded total.
+
+The contract page's explicit generation button issues the entire schedule,
+including future dated invoices, using the VAT table known at generation time.
+Issued invoice amounts are immutable snapshots; future statutory changes would
+need an explicit adjustment workflow outside this MVP. GET never issues invoices.
+POST /api/contracts/[id]/invoices accepts a caller-supplied actor, matching the
+starter's audit convention; it is not an authentication mechanism.
+Generation uses one audited transaction and a database unique key on contract and
+period. Retries return the same invoices; the audit records each successful
+generation request, including retries. Missing VAT fails the whole generation.
+
+See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
+for start-date evidence, migration failure reproduction and the tested side-by-side
+recovery approach.

@@ -32,6 +32,7 @@ const input = {
   termMonths: 36,
   downPaymentCents: 0,
   expectedMonthlyNetCents: 10730,
+  expectedBuyoutNetCents: 58350,
   expectedPriceListVersion: 1,
 };
 beforeAll(async () => {
@@ -156,6 +157,7 @@ const application = {
   startOn: '2026-11-05',
   answers: aino,
   expectedMonthlyNetCents: 10730,
+  expectedBuyoutNetCents: 58350,
   expectedPriceListVersion: 1,
 };
 
