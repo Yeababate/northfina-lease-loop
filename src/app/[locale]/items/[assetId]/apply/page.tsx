@@ -9,6 +9,7 @@ import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { unavailableMessage } from '@/components/unavailable-message';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
@@ -112,7 +113,9 @@ export default async function ApplyPage({
       ) : (
         <div className="mt-6 max-w-xl">
           <InfoBox>
-            <p role="status">{isLeasable(asset) ? t('apply.unavailable') : t('item.reserved')}</p>
+            <p role="status">
+              {isLeasable(asset) ? t('apply.unavailable') : unavailableMessage(asset, t)}
+            </p>
           </InfoBox>
         </div>
       )}

@@ -8,6 +8,7 @@ import { InfoBox, PhotoPlaceholder, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
 import type { Asset } from '@/data/schemas';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { unavailableMessage } from '@/components/unavailable-message';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
@@ -63,7 +64,7 @@ export default async function ItemPage({
       </Link>
       <div className="mt-4">
         {!isLeasable(asset) ? (
-          <Unavailable summary={summary} message={t('item.reserved')} />
+          <Unavailable summary={summary} message={unavailableMessage(asset, t)} />
         ) : !price.ok || !vat.ok ? (
           <Unavailable summary={summary} message={t('lease.unavailable')} />
         ) : (
