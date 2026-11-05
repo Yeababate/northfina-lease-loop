@@ -8,7 +8,8 @@ import {
   listModerationReports,
 } from './rating-moderation';
 import { seedModerator } from './moderator-seed';
-import { summarizeRatings, type SummaryRating } from '@/domain/ratings';
+import { publicRatings, editRating } from './ratings';
+import { GET as publicRatingsGet } from '@/app/api/users/[id]/ratings/route';
 import { GET as publicAuditGet } from '@/app/api/audit-log/route';
 import { POST as reportPost, GET as reportGet } from '@/app/api/ratings/[id]/reports/route';
 import { GET as ownGet } from '@/app/api/rating-reports/route';
@@ -99,11 +100,7 @@ async function edit() {
   });
 }
 async function summary() {
-  return summarizeRatings(
-    (await db.rating.findMany()) as SummaryRating[],
-    'subject',
-    'renter_to_provider'
-  );
+  return (await publicRatings(db, 'subject')).asProvider;
 }
 describe('subject reports', () => {
   it('retains immutable evidence and counts while pending; duplicate submissions reuse the case', async () => {
@@ -390,4 +387,98 @@ it('public audit responses omit report identities, notes and even case identifie
   const response = await publicAuditGet(new Request('http://localhost/api/audit-log'), undefined);
   expect(await response.json()).toMatchObject({ success: true, data: [] });
   expect(await db.auditLog.count()).toBe(2);
+});
+
+it('integrates actual rating edits and public queries across report, Hide and Restore', async () => {
+  const first = await report();
+  await editRating(db, 'rating', 'author', {
+    expectedRevision: 1,
+    stars: 2,
+    comment: 'Second revision',
+  });
+  const evidence = await getModerationReport(db, 'demo-moderator', first.id);
+  expect(evidence.reportedRevision).toMatchObject({
+    revision: 1,
+    comment: 'Original abusive text',
+  });
+  expect(evidence.rating).toMatchObject({ currentRevision: 2, comment: 'Second revision' });
+  await expect(decideRatingReport(db, 'demo-moderator', first.id, decision)).rejects.toMatchObject({
+    code: 'STALE_CONTEXT',
+  });
+  await decideRatingReport(db, 'demo-moderator', first.id, {
+    ...decision,
+    expectedRatingRevision: 2,
+  });
+  expect(await publicRatings(db, 'subject')).toMatchObject({
+    asProvider: { count: 0 },
+    reviews: [],
+  });
+  await editRating(db, 'rating', 'author', {
+    expectedRevision: 2,
+    stars: 5,
+    comment: 'Third revision',
+  });
+  expect(await publicRatings(db, 'subject')).toMatchObject({
+    asProvider: { count: 0 },
+    reviews: [],
+  });
+  await decideRatingReport(db, 'demo-moderator', first.id, {
+    ...decision,
+    action: 'restore',
+    rationale: 'Latest revision reviewed',
+    expectedReportVersion: 1,
+    expectedRatingRevision: 3,
+    expectedModerationVersion: 1,
+  });
+  const response = await publicRatingsGet(
+    request('/api/users/subject/ratings', null),
+    context('subject')
+  );
+  const body = await response.json();
+  expect(body).toMatchObject({
+    success: true,
+    data: { asProvider: { count: 1, starSum: 5 }, reviews: [{ comment: 'Third revision' }] },
+  });
+  const review = body.data.reviews[0];
+  for (const field of [
+    'reporterId',
+    'reports',
+    'decisions',
+    'rationale',
+    'moderatorId',
+    'revisionId',
+    'moderationVersion',
+  ])
+    expect(review).not.toHaveProperty(field);
+  expect((await getModerationReport(db, 'demo-moderator', first.id)).reportedRevision.comment).toBe(
+    'Original abusive text'
+  );
+});
+it('restoration rolls back publication and decision history if its audit fails', async () => {
+  const first = await report();
+  await decideRatingReport(db, 'demo-moderator', first.id, decision);
+  await expect(
+    decideRatingReport(failingAudit(), 'demo-moderator', first.id, {
+      ...decision,
+      action: 'restore',
+      expectedReportVersion: 1,
+      expectedModerationVersion: 1,
+    })
+  ).rejects.toThrow('audit unavailable');
+  expect(await publicRatings(db, 'subject')).toMatchObject({
+    reviews: [],
+    asProvider: { count: 0 },
+  });
+  expect(await db.moderationDecision.count()).toBe(1);
+  expect(await db.auditLog.count()).toBe(2);
+});
+it('enforces subject reporting in the provider-to-renter direction as well', async () => {
+  await db.rating.update({
+    where: { id: 'rating' },
+    data: { direction: 'provider_to_renter', reviewerId: 'subject', subjectId: 'author' },
+  });
+  await expect(report()).rejects.toMatchObject({ code: 'SUBJECT_REQUIRED' });
+  const reported = await submitRatingReport(db, 'author', 'rating', submission);
+  expect(reported.status).toBe('pending');
+  expect((await publicRatings(db, 'author')).asRenter).toMatchObject({ count: 1, starSum: 1 });
 });
