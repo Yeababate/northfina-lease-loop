@@ -10,6 +10,7 @@ import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { priceLockNote } from '@/domain/application-signing';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { unavailableMessage } from '@/components/unavailable-message';
 import { priceContract } from '@/domain/contract-pricing';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
@@ -21,6 +22,7 @@ import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { currentPrincipal } from '@/server/current-principal';
 
 export default async function SignPage({
   params,
@@ -40,6 +42,7 @@ export default async function SignPage({
   if (!asset) notFound();
 
   const t = getT(locale);
+  const principal = await currentPrincipal();
   const today = todayIso();
   const query = await searchParams;
   const { termMonths, startDate } = parseCatalogueQuery(query, {
@@ -73,7 +76,9 @@ export default async function SignPage({
         </Link>
         <div className="mt-6">
           <InfoBox>
-            <p role="status">{isLeasable(asset) ? t('sign.unavailable') : t('item.reserved')}</p>
+            <p role="status">
+              {isLeasable(asset) ? t('sign.unavailable') : unavailableMessage(asset, t)}
+            </p>
           </InfoBox>
         </div>
       </div>
@@ -135,6 +140,16 @@ export default async function SignPage({
       </Link>
       <div className="mt-4">
         <ReviewAndSign
+          key={JSON.stringify([
+            asset.id,
+            termMonths,
+            downPaymentCents,
+            startDate,
+            price.monthlyNetCents,
+            price.buyoutNetCents,
+            price.priceListVersion,
+            startVat.rate.rate_percent,
+          ])}
           locale={locale}
           lease={{
             assetId: asset.id,
@@ -146,7 +161,13 @@ export default async function SignPage({
             buyoutCents: price.buyoutNetCents,
             priceListVersion: price.priceListVersion,
           }}
-          storageKey={applicationStorageKey(asset.id, termMonths, downPaymentCents, startDate)}
+          storageKey={applicationStorageKey(
+            asset.id,
+            termMonths,
+            downPaymentCents,
+            startDate,
+            principal?.id
+          )}
           questions={questionsFile.questions}
           deal={{
             category: asset.category,

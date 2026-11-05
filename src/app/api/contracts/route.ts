@@ -7,6 +7,7 @@ import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { requirePrincipal } from '@/server/mock-users';
 
 /** One answer, as the question types store it. Sizes are capped so a body stays small. */
 const answerSchema = z.union([
@@ -22,22 +23,31 @@ const schema = z.strictObject({
   startOn: isoDateSchema,
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,
+  expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
+  locale: z.enum(['en', 'fi', 'sv', 'et']).default('en'),
 });
 
 export const POST = handleRoute(async (request) => {
   const input = await readJsonBody(request, schema);
+  const principal = await requirePrincipal(db, request);
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
   ]);
-  const contract = await signApplication(db, input, todayIso(), {
-    lists,
-    table,
-    vatRates,
-    questions: questionsFile.questions,
-  });
+  const contract = await signApplication(
+    db,
+    input,
+    todayIso(),
+    {
+      lists,
+      table,
+      vatRates,
+      questions: questionsFile.questions,
+    },
+    principal.id
+  );
   return ok(contract, { status: 201 });
 });
