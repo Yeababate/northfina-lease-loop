@@ -49,6 +49,7 @@ model AuditLog {
 
 // Immutable signing snapshot; later catalogue changes never update this row.
 model Contract {
+  invoices           Invoice[]
   id                 String @id
   actor              String
   assetId            String
@@ -69,4 +70,20 @@ model Contract {
   buyoutNetCents     Int
 
   @@index([assetId])
+}
+
+// Immutable rental invoice. A billing period can only be issued once per contract.
+model Invoice {
+  id           String @id
+  contractId   String
+  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  period       Int
+  invoiceDate  String
+  dueDate      String
+  netCents     Int
+  vatPercent   Float
+  vatCents     Int
+  grossCents   Int
+
+  @@unique([contractId, period])
 }
