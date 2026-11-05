@@ -34,6 +34,7 @@ const choice = {
   termMonths: 36,
   downPaymentCents: 0,
   expectedMonthlyNetCents: 10730,
+  expectedBuyoutNetCents: 58350,
   expectedPriceListVersion: 1,
 };
 const participants = {

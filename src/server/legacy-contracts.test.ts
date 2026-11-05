@@ -29,6 +29,7 @@ it('reconciles legacy identities and lines explicitly without re-pricing or inve
       termMonths: 36,
       downPaymentCents: 0,
       expectedMonthlyNetCents: 10730,
+      expectedBuyoutNetCents: 58350,
       expectedPriceListVersion: 1,
     },
     '2026-11-05',
