@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   loadAssets,
+  loadBundleOffers,
   loadCo2Factors,
   loadCoefficientTable,
   loadCustomers,
@@ -9,6 +10,7 @@ import {
   loadPriceLists,
   loadQuestions,
   loadRefurbishmentCosts,
+  loadRelatedItemRules,
   loadResidualCurves,
   loadSecondLifeDemand,
   loadVatRates,
@@ -51,6 +53,20 @@ describe('data pack', () => {
           'number'
         );
       }
+    }
+  });
+
+  it('loads the related-item rules and example bundle offers', async () => {
+    const [rules, offers, assets] = await Promise.all([
+      loadRelatedItemRules(),
+      loadBundleOffers(),
+      loadAssets(),
+    ]);
+    expect(rules.weights).toEqual({ category: 70, price: 25, condition: 5 });
+    expect(rules.limit).toBe(4);
+    const assetIds = new Set(assets.map((asset) => asset.id));
+    for (const offer of offers) {
+      for (const id of offer.asset_ids) expect(assetIds.has(id), id).toBe(true);
     }
   });
 

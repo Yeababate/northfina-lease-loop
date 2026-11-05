@@ -6,12 +6,14 @@ import path from 'node:path';
 import { z } from 'zod';
 import {
   assetsFileSchema,
+  bundleOffersFileSchema,
   co2FactorsSchema,
   coefficientTableSchema,
   customersFileSchema,
   priceListsFileSchema,
   questionsFileSchema,
   refurbishmentCostsSchema,
+  relatedItemRulesSchema,
   residualCurvesSchema,
   secondLifeDemandFileSchema,
   vatRatesSchema,
@@ -48,3 +50,6 @@ export const loadSecondLifeDemand = () =>
 export const loadRefurbishmentCosts = () =>
   loadDataFile('refurbishment-costs.json', refurbishmentCostsSchema);
 export const loadCo2Factors = () => loadDataFile('co2-factors.json', co2FactorsSchema);
+export const loadRelatedItemRules = () =>
+  loadDataFile('related-item-rules.json', relatedItemRulesSchema);
+export const loadBundleOffers = () => loadDataFile('bundle-offers.json', bundleOffersFileSchema);

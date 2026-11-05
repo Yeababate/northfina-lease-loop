@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "note": "Adjustable related-item ruleset. Edit weights, affinities and thresholds here; the ranking code reads them as data. Initial defaults: category 70 %, price 25 %, condition 5 %, four results.",
+  "weights": { "category": 70, "price": 25, "condition": 5 },
+  "category_affinity": {
+    "e_bike": { "e_bike": 100, "laptop": 30 },
+    "laptop": { "laptop": 100, "e_bike": 30 },
+    "farm_machine": { "farm_machine": 100 }
+  },
+  "zero_affinity_fallback": 0,
+  "price": {
+    "basis": "monthly_net_rent_same_term_no_down_payment",
+    "full_score_within_bps": 1000,
+    "zero_score_from_bps": 10000
+  },
+  "condition_score": { "new": 100, "like_new": 90, "good": 70, "fair": 40, "poor": 10 },
+  "limit": 4
+}
