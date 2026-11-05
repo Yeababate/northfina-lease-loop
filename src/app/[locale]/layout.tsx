@@ -7,7 +7,7 @@ import { LanguageSwitcher } from '@/components/language-switcher';
 import { NavLinks } from '@/components/nav-links';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
-import { currentCustomer, greetingName } from '@/server/current-customer';
+import { currentPrincipal } from '@/server/current-principal';
 import '../globals.css';
 
 export async function generateMetadata({ params }: LayoutProps<'/[locale]'>): Promise<Metadata> {
@@ -21,7 +21,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = getT(locale);
-  const customer = await currentCustomer();
+  const customer = await currentPrincipal();
 
   return (
     <html lang={locale}>
@@ -48,7 +48,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
             <div className="ml-auto flex items-center gap-6">
               <LanguageSwitcher current={locale} label={t('nav.language')} />
               {customer ? (
-                <p className="text-sm">{t('nav.greeting', { name: greetingName(customer) })}</p>
+                <p className="text-sm">{t('nav.greeting', { name: customer.displayName })}</p>
               ) : null}
             </div>
           </div>

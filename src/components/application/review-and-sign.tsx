@@ -40,7 +40,13 @@ type ReviewAndSignProps = {
   applyHref: string;
 };
 
-const SIGN_ERRORS = ['PRICE_CHANGED', 'ASSET_UNAVAILABLE', 'NOT_APPROVED', 'SIGNATORY_REQUIRED'];
+const SIGN_ERRORS = [
+  'PRICE_CHANGED',
+  'ASSET_UNAVAILABLE',
+  'NOT_APPROVED',
+  'SIGNATORY_REQUIRED',
+  'LOGIN_REQUIRED',
+];
 
 export function ReviewAndSign(props: ReviewAndSignProps) {
   const { locale, lease } = props;
@@ -75,6 +81,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           termMonths: lease.termMonths,
           downPaymentCents: lease.downPaymentCents,
           startOn: lease.startOn,
+          locale,
           answers,
           expectedMonthlyNetCents: lease.monthlyNetCents,
           expectedPriceListVersion: lease.priceListVersion,
