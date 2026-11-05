@@ -72,6 +72,7 @@ async function signEbike() {
       termMonths: 12,
       downPaymentCents: 0,
       expectedMonthlyNetCents: priced.price.monthlyNetCents,
+      expectedBuyoutNetCents: priced.price.buyoutNetCents,
       expectedPriceListVersion: 1,
     },
     '2026-11-05',
