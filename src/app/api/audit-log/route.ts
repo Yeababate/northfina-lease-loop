@@ -3,4 +3,4 @@ import { handleRoute, ok } from '@/server/api-response';
 import { listAuditLog } from '@/server/audit';
 import { db } from '@/server/db';
 
-export const GET = handleRoute(async () => ok(await listAuditLog(db, 50)));
+export const GET = handleRoute(async () => ok(await listAuditLog(db, 50, 'public')));
