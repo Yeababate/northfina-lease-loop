@@ -17,8 +17,8 @@ vi.mock('@/server/db', () => ({
   },
 }));
 const customer = vi.hoisted(() => ({ id: 'cust-aino' as string | null }));
-vi.mock('@/server/current-customer', () => ({
-  currentCustomer: async () => (customer.id ? { id: customer.id } : null),
+vi.mock('@/server/demo-session', () => ({
+  readDemoName: async () => customer.id,
 }));
 
 let db: PrismaClient;
@@ -77,7 +77,7 @@ describe('reminder settings routes', () => {
     customer.id = null;
     const anonymous = await getReminders(req('GET'), ctx({ id: 'c1' }));
     expect(anonymous.status).toBe(401);
-    expect(await body(anonymous)).toMatchObject({ error: { code: 'NO_CUSTOMER' } });
+    expect(await body(anonymous)).toMatchObject({ error: { code: 'NO_DEMO_NAME' } });
   });
 });
 

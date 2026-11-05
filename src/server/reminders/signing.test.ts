@@ -14,6 +14,7 @@ vi.mock('@/server/db', () => ({
   },
 }));
 vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
+vi.mock('@/server/demo-session', () => ({ readDemoName: async () => 'Aino Virtanen' }));
 
 let db: PrismaClient;
 let cleanup: () => Promise<void>;
@@ -62,7 +63,7 @@ describe('signing with reminder settings', () => {
     const response = await post(application);
     expect(response.status).toBe(201);
     const { data } = (await response.json()) as { data: { id: string; endOn: string } };
-    const settings = await getReminderSettings(db, data.id, 'cust-aino');
+    const settings = await getReminderSettings(db, data.id, 'Aino Virtanen');
     expect(settings.preferences.timeZone).toBe('Europe/Helsinki');
     expect(settings.schedule.map((s) => [s.daysBefore, s.localDate, s.localTime])).toEqual([
       [30, '2029-10-06', '09:00'],
@@ -84,7 +85,7 @@ describe('signing with reminder settings', () => {
       },
     });
     const { data } = (await response.json()) as { data: { id: string } };
-    const settings = await getReminderSettings(db, data.id, 'cust-aino');
+    const settings = await getReminderSettings(db, data.id, 'Aino Virtanen');
     expect(settings.locale).toBe('et');
     expect(settings.schedule).toMatchObject([
       { ruleId: 'r1', localTime: '18:15', timeZone: 'Europe/Tallinn', channels: ['email'] },

@@ -20,6 +20,8 @@ vi.mock('@/server/db', () => ({
   },
 }));
 vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
+// No demo name in these tests: signing saves no reminder settings, as before reminders existed.
+vi.mock('@/server/demo-session', () => ({ readDemoName: async () => null }));
 
 let db: PrismaClient;
 let cleanup: () => Promise<void>;

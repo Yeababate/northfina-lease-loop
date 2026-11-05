@@ -7,7 +7,7 @@ import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
 import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
-import { currentCustomer } from '@/server/current-customer';
+import { readDemoName } from '@/server/demo-session';
 import { db } from '@/server/db';
 import { reminderLocaleSchema, reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
@@ -35,7 +35,7 @@ const schema = z.strictObject({
 
 export const POST = handleRoute(async (request) => {
   const { reminders, locale, ...input } = await readJsonBody(request, schema);
-  const customer = await currentCustomer();
+  const demoName = await readDemoName();
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
@@ -52,9 +52,9 @@ export const POST = handleRoute(async (request) => {
       vatRates,
       questions: questionsFile.questions,
     },
-    customer
+    demoName
       ? {
-          recipientId: customer.id,
+          recipientId: demoName,
           locale: locale ?? 'en',
           preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
           now: new Date(),
