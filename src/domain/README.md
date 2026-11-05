@@ -22,11 +22,28 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 
 ## What is here
 
-| File             | What it does                                                             |
-| ---------------- | ------------------------------------------------------------------------ |
-| `coefficient.ts` | Worked example: finds the monthly factor for a financed amount and term. |
-| `price-list.ts`  | Worked example: finds the net list price of an asset on a date.          |
-| `money.ts`       | Formats cents as euros for a locale. Use it only in the UI.              |
+| File               | What it does                                                             |
+| ------------------ | ------------------------------------------------------------------------ |
+| `coefficient.ts`   | Worked example: finds the monthly factor for a financed amount and term. |
+| `price-list.ts`    | Worked example: finds the net list price of an asset on a date.          |
+| `money.ts`         | Formats cents as euros for a locale. Use it only in the UI.              |
+| `iso-date.ts`      | Checks ISO dates and works out an age on a given day.                    |
+| `business-id.ts`   | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
+| `answer-check.ts`  | Checks one application answer against its question type.                 |
+| `question-flow.ts` | Picks the next question and drops answers that stop applying.            |
+| `eligibility.ts`   | Approved, declined or manual review, with the checks behind it.          |
+
+### How the question flow works
+
+1. The UI keeps the customer's answers and calls `resolveFlow(questions, deal, answers)`
+   after every change, including going back and changing an earlier answer.
+2. It shows `next.question` (with `next.problem` as an inline error, for example a wrong
+   business ID check digit), stores `answers` in place of its own, and shows a notice
+   listing `removed` when answers were dropped because their question no longer applies.
+3. `status: 'blocked'` means an answer stops the application (under 18, a country we do
+   not lease to): no more questions are asked.
+4. When `status` is `complete` or `blocked`, `decideApplication()` gives the outcome, the
+   `reasons` for it and every `check`. It needs the monthly rent with VAT from pricing.
 
 ## What teams are expected to add
 
