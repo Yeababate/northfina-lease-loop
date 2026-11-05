@@ -64,7 +64,17 @@ export async function signContract(
       });
       if (reserved.count !== 1)
         throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
-      return tx.contract.create({ data: { id, actor: input.actor, ...result.price } });
+      const contract = await tx.contract.create({
+        data: { id, actor: input.actor, ...result.price },
+      });
+      // Record who provides this lease, from current ownership, in the same transaction.
+      // The link never changes, so the provider keeps access after any later sale.
+      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
+      if (owner)
+        await tx.contractProvider.create({
+          data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
+        });
+      return contract;
     }
   );
 }
