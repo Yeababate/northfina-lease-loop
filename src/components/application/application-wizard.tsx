@@ -35,6 +35,8 @@ type ApplicationWizardProps = {
   /** Unique per item and lease choice, so two applications never share answers. */
   storageKey: string;
   links: { item: string; sign: string; catalogue: string };
+  /** Suggested answers shown in empty fields, e.g. the demo name for "Your full name". */
+  prefill?: Answers;
 };
 
 export function ApplicationWizard(props: ApplicationWizardProps) {
@@ -168,7 +170,7 @@ export function ApplicationWizard(props: ApplicationWizardProps) {
         <QuestionStep
           key={onScreen.id}
           question={onScreen}
-          initialValue={answers[onScreen.id]}
+          initialValue={answers[onScreen.id] ?? props.prefill?.[onScreen.id]}
           problem={shownProblem}
           locale={locale}
           t={t}
