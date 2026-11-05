@@ -286,5 +286,8 @@
   "nav.greeting": "Hej, {name}",
   "signing.start_before_signing": "Leasen kan inte börja före signeringsdagen.",
   "sign.confirmRequired": "Läs och godkänn avtalet ovan för att kunna signera.",
-  "sign.loadingApplication": "Läser in dina ansökningssvar…"
+  "sign.loadingApplication": "Läser in dina ansökningssvar…",
+  "badge.being_refurbished": "Renoveras",
+  "asset.refurbishingNote": "Kontrolleras före nästa leasing",
+  "item.refurbishing": "Produkten har just kommit tillbaka och kontrolleras och renoveras. Den kan leasas igen när det är klart."
 }

@@ -286,5 +286,8 @@
   "nav.greeting": "Tere, {name}",
   "signing.start_before_signing": "Rent ei saa alata enne allkirjastamise kuupäeva.",
   "sign.confirmRequired": "Allkirjastamiseks loe ülalolev leping läbi ja nõustu sellega.",
-  "sign.loadingApplication": "Taotluse vastuste laadimine…"
+  "sign.loadingApplication": "Taotluse vastuste laadimine…",
+  "badge.being_refurbished": "Hoolduses",
+  "asset.refurbishingNote": "Kontrollitakse enne järgmist liisingut",
+  "item.refurbishing": "See toode tuli just tagasi ning seda kontrollitakse ja hooldatakse. Seda saab uuesti liisida, kui see on tehtud."
 }

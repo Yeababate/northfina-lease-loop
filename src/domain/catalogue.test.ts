@@ -5,6 +5,7 @@ import {
   catalogueBadge,
   filterCatalogue,
   isLeasable,
+  unavailableReason,
   normalisePriceRange,
   parseCatalogueQuery,
   priceFilterKind,
@@ -204,24 +205,34 @@ describe('badges and leasability', () => {
     const reserved = asset({ status: 'reserved', previous_lives: 2 });
     expect(catalogueBadge(reserved)).toBe('reserved');
     expect(isLeasable(reserved)).toBe(false);
+    expect(unavailableReason(reserved)).toBe('reserved');
   });
 
-  it('marks items with earlier leases as second life', () => {
-    expect(catalogueBadge(asset({ status: 'returned', previous_lives: 2 }))).toBe('second_life');
+  it('blocks a returned item until it is relisted, and says it is being refurbished', () => {
+    const returned = asset({ status: 'returned', previous_lives: 2 });
+    expect(catalogueBadge(returned)).toBe('being_refurbished');
+    expect(isLeasable(returned)).toBe(false);
+    expect(unavailableReason(returned)).toBe('being_refurbished');
+  });
+
+  it('marks an available item with earlier leases as second life, and lets it be leased', () => {
+    const relisted = asset({ status: 'available', previous_lives: 1 });
+    expect(catalogueBadge(relisted)).toBe('second_life');
+    expect(isLeasable(relisted)).toBe(true);
+    expect(unavailableReason(relisted)).toBeNull();
     expect(catalogueBadge(asset({ status: 'available', previous_lives: 0 }))).toBe('available');
-    expect(isLeasable(asset({ status: 'available' }))).toBe(true);
-    expect(isLeasable(asset({ status: 'returned' }))).toBe(false);
   });
 
-  it('holds reserved and returned stock until it is actually available', () => {
-    expect(items.filter((item) => !isLeasable(item.asset)).map((i) => i.asset.id)).toEqual([
-      'ebike-007',
-      'ebike-008',
-      'ebike-009',
-      'ebike-011',
-      'laptop-006',
-      'laptop-007',
-      'farm-005',
-    ]);
+  it('offers exactly the available items in the data pack', () => {
+    const blocked = items.filter((item) => !isLeasable(item.asset)).map((i) => i.asset.id);
+    expect(blocked.sort()).toEqual(
+      items
+        .filter((item) => item.asset.status !== 'available')
+        .map((i) => i.asset.id)
+        .sort()
+    );
+    // The reserved e-bike and the six returned items (ebike-007 of scenario card 9 among them).
+    expect(blocked).toHaveLength(7);
+    expect(blocked).toEqual(expect.arrayContaining(['ebike-009', 'ebike-007', 'laptop-006']));
   });
 });
