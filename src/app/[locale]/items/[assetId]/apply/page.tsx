@@ -9,6 +9,7 @@ import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { unavailableMessage } from '@/components/unavailable-message';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
@@ -20,6 +21,7 @@ import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
 import { readDemoName } from '@/server/demo-session';
 import { todayIso } from '@/server/today';
+import { currentPrincipal } from '@/server/current-principal';
 
 export default async function ApplyPage({
   params,
@@ -39,6 +41,7 @@ export default async function ApplyPage({
   if (!asset) notFound();
 
   const t = getT(locale);
+  const principal = await currentPrincipal();
   const today = todayIso();
   const demoName = await readDemoName();
   const query = await searchParams;
@@ -100,7 +103,13 @@ export default async function ApplyPage({
             }}
             coefficientTable={table}
             monthlyRentWithVatCents={quote.quote.monthlyGrossCents}
-            storageKey={applicationStorageKey(asset.id, termMonths, downPaymentCents, startDate)}
+            storageKey={applicationStorageKey(
+              asset.id,
+              termMonths,
+              downPaymentCents,
+              startDate,
+              principal?.id
+            )}
             prefill={demoName ? { q_full_name: demoName } : undefined}
             links={{
               item: itemHref,
@@ -112,7 +121,9 @@ export default async function ApplyPage({
       ) : (
         <div className="mt-6 max-w-xl">
           <InfoBox>
-            <p role="status">{isLeasable(asset) ? t('apply.unavailable') : t('item.reserved')}</p>
+            <p role="status">
+              {isLeasable(asset) ? t('apply.unavailable') : unavailableMessage(asset, t)}
+            </p>
           </InfoBox>
         </div>
       )}

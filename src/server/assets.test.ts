@@ -101,6 +101,7 @@ describe('toAsset', () => {
     if (!first) throw new Error('empty data pack');
     const row = {
       ...toAssetRowData(first),
+      ownerId: null,
       status: 'stolen',
       created_at: new Date(),
       updated_at: new Date(),

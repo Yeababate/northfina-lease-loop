@@ -8,7 +8,8 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
-const { DEMO_NAME_COOKIE, readDemoName } = await import('./demo-session');
+const { DEMO_NAME_COOKIE, readDemoName, readDemoNameFromRequest } = await import('./demo-session');
+const { demoNameCookieHeader } = await import('./demo-cookie');
 
 beforeEach(() => jar.clear());
 
@@ -27,5 +28,22 @@ describe('readDemoName', () => {
     expect(await readDemoName()).toBeNull();
     jar.set(DEMO_NAME_COOKIE, 'x'.repeat(500));
     expect(await readDemoName()).toBeNull();
+  });
+});
+
+describe('readDemoNameFromRequest', () => {
+  const withCookie = (cookie?: string) =>
+    new Request('http://localhost/', cookie ? { headers: { cookie } } : {});
+
+  it('reads and cleans the name from the request cookie', () => {
+    expect(readDemoNameFromRequest(withCookie(demoNameCookieHeader('  Sanna  Mäkelä ')))).toBe(
+      'Sanna Mäkelä'
+    );
+  });
+
+  it('is null without the cookie or with an invalid name', () => {
+    expect(readDemoNameFromRequest(withCookie())).toBeNull();
+    expect(readDemoNameFromRequest(withCookie('other=1'))).toBeNull();
+    expect(readDemoNameFromRequest(withCookie(demoNameCookieHeader('   ')))).toBeNull();
   });
 });
