@@ -1,5 +1,7 @@
 // Initial reminder settings are saved by the signing API, in the signing transaction.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { demoNameCookieHeader } from '@/server/demo-cookie';
+import { seedDemoParticipants } from '@/server/demo-participants';
 import { POST } from '@/app/api/contracts/route';
 import { loadAssets } from '@/data/load';
 import { createTestDb } from '../../../tests/helpers/test-db';
@@ -14,7 +16,6 @@ vi.mock('@/server/db', () => ({
   },
 }));
 vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
-vi.mock('@/server/demo-session', () => ({ readDemoName: async () => 'Aino Virtanen' }));
 
 let db: PrismaClient;
 let cleanup: () => Promise<void>;
@@ -28,6 +29,8 @@ beforeEach(async () => {
   await clearReminderData(db);
   await db.asset.deleteMany();
   await seedAssets(db, await loadAssets());
+  // Items need a provider before they can be signed (main's design).
+  await seedDemoParticipants(db);
 });
 
 const application = {
@@ -46,13 +49,18 @@ const application = {
     q_usage_purpose: 'commuting',
   },
   expectedMonthlyNetCents: 10730,
+  expectedBuyoutNetCents: 58350,
   expectedPriceListVersion: 1,
 };
 const post = (body: unknown) =>
   POST(
     new Request('http://localhost/api/contracts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // Signing needs a signed-in participant (main's design), here the reminder recipient.
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: demoNameCookieHeader('Aino Virtanen'),
+      },
       body: JSON.stringify(body),
     }),
     undefined

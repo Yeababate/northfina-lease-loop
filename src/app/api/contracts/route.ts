@@ -7,10 +7,11 @@ import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
 import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
-import { readDemoName } from '@/server/demo-session';
 import { db } from '@/server/db';
-import { reminderLocaleSchema, reminderPreferencesSchema } from '@/server/reminders/preferences';
+import { readDemoNameFromRequest } from '@/server/demo-session';
+import { reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
+import { requirePrincipal } from '@/server/mock-users';
 
 /** One answer, as the question types store it. Sizes are capped so a body stays small. */
 const answerSchema = z.union([
@@ -26,16 +27,19 @@ const schema = z.strictObject({
   startOn: isoDateSchema,
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,
+  expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
-  /** Lease-end reminder settings; 30/7/1 days at 09:00 Helsinki time when left out. */
+  /** Language of the contract PDF and of reminder emails; the signing page's language. */
+  locale: z.enum(['en', 'fi', 'sv', 'et']).default('en'),
+  /** Lease-end reminder settings (#10); 30/7/1 days at 09:00 Helsinki time when left out. */
   reminders: reminderPreferencesSchema.optional(),
-  /** Language of reminder emails; the signing page's language. */
-  locale: reminderLocaleSchema.optional(),
 });
 
 export const POST = handleRoute(async (request) => {
-  const { reminders, locale, ...input } = await readJsonBody(request, schema);
-  const demoName = await readDemoName();
+  const { reminders, ...input } = await readJsonBody(request, schema);
+  const principal = await requirePrincipal(db, request);
+  // Reminders belong to the demo sign-in name, as in src/server/reminders/recipient.ts.
+  const demoName = readDemoNameFromRequest(request);
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
@@ -52,10 +56,11 @@ export const POST = handleRoute(async (request) => {
       vatRates,
       questions: questionsFile.questions,
     },
+    principal.id,
     demoName
       ? {
           recipientId: demoName,
-          locale: locale ?? 'en',
+          locale: input.locale,
           preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
           now: new Date(),
         }

@@ -26,6 +26,7 @@ model Asset {
   usage_value    Int
   previous_lives Int
   status         String // available | reserved | returned
+  ownerId        String?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -52,6 +53,8 @@ model Contract {
   invoices           Invoice[]
   id                 String @id
   actor              String
+  renterId           String?
+  providerId         String?
   assetId            String
   /// First day of the lease, chosen by the customer. On or after signedOn.
   startOn            String
@@ -68,8 +71,62 @@ model Contract {
   financedCents      Int
   monthlyNetCents    Int
   buyoutNetCents     Int
+  lines              ContractLine[]
+  lifecycle          ContractLifecycle?
+  document           ContractDocument?
+  exitRequests       ExitRequest[]
+  lifeCompletions    AssetLifeCompletion[]
 
   @@index([assetId])
+  @@index([renterId])
+  @@index([providerId])
+}
+
+// Mock accounts are selected by username; lifecycle relationships use stable IDs.
+model DemoUser {
+  id                String @id
+  canonicalUsername String @unique
+  displayName       String
+  moderator         Boolean @default(false)
+}
+
+// Financial line snapshots allow later bundles without rewriting existing prices.
+model ContractLine {
+  id                 String @id
+  contractId         String
+  contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId            String
+  listPriceCents     Int
+  downPaymentCents   Int
+  financedCents      Int
+  monthlyNetCents    Int
+  buyoutNetCents     Int
+  priceListVersion   Int
+  coefficientVersion Int
+  coefficientId      String
+  band               String
+  factor             Float
+
+  @@unique([contractId, assetId])
+}
+
+// Mutable operational state is separate from the signed financial snapshot.
+model ContractLifecycle {
+  contractId String @id
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  status     String @default("active")
+  actualEndOn String?
+  revision   Int @default(0)
+}
+
+model ContractDocument {
+  contractId     String @id
+  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  locale         String
+  templateVersion String
+  generatedAt    String
+  sha256         String
+  bytes          Bytes
 }
 
 // Immutable rental invoice. A billing period can only be issued once per contract.
@@ -86,6 +143,234 @@ model Invoice {
   grossCents   Int
 
   @@unique([contractId, period])
+}
+
+// ---------------------------------------------------------------------------
+// Dealer side (issue #12): receiving a returned item and preparing its next life.
+// Money is out of scope here: relisting keeps the asset's existing catalogue price.
+// ---------------------------------------------------------------------------
+
+// A demo provider (dealer) identity. Selecting one is a mock context switch, not login.
+model Provider {
+  id          String @id
+  displayName String
+}
+
+// Current inventory ownership. Separate from ContractProvider, which is history: a provider
+// keeps access to their past agreements after an item changes hands, but cannot manage it.
+model AssetOwnership {
+  assetId    String @id
+  providerId String
+  /// seed | transfer
+  source     String
+
+  @@index([providerId])
+}
+
+// The provider of a signed contract, captured in the signing transaction. Never changes.
+model ContractProvider {
+  contractId String @id
+  providerId String
+  assetId    String
+
+  @@index([providerId])
+}
+
+// One physical return being prepared for its next life. The stage is derived from these
+// facts (receipt, completion, inspection, work, relisting); no free status string is stored.
+model ReturnIntake {
+  id          String              @id
+  assetId     String
+  /// null only for a seed import of an item the data pack already marks returned.
+  contractId  String?
+  providerId  String
+  /// receipt | seed_import
+  source      String
+  receivedOn  String?
+  receivedBy  String?
+  /// The old lease was finalized (received and its exclusive end reached); life counted once.
+  completedOn String?
+  relistedOn  String?
+  relistedBy  String?
+  /// Optimistic concurrency: every command must name the revision it was based on.
+  revision    Int                 @default(0)
+  inspections ReturnInspection[]
+  work        RefurbishmentWork[]
+
+  @@unique([contractId, assetId])
+  @@index([providerId])
+  @@index([assetId])
+}
+
+model ReturnInspection {
+  id                String       @id
+  intakeId          String
+  intake            ReturnIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  inspectedOn       String
+  actor             String
+  conditionBefore   String
+  condition         String
+  usageBefore       Int
+  usageValue        Int
+  /// Engine hours since the last major service, when the provider knows it.
+  hoursSinceService Int?
+  createdAt         DateTime     @default(now())
+}
+
+// What the provider reports was actually done. The app performs no repair itself.
+model RefurbishmentWork {
+  id              String       @id
+  intakeId        String
+  intake          ReturnIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  actionId        String
+  performedOn     String
+  actor           String
+  conditionBefore String
+  conditionAfter  String
+  usageBefore     Int
+  usageAfter      Int
+  createdAt       DateTime     @default(now())
+
+  @@unique([intakeId, actionId])
+}
+
+// Nonpersonal life facts for asset history and circular-impact inputs (#14).
+model AssetLifecycleEvent {
+  id          Int      @id @default(autoincrement())
+  assetId     String
+  intakeId    String?
+  contractId  String?
+  /// received | life_completed | inspected | work_recorded | relisted
+  type        String
+  on          String
+  actor       String
+  detailsJson String?
+  createdAt   DateTime @default(now())
+
+  @@index([assetId])
+}
+
+// A confirmed exit freezes its calculation; later policies do not rewrite this quote.
+model ExitRequest {
+  id               String @id
+  contractId       String
+  contract         Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openContractId   String? @unique
+  renterId         String
+  providerId       String
+  kind             String
+  status           String @default("pending")
+  requestedOn      String
+  effectiveEndOn   String
+  quoteJson        String
+  revision         Int @default(0)
+  balancesReviewed Boolean @default(false)
+  reviewedBy       String?
+  completedOn      String?
+  completedBy      String?
+  receipts         ExitReceipt[]
+
+  @@index([contractId])
+  @@index([status, effectiveEndOn])
+}
+
+model ExitReceipt {
+  id         String @id
+  exitId     String
+  exit       ExitRequest @relation(fields: [exitId], references: [id], onDelete: Cascade)
+  assetId    String
+  receivedOn String
+  receivedBy String
+
+  @@unique([exitId, assetId])
+}
+
+// Unique per physical life even when a contract contains several bundled assets.
+model AssetLifeCompletion {
+  id          String @id
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId     String
+  kind        String
+  completedOn String
+
+  @@unique([contractId, assetId])
+}
+
+// One immediately published review per completed agreement and reviewer. User IDs
+// are stable participant IDs, validated against the contract by the server service.
+model Rating {
+  id                String           @id
+  contractId        String
+  reviewerId        String
+  subjectId         String
+  direction         String // renter_to_provider | provider_to_renter
+  stars             Int
+  comment           String           @default("")
+  currentRevision   Int              @default(1)
+  visibility        String           @default("visible") // visible | hidden
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  revisions         RatingRevision[]
+  moderationVersion Int              @default(0)
+  reports           RatingReport[]
+
+  @@unique([contractId, reviewerId])
+  @@index([subjectId, direction, visibility])
+}
+
+// Immutable evidence for edits and later reports. Author edits append, never replace.
+model RatingRevision {
+  id        String               @id
+  ratingId  String
+  revision  Int
+  stars     Int
+  comment   String
+  authorId  String
+  createdAt DateTime             @default(now())
+  rating    Rating               @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  reports   RatingReport[]
+  decisions ModerationDecision[]
+
+  @@unique([ratingId, revision])
+}
+
+// Immutable submission retains the precise content the subject reported.
+model RatingReport {
+  id               String               @id
+  ratingId         String
+  rating           Rating               @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  ratingRevision   Int
+  revisionId       String
+  reportedRevision RatingRevision       @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  reporterId       String
+  reason           String
+  explanation      String               @default("")
+  status           String               @default("pending") // pending | kept | hidden
+  version          Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  decisions        ModerationDecision[]
+
+  @@unique([ratingId, ratingRevision, reporterId])
+  @@index([status, createdAt])
+}
+
+// Appended decisions keep restores and earlier resolutions explainable.
+model ModerationDecision {
+  id                  String         @id
+  reportId            String
+  report              RatingReport   @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  action              String // keep | hide | restore
+  rationale           String
+  moderatorId         String
+  reviewedRevisionId  String
+  reviewedRevision    RatingRevision @relation(fields: [reviewedRevisionId], references: [id], onDelete: Restrict)
+  moderationVersion   Int
+  resultingVisibility String
+  previousVisibility  String
+  createdAt           DateTime       @default(now())
+
+  @@index([reportId, createdAt])
 }
 
 // Lease-end reminders (#10). Mutable per-lease settings of one recipient, kept apart from

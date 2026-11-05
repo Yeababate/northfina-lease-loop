@@ -36,6 +36,12 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `answer-check.ts`         | Checks one application answer against its question type.                 |
 | `question-flow.ts`        | Picks the next question and drops answers that stop applying.            |
 | `eligibility.ts`          | Approved, declined or manual review, with the checks behind it.          |
+| `refurbishment-rules.ts`  | Required work for a returned item, from the data-pack rules (no costs).  |
+| `next-life.ts`            | Returned item state machine: receipt, inspection, work, guarded relist.  |
+| `demo-participant.ts`     | Canonical participant key for a demo sign-in name; reads one cookie.     |
+| `co2-factors.ts`          | Versioned CO2 factor sets (fictional data pack values → grams, ppm).     |
+| `co2-wear.ts`             | Wear credit 0..1 from condition and usage (a price-derived proxy).       |
+| `co2-impact.ts`           | Illustrative "rent instead of buying new" CO2 estimate, in whole grams.  |
 | `local-time.ts`           | Local clock time in a saved IANA zone ↔ UTC instant; DST gap/fold rules. |
 | `reminder-preferences.ts` | Per-lease reminder rules (days before, HH:MM, channels) and defaults.    |
 | `reminder-schedule.ts`    | Turns rules into dated reminder occurrences before the exclusive end.    |
@@ -80,7 +86,8 @@ The stored contract includes the list price and version, coefficient identity an
 version, band, factor, down payment, financed amount, monthly net rent, buyout,
 signing date and term. Later catalogue or coefficient edits do not modify it.
 
-The locked period starts on signing and ends at the exclusive monthly anniversary
+The locked period starts on the saved customer-selected `startOn` (on or after
+signing) and ends at the exclusive monthly anniversary
 stored as `endOn`. Short months clamp to their last day. Each monthly net rent and
 the buyout are rounded once to nearest whole euro cent, with half cents rounded up.
 The net rental total is monthly net rent multiplied by the agreed number of months;
@@ -92,8 +99,9 @@ invoice to the nearest cent, half up. The contract page lets the renter compare
 invoice dates; this date comparison previews tax only. The separate invoice list shows persisted invoices.
 
 Signing uses `withAudit` to create the contract and reserve the available item in
-one transaction. This MVP follows the starter's caller-supplied actor convention;
-it does not add customer eligibility or authentication.
+one transaction. The public API reruns application eligibility and derives the
+signer from approved answers. The name alone cannot authorise signing; customer
+authentication remains outside this MVP.
 
 ## Monthly invoices
 
@@ -124,6 +132,31 @@ starter's audit convention; it is not an authentication mechanism.
 Generation uses one audited transaction and a database unique key on contract and
 period. Retries return the same invoices; the audit records each successful
 generation request, including retries. Missing VAT fails the whole generation.
+
+See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
+for start-date evidence, migration failure reproduction and the tested side-by-side
+recovery approach.
+
+## Circular impact: the CO2 estimate (illustrative)
+
+`estimateRentalCo2Saving({ asset, termMonths, knownHistory, factors, wearPolicy, method })`
+gives the renter a prospective estimate of CO2 saved by renting this item instead of buying
+a new one. It is **illustrative**: the factors in `data/co2-factors.json` are fictional.
+
+- **Formula** (method `prospective-circular-use` v1): new-item manufacturing × wear credit −
+  new-item manufacturing × refurbishment share. No travel/car-displacement credit.
+- **Wear credit** (`co2-wear.ts`, policy `residual-proxy` v1): condition multiplier ×
+  (1 − capped usage penalty), copied from `residual-curves.json` as a price-derived proxy.
+  Completed usage steps only. A counter reset adds known prior usage; unknown prior usage
+  counts as the maximum penalty, never as zero.
+- **First use** uses the same method (a prospective circular-use scenario); the method's
+  `firstUse` setting is the one place to change that.
+- **Units and rounding**: grams of CO2e and parts per million, integers only. Each component
+  is rounded once to whole grams, half up; the saving is their exact difference. Zero and
+  negative results are kept and shown as "no estimated saving" / "additional impact".
+- **Versions**: every result carries its factor set, wear policy and method id/version.
+  Replacing factors or the method means a new version; callers and UI do not change.
+- The term is part of the interface but this method does not allocate impact by duration.
 
 ## Lease-end reminders
 

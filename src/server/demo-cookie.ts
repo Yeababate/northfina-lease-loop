@@ -9,3 +9,11 @@ export const DEMO_NAME_COOKIE_OPTIONS = {
   sameSite: 'lax',
   path: '/',
 } as const;
+
+/**
+ * A Cookie request header naming a demo visitor, for tests and scripts that call route
+ * handlers directly. Encoded the way Next.js stores the cookie.
+ */
+export function demoNameCookieHeader(name: string): string {
+  return `${DEMO_NAME_COOKIE}=${encodeURIComponent(name)}`;
+}
