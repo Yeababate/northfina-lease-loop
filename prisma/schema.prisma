@@ -50,7 +50,7 @@ model AuditLog {
 
 // Immutable signing snapshot; later catalogue changes never update this row.
 model Contract {
-  id                 String @id
+  id                 String             @id
   actor              String
   renterId           String?
   providerId         String?
@@ -81,15 +81,15 @@ model Contract {
 
 // Mock accounts are selected by username; lifecycle relationships use stable IDs.
 model DemoUser {
-  id                String @id
-  canonicalUsername String @unique
+  id                String  @id
+  canonicalUsername String  @unique
   displayName       String
   moderator         Boolean @default(false)
 }
 
 // Financial line snapshots allow later bundles without rewriting existing prices.
 model ContractLine {
-  id                 String @id
+  id                 String   @id
   contractId         String
   contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   assetId            String
@@ -109,38 +109,40 @@ model ContractLine {
 
 // Mutable operational state is separate from the signed financial snapshot.
 model ContractLifecycle {
-  contractId String @id
-  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  status     String @default("active")
+  contractId  String   @id
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  status      String   @default("active")
   actualEndOn String?
-  revision   Int @default(0)
+  revision    Int      @default(0)
 }
 
 model ContractDocument {
-  contractId     String @id
-  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  locale         String
+  contractId      String   @id
+  contract        Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  locale          String
   templateVersion String
-  generatedAt    String
-  sha256         String
-  bytes          Bytes
+  generatedAt     String
+  sha256          String
+  bytes           Bytes
 }
 
 // One immediately published review per completed agreement and reviewer. User IDs
 // are stable participant IDs, validated against the contract by the server service.
 model Rating {
-  id              String           @id
-  contractId      String
-  reviewerId      String
-  subjectId       String
-  direction       String // renter_to_provider | provider_to_renter
-  stars           Int
-  comment         String           @default("")
-  currentRevision Int              @default(1)
-  visibility      String           @default("visible") // visible | hidden
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  revisions       RatingRevision[]
+  id                String           @id
+  contractId        String
+  reviewerId        String
+  subjectId         String
+  direction         String // renter_to_provider | provider_to_renter
+  stars             Int
+  comment           String           @default("")
+  currentRevision   Int              @default(1)
+  visibility        String           @default("visible") // visible | hidden
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  revisions         RatingRevision[]
+  moderationVersion Int              @default(0)
+  reports           RatingReport[]
 
   @@unique([contractId, reviewerId])
   @@index([subjectId, direction, visibility])
@@ -148,14 +150,54 @@ model Rating {
 
 // Immutable evidence for edits and later reports. Author edits append, never replace.
 model RatingRevision {
-  id        String   @id
+  id        String               @id
   ratingId  String
   revision  Int
   stars     Int
   comment   String
   authorId  String
-  createdAt DateTime @default(now())
-  rating    Rating   @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  createdAt DateTime             @default(now())
+  rating    Rating               @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  reports   RatingReport[]
+  decisions ModerationDecision[]
 
   @@unique([ratingId, revision])
+}
+
+// Immutable submission retains the precise content the subject reported.
+model RatingReport {
+  id               String               @id
+  ratingId         String
+  rating           Rating               @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  ratingRevision   Int
+  revisionId       String
+  reportedRevision RatingRevision       @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  reporterId       String
+  reason           String
+  explanation      String               @default("")
+  status           String               @default("pending") // pending | kept | hidden
+  version          Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  decisions        ModerationDecision[]
+
+  @@unique([ratingId, ratingRevision, reporterId])
+  @@index([status, createdAt])
+}
+
+// Appended decisions keep restores and earlier resolutions explainable.
+model ModerationDecision {
+  id                  String         @id
+  reportId            String
+  report              RatingReport   @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  action              String // keep | hide | restore
+  rationale           String
+  moderatorId         String
+  reviewedRevisionId  String
+  reviewedRevision    RatingRevision @relation(fields: [reviewedRevisionId], references: [id], onDelete: Restrict)
+  moderationVersion   Int
+  resultingVisibility String
+  previousVisibility  String
+  createdAt           DateTime       @default(now())
+
+  @@index([reportId, createdAt])
 }
