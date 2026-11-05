@@ -43,3 +43,31 @@ Create these as you need them. Do not commit empty files.
 - `invoicing`: the monthly invoices for a contract, including a VAT rate change mid-contract.
 - `end-of-term`: return, buy out or extend, and the value of the returned item.
 - `second-life`: refurbishment cost, matching a returned item to the waiting list, CO2 saved.
+
+## Contract price lock
+
+`contract-pricing.ts` selects the signing-date list and builds the snapshot using
+`quoteLease()` from `pricing.ts`, the same calculation used by the sliders.
+Contract pricing tests live alongside the unchanged quote tests.
+
+Signing locks the net price from the catalogue valid on the signing date, rather
+than preserving an earlier quote. If the displayed quote has become stale, the
+signing API rejects it so the renter can refresh and review before consenting.
+The stored contract includes the list price and version, coefficient identity and
+version, band, factor, down payment, financed amount, monthly net rent, buyout,
+signing date and term. Later catalogue or coefficient edits do not modify it.
+
+The locked period starts on signing and ends at the exclusive monthly anniversary
+stored as `endOn`. Short months clamp to their last day. Each monthly net rent and
+the buyout are rounded once to nearest whole euro cent, with half cents rounded up.
+The net rental total is monthly net rent multiplied by the agreed number of months;
+the down payment and optional buyout are separate amounts.
+
+VAT is not locked. `invoicePrice` takes the stored monthly net rent and selects the
+VAT rate by invoice date (inclusive validity boundaries), rounding tax once per
+invoice to the nearest cent, half up. The contract page lets the renter compare
+invoice dates; it previews tax and does not issue or persist invoices.
+
+Signing uses `withAudit` to create the contract and reserve the available item in
+one transaction. This MVP follows the starter's caller-supplied actor convention;
+it does not add customer eligibility or authentication.

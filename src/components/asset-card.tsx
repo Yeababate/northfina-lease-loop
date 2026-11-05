@@ -73,6 +73,11 @@ export function AssetCard({ item, href, locale, t }: AssetCardProps) {
           </p>
         )}
       </div>
+      {isLeasable(asset) && listPriceCents !== null && (
+        <Link className="mt-4 underline" href={`/${locale}/lease/${asset.id}`}>
+          {t('contract.sign')}
+        </Link>
+      )}
     </article>
   );
 }

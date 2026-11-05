@@ -46,3 +46,25 @@ model AuditLog {
   @@index([entity_type, entity_id])
   @@index([created_at])
 }
+
+// Immutable signing snapshot; later catalogue changes never update this row.
+model Contract {
+  id                 String @id
+  actor              String
+  assetId            String
+  endOn              String
+  signedOn           String
+  termMonths         Int
+  downPaymentCents   Int
+  listPriceCents     Int
+  priceListVersion   Int
+  coefficientVersion Int
+  coefficientId      String
+  band               String
+  factor             Float
+  financedCents      Int
+  monthlyNetCents    Int
+  buyoutNetCents     Int
+
+  @@index([assetId])
+}
