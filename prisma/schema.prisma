@@ -74,6 +74,8 @@ model Contract {
   lines              ContractLine[]
   lifecycle          ContractLifecycle?
   document           ContractDocument?
+  exitRequests       ExitRequest[]
+  lifeCompletions    AssetLifeCompletion[]
 
   @@index([assetId])
   @@index([renterId])
@@ -246,4 +248,51 @@ model AssetLifecycleEvent {
   createdAt   DateTime @default(now())
 
   @@index([assetId])
+}
+
+// A confirmed exit freezes its calculation; later policies do not rewrite this quote.
+model ExitRequest {
+  id               String @id
+  contractId       String
+  contract         Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openContractId   String? @unique
+  renterId         String
+  providerId       String
+  kind             String
+  status           String @default("pending")
+  requestedOn      String
+  effectiveEndOn   String
+  quoteJson        String
+  revision         Int @default(0)
+  balancesReviewed Boolean @default(false)
+  reviewedBy       String?
+  completedOn      String?
+  completedBy      String?
+  receipts         ExitReceipt[]
+
+  @@index([contractId])
+  @@index([status, effectiveEndOn])
+}
+
+model ExitReceipt {
+  id         String @id
+  exitId     String
+  exit       ExitRequest @relation(fields: [exitId], references: [id], onDelete: Cascade)
+  assetId    String
+  receivedOn String
+  receivedBy String
+
+  @@unique([exitId, assetId])
+}
+
+// Unique per physical life even when a contract contains several bundled assets.
+model AssetLifeCompletion {
+  id          String @id
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId     String
+  kind        String
+  completedOn String
+
+  @@unique([contractId, assetId])
 }
