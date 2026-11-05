@@ -228,5 +228,19 @@
   "sign.error.ASSET_UNAVAILABLE": "Joku muu vuokrasi juuri tämän tuotteen. Valitse toinen.",
   "sign.error.NOT_APPROVED": "Hakemustasi ei ole hyväksytty, joten sitä ei voi allekirjoittaa.",
   "sign.error.SIGNATORY_REQUIRED": "Vain yrityksen nimenkirjoitusoikeutettu voi allekirjoittaa.",
-  "sign.error.generic": "Allekirjoitus epäonnistui. Yritä uudelleen."
+  "sign.error.generic": "Allekirjoitus epäonnistui. Yritä uudelleen.",
+  "profile.title": "Oma profiili",
+  "profile.incoming": "Vuokraan muilta",
+  "profile.outgoing": "Vuokraan muille",
+  "profile.contractId": "Sopimustunnus",
+  "profile.renter": "Vuokraaja",
+  "profile.provider": "Vuokranantaja",
+  "profile.item": "Tuote",
+  "profile.serial": "Sarjanumero",
+  "profile.signedOn": "Allekirjoituspäivä",
+  "profile.generatedAt": "Asiakirja luontiaika",
+  "profile.mockSigning": "Demoallekirjoitus: palvelin hyväksyi hakemuksen. Tämä on esimerkkiallekirjoitus.",
+  "profile.originalPdf": "Alkuperäinen sopimus-PDF",
+  "profile.documentUnavailable": "Alkuperäinen asiakirja ei ole saatavilla. Sitä ei ole luotu uudelleen nykyisistä hinnoista.",
+  "sign.error.LOGIN_REQUIRED": "Valitse demokäyttäjätunnus ennen allekirjoitusta."
 }

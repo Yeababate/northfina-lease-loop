@@ -228,5 +228,19 @@
   "sign.error.ASSET_UNAVAILABLE": "Någon annan har just leasat den här produkten. Välj en annan.",
   "sign.error.NOT_APPROVED": "Din ansökan är inte godkänd, så den kan inte skrivas under.",
   "sign.error.SIGNATORY_REQUIRED": "Bara företagets firmatecknare kan skriva under.",
-  "sign.error.generic": "Underskriften misslyckades. Försök igen."
+  "sign.error.generic": "Underskriften misslyckades. Försök igen.",
+  "profile.title": "Min profil",
+  "profile.incoming": "Jag hyr av andra",
+  "profile.outgoing": "Jag hyr ut",
+  "profile.contractId": "Avtalsnummer",
+  "profile.renter": "Hyrestagare",
+  "profile.provider": "Uthyrare",
+  "profile.item": "Objekt",
+  "profile.serial": "Serienummer",
+  "profile.signedOn": "Underskriftsdatum",
+  "profile.generatedAt": "Dokument skapat",
+  "profile.mockSigning": "Demounderskrift: servern godkände ansökan. Detta är en simulerad underskrift.",
+  "profile.originalPdf": "Ursprungligt avtals-PDF",
+  "profile.documentUnavailable": "Originaldokumentet är inte tillgängligt. Det har inte återskapats med dagens priser.",
+  "sign.error.LOGIN_REQUIRED": "Välj ett demoanvändarnamn innan du skriver under."
 }

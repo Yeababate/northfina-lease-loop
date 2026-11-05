@@ -15,20 +15,29 @@ export async function selectMockUser(db: PrismaClient, username: string) {
   });
   if (existing) return existing;
   const id = randomUUID();
-  return withAudit(
-    db,
-    { actor: id, action: 'demo_user.created', entityType: 'demo_user', entityId: id },
-    (tx) =>
-      tx.demoUser.upsert({
+  try {
+    return await withAudit(
+      db,
+      { actor: id, action: 'demo_user.created', entityType: 'demo_user', entityId: id },
+      (tx) =>
+        tx.demoUser.create({
+          data: {
+            id,
+            canonicalUsername: parsed.canonicalUsername,
+            displayName: parsed.displayName,
+          },
+        })
+    );
+  } catch (error) {
+    // A concurrent creator owns its own audit row. Never log an unused candidate ID.
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+      const winner = await db.demoUser.findUnique({
         where: { canonicalUsername: parsed.canonicalUsername },
-        create: {
-          id,
-          canonicalUsername: parsed.canonicalUsername,
-          displayName: parsed.displayName,
-        },
-        update: {},
-      })
-  );
+      });
+      if (winner) return winner;
+    }
+    throw error;
+  }
 }
 
 export async function principalFromRequest(db: PrismaClient, request: Request) {

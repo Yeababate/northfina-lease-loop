@@ -13,11 +13,21 @@ afterAll(async () => {
 });
 
 describe('mock users', () => {
+  it('has one creator and a truthful audit under concurrent username selection', async () => {
+    const users = await Promise.all([
+      selectMockUser(db, 'Concurrent'),
+      selectMockUser(db, 'CONCURRENT'),
+    ]);
+    expect(users[0]!.id).toBe(users[1]!.id);
+    expect(await db.auditLog.count({ where: { entity_id: users[0]!.id } })).toBe(1);
+  });
   it('creates one stable, audited profile across case and whitespace changes', async () => {
     const first = await selectMockUser(db, ' Aino ');
     expect(await selectMockUser(db, 'AINO')).toEqual(first);
     expect(first.moderator).toBe(false);
-    expect(await db.auditLog.count({ where: { action: 'demo_user.created' } })).toBe(1);
+    expect(
+      await db.auditLog.count({ where: { entity_id: first.id, action: 'demo_user.created' } })
+    ).toBe(1);
     const request = new Request('http://localhost', {
       headers: { cookie: `lease-loop-user=${first.id}` },
     });
