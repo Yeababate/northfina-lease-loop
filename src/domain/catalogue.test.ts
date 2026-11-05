@@ -5,7 +5,10 @@ import {
   catalogueBadge,
   filterCatalogue,
   isLeasable,
+  normalisePriceRange,
   parseCatalogueQuery,
+  priceFilterKind,
+  PRICE_SLIDER_MAX_EUROS,
   type CatalogueItem,
   type CatalogueQuery,
 } from './catalogue';
@@ -90,6 +93,52 @@ describe('parseCatalogueQuery', () => {
 
   it('takes the first value when a single-value param is repeated', () => {
     expect(parseCatalogueQuery({ q: ['laptop', 'bike'] }, options).search).toBe('laptop');
+  });
+});
+
+describe('normalisePriceRange', () => {
+  it('reads €0 as no lower limit and the top of the slider as no upper limit', () => {
+    expect(normalisePriceRange(0, PRICE_SLIDER_MAX_EUROS)).toEqual({
+      minPriceEuros: null,
+      maxPriceEuros: null,
+    });
+  });
+
+  it('keeps a limit just below the top of the slider', () => {
+    expect(normalisePriceRange(100, PRICE_SLIDER_MAX_EUROS - 100)).toEqual({
+      minPriceEuros: 100,
+      maxPriceEuros: 14_900,
+    });
+  });
+
+  it('treats a hand-edited maximum above the slider as no limit', () => {
+    expect(normalisePriceRange(null, 50_000).maxPriceEuros).toBeNull();
+  });
+
+  it('reads a minimum above the slider as the top of the slider', () => {
+    expect(normalisePriceRange(20_000, null).minPriceEuros).toBe(PRICE_SLIDER_MAX_EUROS);
+    expect(normalisePriceRange(PRICE_SLIDER_MAX_EUROS, null).minPriceEuros).toBe(15_000);
+  });
+
+  it('swaps a range given the wrong way round, and keeps an equal one', () => {
+    expect(normalisePriceRange(4000, 500)).toEqual({ minPriceEuros: 500, maxPriceEuros: 4000 });
+    expect(normalisePriceRange(3890, 3890)).toEqual({ minPriceEuros: 3890, maxPriceEuros: 3890 });
+  });
+
+  it('is applied when reading the URL', () => {
+    expect(parseCatalogueQuery({ min: '0', max: '15000' }, options)).toMatchObject({
+      minPriceEuros: null,
+      maxPriceEuros: null,
+    });
+  });
+});
+
+describe('priceFilterKind', () => {
+  it('names each combination of limits', () => {
+    expect(priceFilterKind({ minPriceEuros: null, maxPriceEuros: null })).toBe('any');
+    expect(priceFilterKind({ minPriceEuros: 500, maxPriceEuros: null })).toBe('from');
+    expect(priceFilterKind({ minPriceEuros: null, maxPriceEuros: 4000 })).toBe('up_to');
+    expect(priceFilterKind({ minPriceEuros: 500, maxPriceEuros: 4000 })).toBe('between');
   });
 });
 

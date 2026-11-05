@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { formatEuro, parseEuroInput } from './money';
+import { formatEuro, formatWholeEuros, parseEuroInput } from './money';
+
+describe('formatWholeEuros', () => {
+  it('shows whole euros without cents', () => {
+    expect(formatWholeEuros(15_000, 'en-GB')).toBe('€15,000');
+    expect(formatWholeEuros(0, 'en-GB')).toBe('€0');
+    expect(formatWholeEuros(15_000, 'fi-FI').replace(/\s/g, ' ')).toBe('15 000 €');
+  });
+
+  it('throws on fractions, because the caller should pass whole euros', () => {
+    expect(() => formatWholeEuros(1.5, 'en-GB')).toThrow(RangeError);
+  });
+});
 
 describe('parseEuroInput', () => {
   const cents = (text: string) => {

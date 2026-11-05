@@ -31,6 +31,14 @@ export type CatalogueQuery = {
   termMonths: number;
 };
 
+/**
+ * The price slider runs from €0 to this amount. Its top end reads "€15,000+" and means
+ * "no upper limit", so expensive farm machines stay reachable.
+ */
+export const PRICE_SLIDER_MAX_EUROS = 15_000;
+/** The slider moves in steps of this many euros. */
+export const PRICE_SLIDER_STEP_EUROS = 100;
+
 export type SearchParams = Record<string, string | string[] | undefined>;
 
 /**
@@ -59,14 +67,38 @@ export function parseCatalogueQuery(
     search: first('q').slice(0, 100),
     categories: unique(all('category').filter(isCategory)),
     conditions: unique(all('condition').filter(isCondition)),
-    minPriceEuros: wholeEuros(first('min')),
-    maxPriceEuros: wholeEuros(first('max')),
+    ...normalisePriceRange(wholeEuros(first('min')), wholeEuros(first('max'))),
     sort: (catalogueSorts as readonly string[]).includes(sort)
       ? (sort as CatalogueSort)
       : 'price_asc',
     startDate: isIsoDate(start) && start >= options.today ? start : options.today,
     termMonths: options.terms.includes(term) ? term : options.defaultTerm,
   };
+}
+
+/**
+ * Turns slider ends into "no limit": €0 is no lower limit and the slider's top end (or
+ * more, from a hand-edited URL) is no upper limit. A minimum above the top is read as the
+ * top, so the list and the slider always say the same. Swaps a range given the wrong way round.
+ */
+export function normalisePriceRange(
+  minEuros: number | null,
+  maxEuros: number | null
+): { minPriceEuros: number | null; maxPriceEuros: number | null } {
+  let min = minEuros === 0 || minEuros === null ? null : Math.min(minEuros, PRICE_SLIDER_MAX_EUROS);
+  let max = maxEuros !== null && maxEuros >= PRICE_SLIDER_MAX_EUROS ? null : maxEuros;
+  if (min !== null && max !== null && min > max) [min, max] = [max, min];
+  return { minPriceEuros: min, maxPriceEuros: max };
+}
+
+export type PriceFilterKind = 'any' | 'from' | 'up_to' | 'between';
+
+/** Which sentence describes the price filter: "Any list price", "From €500", ... */
+export function priceFilterKind(query: Pick<CatalogueQuery, 'minPriceEuros' | 'maxPriceEuros'>) {
+  const { minPriceEuros: min, maxPriceEuros: max } = query;
+  const kind: PriceFilterKind =
+    min === null ? (max === null ? 'any' : 'up_to') : max === null ? 'from' : 'between';
+  return kind;
 }
 
 /** Applies search, category, condition and price filters, then sorts. Never mutates `items`. */
