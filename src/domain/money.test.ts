@@ -1,5 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { formatEuro } from './money';
+import { formatEuro, parseEuroInput } from './money';
+
+describe('parseEuroInput', () => {
+  const cents = (text: string) => {
+    const result = parseEuroInput(text);
+    return result.ok ? result.cents : null;
+  };
+
+  it('reads whole euros, with or without thousands separators', () => {
+    expect(cents('2500')).toBe(250_000);
+    expect(cents('2 500')).toBe(250_000);
+    expect(cents('2,500')).toBe(250_000);
+    expect(cents('2.500')).toBe(250_000);
+    expect(cents('1 250 000')).toBe(125_000_000);
+  });
+
+  it('reads one or two decimals with a comma or a dot', () => {
+    expect(cents('2500,50')).toBe(250_050);
+    expect(cents('2500.5')).toBe(250_050);
+    expect(cents('2,500.50')).toBe(250_050);
+    expect(cents('2.500,05')).toBe(250_005);
+  });
+
+  it('ignores € signs and no-break spaces', () => {
+    expect(cents('€ 2 500')).toBe(250_000);
+    expect(cents('2 500 €')).toBe(250_000);
+  });
+
+  it('accepts zero', () => {
+    expect(cents('0')).toBe(0);
+  });
+
+  it('refuses empty, negative, words and too many decimals', () => {
+    for (const bad of ['', '   ', '-100', 'abc', '12a', '2500,505', ',50', '2,50,0']) {
+      expect(parseEuroInput(bad), bad).toEqual({ ok: false });
+    }
+  });
+
+  it('refuses amounts too big to count in cents exactly', () => {
+    expect(parseEuroInput('99999999999999999')).toEqual({ ok: false });
+  });
+});
 
 // Intl uses no-break spaces; compare with plain spaces so the tests are readable.
 const plain = (text: string) => text.replace(/\s/g, ' ');

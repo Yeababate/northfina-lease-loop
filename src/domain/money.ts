@@ -10,3 +10,26 @@ export function formatEuro(cents: number, locale: string): string {
   }
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
+
+export type ParseEurosResult = { ok: true; cents: number } | { ok: false };
+
+/**
+ * Reads a euro amount typed by a person into cents, without floating point:
+ * "2500", "2 500", "2500,50", "2,500.50", "€ 2.500,5" → cents. Spaces and € are ignored.
+ * A separator followed by exactly 1–2 digits at the end is the decimal mark; any other
+ * separator groups thousands. Negative amounts and more than 2 decimals are refused.
+ */
+export function parseEuroInput(text: string): ParseEurosResult {
+  const cleaned = text.replace(/[\s€]/g, '');
+  if (!/^\d[\d.,]*$/.test(cleaned)) return { ok: false };
+
+  const decimal = /[.,](\d{1,2})$/.exec(cleaned);
+  const wholePart = decimal ? cleaned.slice(0, decimal.index) : cleaned;
+  // Thousands groups must be exactly three digits: "2,50,0" is a typo, not 2500.
+  if (!/^\d{1,3}([.,]\d{3})*$/.test(wholePart) && !/^\d+$/.test(wholePart)) return { ok: false };
+
+  const euros = Number(wholePart.replace(/[.,]/g, ''));
+  const cents = decimal ? Number(decimal[1]!.padEnd(2, '0')) : 0;
+  const total = euros * 100 + cents;
+  return Number.isSafeInteger(total) ? { ok: true, cents: total } : { ok: false };
+}

@@ -7,6 +7,7 @@ import {
   type AssetCategory,
   type AssetCondition,
 } from '@/data/schemas';
+import { isIsoDate } from './iso-date';
 
 export type CatalogueItem = {
   asset: Asset;
@@ -146,13 +147,4 @@ function isCondition(value: string): value is AssetCondition {
 
 function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
-}
-
-/** A real calendar date in `YYYY-MM-DD` form: 2026-02-30 is not one. */
-export function isIsoDate(text: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if (!match) return false;
-  const [, y, m, d] = match.map(Number) as [number, number, number, number];
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }

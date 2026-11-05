@@ -4,7 +4,6 @@ import type { Asset } from '@/data/schemas';
 import {
   catalogueBadge,
   filterCatalogue,
-  isIsoDate,
   isLeasable,
   parseCatalogueQuery,
   type CatalogueItem,
@@ -168,19 +167,5 @@ describe('badges and leasability', () => {
     expect(items.filter((item) => !isLeasable(item.asset)).map((i) => i.asset.id)).toEqual([
       'ebike-009',
     ]);
-  });
-});
-
-describe('isIsoDate', () => {
-  it('accepts real dates, including 29 Feb in a leap year', () => {
-    expect(isIsoDate('2026-11-05')).toBe(true);
-    expect(isIsoDate('2028-02-29')).toBe(true);
-  });
-
-  it('rejects impossible dates and other formats', () => {
-    expect(isIsoDate('2026-02-29')).toBe(false);
-    expect(isIsoDate('2026-13-01')).toBe(false);
-    expect(isIsoDate('5.11.2026')).toBe(false);
-    expect(isIsoDate('')).toBe(false);
   });
 });
