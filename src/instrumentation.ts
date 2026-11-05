@@ -1,11 +1,22 @@
-/** Register background lifecycle work only in the running Node server, never a build. */
+// Runs once when a Next.js server instance starts (see the installed docs:
+// node_modules/next/dist/docs/01-app/02-guides/instrumentation.md). Starts background work
+// in the running Node.js server only, never during a build or a test run:
+//   - the lifecycle worker, which finalises due early returns (#6);
+//   - the lease-end reminder worker (#10). It is not awaited as a loop: register() returns
+//     at once while its first catch-up pass runs in the background. Set
+//     LEASE_LOOP_WORKER=off to run the server without it.
 export async function register() {
-  if (
-    process.env.NEXT_RUNTIME === 'nodejs' &&
-    process.env.NEXT_PHASE !== 'phase-production-build' &&
-    process.env.NODE_ENV !== 'test'
-  ) {
-    const { registerLifecycleWorker } = await import('./server/lifecycle-startup');
-    registerLifecycleWorker();
-  }
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  if (process.env.NEXT_PHASE === 'phase-production-build') return;
+  if (process.env.NODE_ENV === 'test') return;
+
+  const { registerLifecycleWorker } = await import('./server/lifecycle-startup');
+  registerLifecycleWorker();
+
+  if (process.env.LEASE_LOOP_WORKER === 'off') return;
+  const [{ db }, { startAppWorker }] = await Promise.all([
+    import('./server/db'),
+    import('./server/reminders/worker'),
+  ]);
+  startAppWorker(db);
 }

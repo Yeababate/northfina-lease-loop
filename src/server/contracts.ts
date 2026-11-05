@@ -10,6 +10,14 @@ import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
 import type { Locale } from '@/i18n/locales';
+import {
+  createReminderPreferencesInTx,
+  validateReminderSetup,
+  type InitialReminders,
+} from './reminders/preferences';
+
+/** Lease-end reminder settings saved with the contract, in the signing transaction (#10). */
+export type SigningReminders = InitialReminders & { now: Date };
 
 export type SigningParticipants = {
   renterId: string;
@@ -30,7 +38,8 @@ export async function signContract(
   },
   signedOn: string,
   lists: readonly PriceList[],
-  table: CoefficientTable
+  table: CoefficientTable,
+  reminders?: SigningReminders
 ) {
   const result = priceContract(
     lists,
@@ -56,6 +65,13 @@ export async function signContract(
       'The price changed. Refresh and review before signing'
     );
   const id = randomUUID();
+  const event = reminders && {
+    contractId: id,
+    recipientId: reminders.recipientId,
+    endOn: result.price.endOn,
+  };
+  const reminderSetup =
+    reminders && event ? validateReminderSetup(event, reminders.preferences, reminders.now) : null;
   const assetSnapshot = await db.asset.findUnique({ where: { id: input.assetId } });
   if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   const document = await renderContractPdf({
@@ -75,7 +91,9 @@ export async function signContract(
       action: 'contract.signed',
       entityType: 'contract',
       entityId: id,
-      details: result.price,
+      details: reminderSetup
+        ? { ...result.price, reminderPreferences: reminderSetup.preferences }
+        : result.price,
     },
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
@@ -123,6 +141,13 @@ export async function signContract(
         await tx.contractProvider.create({
           data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
         });
+      if (reminders && event && reminderSetup)
+        await createReminderPreferencesInTx(
+          tx,
+          event,
+          { ...reminders, preferences: reminderSetup.preferences },
+          reminderSetup.schedule
+        );
       return contract;
     }
   );
@@ -158,7 +183,8 @@ export async function signApplication(
   input: SignApplicationInput,
   signedOn: string,
   data: SigningData,
-  principalId?: string
+  principalId?: string,
+  reminders?: SigningReminders
 ) {
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
@@ -213,6 +239,7 @@ export async function signApplication(
     { ...input, actor: check.signerName, participants },
     signedOn,
     data.lists,
-    data.table
+    data.table,
+    reminders
   );
 }

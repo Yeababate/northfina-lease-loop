@@ -1,3 +1,4 @@
+import type * as DemoSession from '@/server/demo-session';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/contracts/route';
 import {
@@ -22,6 +23,11 @@ vi.mock('@/server/db', () => ({
   },
 }));
 vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
+// No demo name in these tests: signing saves no reminder settings, as before reminders existed.
+vi.mock('@/server/demo-session', async (importOriginal) => ({
+  ...(await importOriginal<typeof DemoSession>()),
+  readDemoNameFromRequest: () => null,
+}));
 
 let db: PrismaClient;
 let cleanup: () => Promise<void>;
