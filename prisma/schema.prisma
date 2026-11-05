@@ -87,3 +87,124 @@ model Invoice {
 
   @@unique([contractId, period])
 }
+
+// Lease-end reminders (#10). Mutable per-lease settings of one recipient, kept apart from
+// the signed Contract snapshot so editing them never amends the contract. `rulesJson`
+// holds the reminder rules (stable id, daysBefore, local HH:MM, channels, enabled),
+// validated in src/server/reminders/preferences.ts. `revision` guards stale edits.
+model ReminderPreference {
+  id          String   @id
+  contractId  String
+  recipientId String
+  enabled     Boolean
+  timeZone    String
+  locale      String
+  rulesJson   String
+  revision    Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([contractId, recipientId])
+  @@index([recipientId])
+}
+
+// One logical reminder (lease, recipient, end-date version, rule, day offset). The unique
+// logicalKey is the delivery ledger: a delivered occurrence is never sent again, even
+// after a restart, a second worker or a clock-time edit.
+// status: pending | covered | cancelled | skipped_past
+model ReminderOccurrence {
+  id                 String    @id
+  logicalKey         String    @unique
+  contractId         String
+  recipientId        String
+  eventVersion       String
+  ruleId             String
+  daysBefore         Int
+  deadlineAt         DateTime
+  dueAt              DateTime
+  localDate          String
+  localTime          String
+  timeZone           String
+  channelsJson       String
+  preferenceRevision Int
+  status             String
+  attempts           Int       @default(0)
+  lastAttemptAt      DateTime?
+  nextAttemptAt      DateTime?
+  lastErrorCode      String?
+  claimToken         String?
+  claimedUntil       DateTime?
+  notificationId     String?
+  coveredAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status, dueAt])
+  @@index([contractId, recipientId])
+}
+
+// A generated reminder in one recipient's inbox. timingJson is the time left when it was
+// generated; the inbox re-words the time left at viewing time from deadlineAt.
+model Notification {
+  id                 String                 @id
+  recipientId        String
+  contractId         String
+  eventVersion       String
+  kind               String // lease_end_reminder
+  endOn              String
+  deadlineAt         DateTime
+  originalDueAt      DateTime
+  generatedAt        DateTime
+  catchUp            Boolean
+  timingJson         String
+  payloadJson        String
+  locale             String
+  timeZone           String
+  preferenceRevision Int
+  coverages          ReminderCoverage[]
+  deliveries         NotificationDelivery[]
+  receipt            NotificationReceipt?
+
+  @@index([recipientId, generatedAt])
+}
+
+// Which notification covered which occurrence on which channel. Unique per occurrence and
+// channel, so the database itself refuses a duplicate delivery.
+model ReminderCoverage {
+  id             Int          @id @default(autoincrement())
+  occurrenceId   String
+  channel        String
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([occurrenceId, channel])
+}
+
+// One channel artifact of a notification. mode is always "simulated": nothing is sent
+// outside the app. status: recorded | skipped_missing_contact. Email rows keep the
+// rendered preview (subject and text), never a claim of external delivery.
+model NotificationDelivery {
+  id             String       @id
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        String
+  mode           String
+  status         String
+  locale         String
+  toAddress      String?
+  subject        String?
+  bodyText       String?
+  createdAt      DateTime
+
+  @@unique([notificationId, channel])
+}
+
+// The recipient's own read state. Unread means not opened or marked read yet.
+model NotificationReceipt {
+  notificationId String       @id
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipientId    String
+  readAt         DateTime?
+
+  @@index([recipientId, readAt])
+}
