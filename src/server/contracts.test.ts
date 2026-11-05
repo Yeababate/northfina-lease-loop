@@ -1,11 +1,17 @@
-import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/contracts/route';
-import { loadAssets, loadCoefficientTable, loadPriceLists } from '@/data/load';
+import {
+  loadAssets,
+  loadCoefficientTable,
+  loadPriceLists,
+  loadQuestions,
+  loadVatRates,
+} from '@/data/load';
 import { quoteLease } from '@/domain/pricing';
 import { priceContract } from '@/domain/contract-pricing';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
-import { signContract } from './contracts';
+import { signApplication, signContract, type SigningData } from './contracts';
 import type { PrismaClient } from './prisma-client';
 
 vi.mock('@/server/db', () => ({
@@ -130,29 +136,126 @@ it('rolls back contract and reservation if the audit insert fails', async () => 
   expect(await db.auditLog.count()).toBe(0);
 });
 
-it('signing API validates input and returns the shared response envelope', async () => {
+// A complete, approvable application for scenario card 1 (ebike-003, 36 months).
+const aino = {
+  q_customer_type: 'consumer',
+  q_full_name: 'Aino Virtanen',
+  q_birth_date: '1992-03-14',
+  q_email: 'aino@example.com',
+  q_country: 'FI',
+  q_employment: 'employed',
+  q_monthly_income: 320000,
+  q_usage_purpose: 'commuting',
+};
+const application = {
+  assetId: 'ebike-003',
+  termMonths: 36,
+  downPaymentCents: 0,
+  startOn: '2026-11-05',
+  answers: aino,
+  expectedMonthlyNetCents: 10730,
+  expectedPriceListVersion: 1,
+};
+
+describe('signApplication', () => {
+  let data: SigningData;
+  beforeAll(async () => {
+    const [vatRates, questionsFile] = await Promise.all([loadVatRates(), loadQuestions()]);
+    data = { lists, table, vatRates, questions: questionsFile.questions };
+  });
+
+  it("signs an approved application in the applicant's name, from the chosen start date", async () => {
+    const contract = await signApplication(
+      db,
+      { ...application, startOn: '2026-12-01' },
+      '2026-11-05',
+      data
+    );
+    expect(contract).toMatchObject({
+      actor: 'Aino Virtanen',
+      monthlyNetCents: 10730,
+      signedOn: '2026-11-05',
+      startOn: '2026-12-01',
+      endOn: '2029-12-01',
+    });
+  });
+
+  it('refuses a declined application and writes nothing (scenario card 5)', async () => {
+    const tooYoung = { ...application, answers: { ...aino, q_birth_date: '2009-06-01' } };
+    await expect(signApplication(db, tooYoung, '2026-11-05', data)).rejects.toMatchObject({
+      status: 422,
+      code: 'NOT_APPROVED',
+    });
+    expect(await db.contract.count()).toBe(0);
+    expect(await db.auditLog.count()).toBe(0);
+  });
+
+  it('refuses an application with questions still open', async () => {
+    const { q_usage_purpose: _open, ...partial } = aino;
+    await expect(
+      signApplication(db, { ...application, answers: partial }, '2026-11-05', data)
+    ).rejects.toMatchObject({ code: 'NOT_APPROVED', details: 'incomplete' });
+  });
+
+  it('refuses unknown items and leases that cannot be priced', async () => {
+    await expect(
+      signApplication(db, { ...application, assetId: 'nope' }, '2026-11-05', data)
+    ).rejects.toMatchObject({ code: 'ASSET_NOT_FOUND' });
+    await expect(
+      signApplication(db, { ...application, startOn: '2026-11-04' }, '2026-11-05', data)
+    ).rejects.toMatchObject({ code: 'INVALID_PRICE', details: 'start_before_signing' });
+    const noVat = { ...data, vatRates: { ...data.vatRates, rates: [] } };
+    await expect(signApplication(db, application, '2026-11-05', noVat)).rejects.toMatchObject({
+      code: 'INVALID_PRICE',
+      details: 'no_rate_on_date',
+    });
+  });
+
+  it('keeps the price-changed check: a quote from list 1 cannot sign on list 2 day', async () => {
+    // Laptops are not e-bikes, so the usage question does not apply.
+    const { q_usage_purpose: _bikeOnly, ...laptopAnswers } = aino;
+    const laptop = {
+      ...application,
+      assetId: 'laptop-004',
+      startOn: '2026-11-06',
+      answers: laptopAnswers,
+    };
+    await expect(signApplication(db, laptop, '2026-11-06', data)).rejects.toMatchObject({
+      code: 'PRICE_CHANGED',
+    });
+  });
+});
+
+it('signing API checks the application and returns the shared response envelope', async () => {
   const request = (body: unknown) =>
     new Request('http://localhost/api/contracts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  const invalid = await POST(request({ ...input, signedOn: '2026-11-06' }), undefined);
-  expect(invalid.status).toBe(400);
-  expect(await invalid.json()).toMatchObject({
+  // A typed-in signer name is no longer accepted: the name comes from the application.
+  const withActor = await POST(request({ ...application, actor: 'anyone' }), undefined);
+  expect(withActor.status).toBe(400);
+  expect(await withActor.json()).toMatchObject({
     success: false,
     error: { code: 'VALIDATION_ERROR' },
   });
-  const fractional = await POST(request({ ...input, downPaymentCents: 0.5 }), undefined);
+  const fractional = await POST(request({ ...application, downPaymentCents: 0.5 }), undefined);
   expect(fractional.status).toBe(400);
-  const signed = await POST(request(input), undefined);
+  const declined = await POST(
+    request({ ...application, answers: { ...aino, q_country: 'other' } }),
+    undefined
+  );
+  expect(declined.status).toBe(422);
+  expect(await declined.json()).toMatchObject({ error: { code: 'NOT_APPROVED' } });
+  const signed = await POST(request(application), undefined);
   expect(signed.status).toBe(201);
   expect(await signed.json()).toMatchObject({
     success: true,
-    data: { monthlyNetCents: 10730, signedOn: '2026-11-05' },
+    data: { monthlyNetCents: 10730, signedOn: '2026-11-05', actor: 'Aino Virtanen' },
     meta: { timestamp: expect.any(String) },
   });
-  const duplicate = await POST(request(input), undefined);
+  const duplicate = await POST(request(application), undefined);
   expect(duplicate.status).toBe(409);
   expect(await duplicate.json()).toMatchObject({
     success: false,

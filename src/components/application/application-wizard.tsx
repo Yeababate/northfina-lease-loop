@@ -6,7 +6,7 @@
 //
 // Answers are kept in sessionStorage for this tab, so a reload or a language switch does not
 // lose them. They are never put in the URL, because they are personal data.
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useState } from 'react';
 import type { CoefficientTable, Question } from '@/data/schemas';
 import {
   checkAnswer,
@@ -24,6 +24,7 @@ import { questionText } from './answer-text';
 import { AnswersPanel } from './answers-panel';
 import { DecisionView } from './decision-view';
 import { QuestionStep } from './question-step';
+import { saveAnswers, useSavedAnswers } from './saved-answers';
 
 type ApplicationWizardProps = {
   locale: Locale;
@@ -40,13 +41,8 @@ export function ApplicationWizard(props: ApplicationWizardProps) {
   const { locale, questions, deal } = props;
   const t = getT(locale);
 
-  // Saved answers from this tab; null on the server and before the page is interactive.
-  const saved = useSyncExternalStore(
-    noSubscription,
-    () => readSaved(props.storageKey),
-    () => null
-  );
-  const savedAnswers = useMemo(() => parseAnswers(saved), [saved]);
+  // Saved answers from this tab; empty on the server and before the page is interactive.
+  const savedAnswers = useSavedAnswers(props.storageKey);
   // null until the customer answers something here; until then the saved answers apply.
   const [ownAnswers, setOwnAnswers] = useState<Answers | null>(null);
   const answers = ownAnswers ?? savedAnswers;
@@ -63,12 +59,7 @@ export function ApplicationWizard(props: ApplicationWizardProps) {
 
   function save(next: Answers) {
     setOwnAnswers(next);
-    try {
-      sessionStorage.setItem(props.storageKey, JSON.stringify(next));
-    } catch {
-      // Private mode or storage switched off: the application still works, it just
-      // will not survive a reload.
-    }
+    saveAnswers(props.storageKey, next);
   }
 
   function submit(question: Question, value: AnswerValue | undefined) {
@@ -191,27 +182,4 @@ export function ApplicationWizard(props: ApplicationWizardProps) {
       <aside>{panel}</aside>
     </div>
   );
-}
-
-function noSubscription() {
-  return () => {};
-}
-
-function readSaved(key: string): string | null {
-  try {
-    return sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-/** Saved text back into answers. Anything unexpected is ignored; resolveFlow re-checks the rest. */
-function parseAnswers(text: string | null): Answers {
-  if (!text) return {};
-  try {
-    const value: unknown = JSON.parse(text);
-    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Answers) : {};
-  } catch {
-    return {};
-  }
 }

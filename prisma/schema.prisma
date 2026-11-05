@@ -52,6 +52,8 @@ model Contract {
   id                 String @id
   actor              String
   assetId            String
+  /// First day of the lease, chosen by the customer. On or after signedOn.
+  startOn            String
   endOn              String
   signedOn           String
   termMonths         Int

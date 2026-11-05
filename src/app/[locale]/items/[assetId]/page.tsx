@@ -77,6 +77,7 @@ export default async function ItemPage({
             }
             initialTerm={termMonths}
             startDate={startDate}
+            quotedOn={today}
             applyPath={`/${locale}/items/${asset.id}/apply`}
             summary={summary}
           />
