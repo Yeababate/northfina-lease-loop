@@ -6,12 +6,13 @@ export function applicationStorageKey(
   assetId: string,
   termMonths: number,
   downPaymentCents: number,
-  startOn: string
+  startOn: string,
+  userId = 'anonymous'
 ): string {
   const lease = new URLSearchParams({
     term: String(termMonths),
     down: String(downPaymentCents),
     start: startOn,
   });
-  return `lease-loop:application:${assetId}:${lease}`;
+  return `lease-loop:application:${encodeURIComponent(userId)}:${assetId}:${lease}`;
 }
