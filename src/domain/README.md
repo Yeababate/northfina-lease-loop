@@ -92,12 +92,13 @@ it does not add customer eligibility or authentication.
 ## Monthly invoices
 
 `invoices.ts` schedules exactly `termMonths` full rental invoices in advance.
-The first invoice date and payment due date are the signing date. For a mid-month
+The first invoice date and payment due date are the saved lease start date
+(`startOn`), which may be later than signing. For a mid-month
 start, the first period runs from that day to the next monthly anniversary: there
 is no calendar-month proration or extra stub-period charge. Invoice date and due
 date are deliberately identical; no additional payment grace period is assumed.
 
-Each date is calculated from the original signing day with `contractEndOn`,
+Each date is calculated from the original lease start day with `contractEndOn`,
 clamping independently to the last day of each shorter month. A 31 January 2026
 start bills on 28 February 2026, 31 March 2026 and 29 February 2028. The final
 invoice precedes the exclusive contract end date.
