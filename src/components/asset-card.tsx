@@ -1,6 +1,11 @@
 // One catalogue item. A server component: it renders to HTML and ships no JavaScript.
 import Link from 'next/link';
-import { catalogueBadge, isLeasable, type CatalogueItem } from '@/domain/catalogue';
+import {
+  catalogueBadge,
+  isLeasable,
+  unavailableReason,
+  type CatalogueItem,
+} from '@/domain/catalogue';
 import { formatEuro } from '@/domain/money';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
@@ -9,6 +14,7 @@ import { Badge, PhotoPlaceholder, secondaryButton, type BadgeTone } from './ui';
 const badgeTone = {
   available: 'green',
   reserved: 'orange',
+  being_refurbished: 'orange',
   second_life: 'blue',
 } as const satisfies Record<ReturnType<typeof catalogueBadge>, BadgeTone>;
 
@@ -69,7 +75,9 @@ export function AssetCard({ item, href, locale, t }: AssetCardProps) {
           </Link>
         ) : (
           <p className="mt-3 py-2.5 text-center text-sm text-stone-600 dark:text-stone-400">
-            {t('asset.reservedNote')}
+            {unavailableReason(asset) === 'being_refurbished'
+              ? t('asset.refurbishingNote')
+              : t('asset.reservedNote')}
           </p>
         )}
       </div>

@@ -7,6 +7,7 @@ import {
   getModerationReport,
   listModerationReports,
 } from './rating-moderation';
+import { demoNameCookieHeader } from './demo-cookie';
 import { seedModerator } from './moderator-seed';
 import { publicRatings, editRating } from './ratings';
 import { GET as publicRatingsGet } from '@/app/api/users/[id]/ratings/route';
@@ -31,11 +32,14 @@ const decision = {
   expectedModerationVersion: 0,
 };
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
+/** Identity is the demo sign-in name (main's design): test users' names equal their ids, and
+ * the seeded moderator (id demo-moderator) signs in as "moderator". */
+const signInNameFor = (id: string) => (id === 'demo-moderator' ? 'moderator' : id);
 const request = (url: string, actor: string | null, body?: unknown) =>
   new Request(`http://localhost${url}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: {
-      ...(actor ? { cookie: `lease-loop-user=${actor}` } : {}),
+      ...(actor ? { cookie: demoNameCookieHeader(signInNameFor(actor)) } : {}),
       'Content-Type': 'application/json',
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),

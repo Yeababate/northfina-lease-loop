@@ -1,9 +1,10 @@
-import { cookies } from 'next/headers';
+// Server components: the participant for the visitor's demo sign-in name (see
+// src/server/demo-session.ts). Replace this adapter with proper login later; consumers
+// use stable participant IDs.
 import { db } from './db';
-import { MOCK_USER_COOKIE } from './mock-users';
+import { readDemoName } from './demo-session';
+import { principalForDemoName } from './mock-users';
 
-/** Replace this adapter with proper login later; consumers use stable participant IDs. */
 export async function currentPrincipal() {
-  const id = (await cookies()).get(MOCK_USER_COOKIE)?.value;
-  return id ? db.demoUser.findUnique({ where: { id } }) : null;
+  return principalForDemoName(db, await readDemoName());
 }

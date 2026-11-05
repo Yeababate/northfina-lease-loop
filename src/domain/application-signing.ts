@@ -6,6 +6,31 @@ import type { Answers } from './answer-check';
 import { decideApplication } from './eligibility';
 import { resolveFlow, type Deal } from './question-flow';
 
+export type SigningOffer = {
+  assetId: string;
+  termMonths: number;
+  downPaymentCents: number;
+  startOn: string;
+  monthlyNetCents: number;
+  buyoutCents: number;
+  priceListVersion: number;
+  monthlyGrossCents: number;
+};
+
+/** A consent checkbox belongs only to this exact displayed offer. */
+export function signingOfferKey(offer: SigningOffer): string {
+  return JSON.stringify([
+    offer.assetId,
+    offer.termMonths,
+    offer.downPaymentCents,
+    offer.startOn,
+    offer.monthlyNetCents,
+    offer.buyoutCents,
+    offer.priceListVersion,
+    offer.monthlyGrossCents,
+  ]);
+}
+
 export type SigningCheck =
   | { ok: true; signerName: string }
   | {
