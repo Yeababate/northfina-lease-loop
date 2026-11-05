@@ -55,8 +55,14 @@ export type AuditLogEntry = {
 };
 
 /** The newest audit rows first. */
-export async function listAuditLog(db: PrismaClient, limit = 50): Promise<AuditLogEntry[]> {
+export async function listAuditLog(
+  db: PrismaClient,
+  limit = 50,
+  audience: 'internal' | 'public' = 'internal'
+): Promise<AuditLogEntry[]> {
   const rows = await db.auditLog.findMany({
+    // Moderation evidence and private actors belong only to capability-scoped queries.
+    where: audience === 'public' ? { entity_type: { not: 'rating_report' } } : {},
     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     take: limit,
   });

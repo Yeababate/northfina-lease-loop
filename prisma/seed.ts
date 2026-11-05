@@ -2,12 +2,14 @@
 // Safe to run again: it only adds assets that are missing and never overwrites your changes.
 import { loadAssets } from '@/data/load';
 import { seedAssets } from '@/server/assets';
+import { seedModerator } from '@/server/moderator-seed';
 import { seedDealerSide } from '@/server/providers';
 import { createPrismaClient } from '@/server/prisma-client';
 import { seedDemoParticipants } from '@/server/demo-participants';
 
 const db = createPrismaClient();
 try {
+  await seedModerator(db);
   const assets = await loadAssets();
   const { created, skipped } = await seedAssets(db, assets);
   console.log(`🌱 Seeded ${created} new assets (${skipped} were already there).`);
