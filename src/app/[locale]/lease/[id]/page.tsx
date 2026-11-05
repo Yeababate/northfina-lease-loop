@@ -4,6 +4,7 @@ import { ContractSigning } from '@/components/contract-signing';
 import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
 import { isLocale } from '@/i18n/locales';
 import { db } from '@/server/db';
+import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 import { parseCatalogueQuery } from '@/domain/catalogue';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
@@ -39,6 +40,7 @@ export default async function LeasePage({
       </h1>
       <ContractSigning
         assetId={id}
+        discountRules={await rulesForAsset(db, id)}
         lists={lists}
         table={table}
         today={today}

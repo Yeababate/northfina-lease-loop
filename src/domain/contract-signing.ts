@@ -1,3 +1,4 @@
+import type { RentalDiscountRule } from './discounts';
 import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
 import { invoicePrice, priceContract, type PricingInput } from './contract-pricing';
 
@@ -9,10 +10,11 @@ export function contractSigningState(
   input: PricingInput,
   signedOn: string,
   actor: string,
-  busy: boolean
+  busy: boolean,
+  discountRules: readonly RentalDiscountRule[] = []
 ) {
   const quote = Number.isSafeInteger(input.downPaymentCents)
-    ? priceContract(lists, table, input, signedOn)
+    ? priceContract(lists, table, input, signedOn, discountRules)
     : { ok: false as const, reason: 'invalid_down_payment' as const };
   const tax = quote.ok ? invoicePrice(quote.price, vat, signedOn) : null;
   const reason = busy

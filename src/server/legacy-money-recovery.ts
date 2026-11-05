@@ -6,7 +6,25 @@ import type { PrismaClient } from './prisma-client';
 export type LegacyMoneySnapshot = {
   assets: Asset[];
   audits: AuditLog[];
-  contracts: (Omit<Contract, 'startOn'> & { startOn?: string | null })[];
+  contracts: (Omit<
+    Contract,
+    | 'startOn'
+    | 'originalMonthlyNetCents'
+    | 'monthlyDiscountCents'
+    | 'discountBps'
+    | 'discountRuleId'
+    | 'discountRuleRevision'
+  > &
+    Partial<
+      Pick<
+        Contract,
+        | 'originalMonthlyNetCents'
+        | 'monthlyDiscountCents'
+        | 'discountBps'
+        | 'discountRuleId'
+        | 'discountRuleRevision'
+      >
+    > & { startOn?: string | null })[];
   invoices: Invoice[];
 };
 

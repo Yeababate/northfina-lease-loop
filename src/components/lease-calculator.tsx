@@ -5,6 +5,9 @@
 // when the contract is signed, so the preview and the contract cannot disagree.
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
+import type { RentalDiscountRule } from '@/domain/discounts';
+import { downPaymentAtStep } from '@/domain/dealer-discount';
+import { DiscountBreakdown } from './discount-breakdown';
 import type { CoefficientTable } from '@/data/schemas';
 import { formatEuro } from '@/domain/money';
 import {
@@ -22,7 +25,9 @@ import { primaryButton } from './ui';
 type LeaseCalculatorProps = {
   locale: Locale;
   table: CoefficientTable;
+  discountRules?: readonly RentalDiscountRule[];
   listPriceCents: number;
+  providerName?: string;
   /** VAT rate on the lease start date. */
   vatRatePercent: number;
   nextVatChange: VatChange | null;
@@ -50,15 +55,20 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
   const minDown = minDownPaymentCents(table, listPriceCents);
   const maxDown = maxDownPaymentCents(table, listPriceCents);
   const [termIndex, setTermIndex] = useState(() => Math.max(0, terms.indexOf(props.initialTerm)));
-  const [downPaymentCents, setDownPaymentCents] = useState(minDown);
+  const [downStep, setDownStep] = useState(0);
+  const downPaymentCents = downPaymentAtStep(minDown, maxDown, downStep);
   const termMonths = terms[termIndex] ?? terms[0] ?? 0;
 
-  const result = quoteLease(table, {
-    listPriceCents,
-    downPaymentCents,
-    termMonths,
-    vatRatePercent,
-  });
+  const result = quoteLease(
+    table,
+    {
+      listPriceCents,
+      downPaymentCents,
+      termMonths,
+      vatRatePercent,
+    },
+    props.discountRules
+  );
   const minimumFinanced = Math.min(...table.bands.map((b) => b.min_financed_cents));
   const maximumFinanced = Math.max(...table.bands.map((b) => b.max_financed_cents));
   const tooCheap = listPriceCents < minimumFinanced;
@@ -92,6 +102,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
           {t('lease.choose')}
         </h2>
 
+        {props.providerName && <p>{t('discount.itemProvider', { name: props.providerName })}</p>}
         {tooCheap ? (
           <p role="alert">{t('lease.tooCheap', { min: euro(minimumFinanced) })}</p>
         ) : (
@@ -135,12 +146,12 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
               <input
                 id={downId}
                 type="range"
-                min={minDown}
-                max={maxDown}
-                step={DOWN_PAYMENT_STEP_CENTS}
-                value={downPaymentCents}
+                min={0}
+                max={Math.ceil((maxDown - minDown) / DOWN_PAYMENT_STEP_CENTS)}
+                step={1}
+                value={downStep}
                 aria-valuetext={euro(downPaymentCents)}
-                onChange={(event) => setDownPaymentCents(Number(event.target.value))}
+                onChange={(event) => setDownStep(Number(event.target.value))}
                 className="mt-2 w-full accent-blue-600"
               />
               <div className="flex justify-between gap-2 text-sm text-stone-600 dark:text-stone-400">
@@ -154,6 +165,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
 
             {result.ok ? (
               <>
+                <DiscountBreakdown price={result.quote} locale={locale} />
                 <div
                   aria-live="polite"
                   className="rounded-xl bg-blue-50 px-5 py-4 dark:bg-blue-950/60"
@@ -179,6 +191,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
                 </p>
                 <TermComparison
                   table={table}
+                  discountRules={props.discountRules}
                   terms={terms}
                   selectedTerm={termMonths}
                   listPriceCents={listPriceCents}

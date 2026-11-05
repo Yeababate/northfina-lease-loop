@@ -4,6 +4,7 @@
 // replaceable-adapter idea as currentCustomer(): it is not authentication. Services take a
 // stable provider id; a real login can supply it later without changing them.
 import type { Asset } from '@/data/schemas';
+import { assetCategorySchema } from '@/data/schemas';
 import { ApiError } from './api-response';
 import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';
@@ -11,6 +12,19 @@ import type { PrismaClient } from './prisma-client';
 export const PROVIDER_COOKIE = 'lease-loop-provider';
 
 export type DemoProvider = { id: string; displayName: string };
+
+/** Canonical runtime list. Seed defaults are never a provider directory. */
+export async function listProviders(db: Pick<PrismaClient, 'provider'>) {
+  return db.provider.findMany({
+    select: { id: true, displayName: true },
+    orderBy: { id: 'asc' },
+  });
+}
+
+/** Provider identity is always the persisted id, never a display-name match. */
+export async function getProvider(db: Pick<PrismaClient, 'provider'>, id: string) {
+  return db.provider.findUnique({ where: { id } });
+}
 
 /**
  * Two dealers with distinct stock, plus Aino, the default demo customer, who also lends her
@@ -45,7 +59,7 @@ export function providerIdFromCookie(header: string | null): string | null {
 
 export async function providerFromRequest(db: PrismaClient, request: Request) {
   const id = providerIdFromCookie(request.headers.get('cookie'));
-  return id ? db.provider.findUnique({ where: { id } }) : null;
+  return id ? getProvider(db, id) : null;
 }
 
 /** The selected provider, or 401 so the client can ask the user to pick one. */
@@ -56,29 +70,35 @@ export async function requireProvider(db: PrismaClient, request: Request) {
 }
 
 /**
- * Adds missing demo providers, ownership rows and an imported intake for every item the data
- * pack already marks returned. Imports have no contract or receipt date: their history is
+ * Adds missing demo providers, ownership rows and an imported intake for every demo item
+ * currently marked returned in persisted inventory. Imports have no contract or receipt date: their history is
  * unknown and is not invented. Safe to run again; never overwrites existing rows.
  */
 export async function seedDealerSide(db: PrismaClient, assets: readonly Asset[]) {
-  const [providers, owned, intakes] = await Promise.all([
+  const [providers, owned, intakes, inventory] = await Promise.all([
     db.provider.findMany({ select: { id: true } }),
-    db.assetOwnership.findMany({ select: { assetId: true } }),
+    db.assetOwnership.findMany({ select: { assetId: true, providerId: true } }),
     db.returnIntake.findMany({ select: { assetId: true } }),
+    db.asset.findMany({
+      where: { id: { in: assets.map((asset) => asset.id) } },
+      select: { id: true, category: true, status: true },
+    }),
   ]);
   const has = (rows: { id?: string; assetId?: string }[], key: string) =>
     rows.some((row) => (row.id ?? row.assetId) === key);
   const newProviders = DEMO_PROVIDERS.filter((p) => !has(providers, p.id));
-  const newOwnership = assets
+  const defaultOwner = (asset: { id: string; category: string }) =>
+    seedOwnerOf({ id: asset.id, category: assetCategorySchema.parse(asset.category) });
+  const newOwnership = inventory
     .filter((a) => !has(owned, a.id))
-    .map((a) => ({ assetId: a.id, providerId: seedOwnerOf(a), source: 'seed' }));
-  const newIntakes = assets
+    .map((a) => ({ assetId: a.id, providerId: defaultOwner(a), source: 'seed' }));
+  const newIntakes = inventory
     .filter((a) => a.status === 'returned' && !has(intakes, a.id))
     .map((a) => ({
       id: `seed-${a.id}`,
       assetId: a.id,
       contractId: null,
-      providerId: seedOwnerOf(a),
+      providerId: owned.find((row) => row.assetId === a.id)?.providerId ?? defaultOwner(a),
       source: 'seed_import',
     }));
   const created = {

@@ -126,3 +126,12 @@ generation request, including retries. Missing VAT fails the whole generation.
 See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
 for start-date evidence, migration failure reproduction and the tested side-by-side
 recovery approach.
+
+## Long-term discounts
+
+`discounts.ts` validates dealer rule inputs and selects the greatest eligible
+percentage (ties use the smallest rule ID; rules never stack). The shared
+`quoteLease()` calculates original rent, discount and final rent in integer cents.
+Only monthly net rent is discounted; down payment, financed amount and buyout are
+unchanged. Signing snapshots the applied rule revision and values; invoices never
+read mutable discount rules. See [policy, rounding and verification](../../docs/long-term-discounts.md).

@@ -13,6 +13,7 @@ vi.mock('next/server', () => ({ connection: async () => {} }));
 vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
 vi.mock('@/server/db', () => ({
   db: {
+    assetOwnership: { findUnique: async () => null },
     asset: {
       findUnique: async () => ({
         id: 'farm-006',

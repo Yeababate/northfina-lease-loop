@@ -1,6 +1,7 @@
 import { isoDateSchema } from '@/data/schemas';
 import { contractEndOn } from './contract-period';
 import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
+import type { RentalDiscountRule } from './discounts';
 import { quoteLease } from './pricing';
 import { vatCents as calculateVatCents } from './vat';
 import { listPriceOn } from './price-list';
@@ -18,7 +19,8 @@ export function priceContract(
   lists: readonly PriceList[],
   table: CoefficientTable,
   input: PricingInput,
-  signedOn: string
+  signedOn: string,
+  discountRules: readonly RentalDiscountRule[] = []
 ) {
   if (!Number.isSafeInteger(input.downPaymentCents)) throw new RangeError('Whole cents required');
   if (input.downPaymentCents < 0) return { ok: false, reason: 'invalid_down_payment' } as const;
@@ -32,13 +34,17 @@ export function priceContract(
     return { ok: false, reason: 'invalid_down_payment' } as const;
   if (table.end_of_term_buyout_percent_of_financed[String(input.termMonths)] === undefined)
     return { ok: false, reason: 'unknown_term' } as const;
-  const result = quoteLease(table, {
-    listPriceCents: price.priceCents,
-    downPaymentCents: input.downPaymentCents,
-    termMonths: input.termMonths,
-    // Only net amounts are persisted. VAT is selected separately for each invoice date.
-    vatRatePercent: 0,
-  });
+  const result = quoteLease(
+    table,
+    {
+      listPriceCents: price.priceCents,
+      downPaymentCents: input.downPaymentCents,
+      termMonths: input.termMonths,
+      // Only net amounts are persisted. VAT is selected separately for each invoice date.
+      vatRatePercent: 0,
+    },
+    discountRules
+  );
   if (!result.ok) return result;
   const quote = result.quote;
   return {
@@ -56,6 +62,11 @@ export function priceContract(
       factor: quote.factor,
       financedCents: quote.financedCents,
       monthlyNetCents: quote.monthlyNetCents,
+      originalMonthlyNetCents: quote.originalMonthlyNetCents,
+      monthlyDiscountCents: quote.monthlyDiscountCents,
+      discountBps: quote.discountBps,
+      discountRuleId: quote.discountRuleId,
+      discountRuleRevision: quote.discountRuleRevision,
       buyoutNetCents: quote.buyoutCents,
     },
   } as const;

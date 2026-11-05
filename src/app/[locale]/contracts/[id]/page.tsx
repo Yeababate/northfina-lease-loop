@@ -8,6 +8,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { InvoiceList } from '@/components/invoice-list';
 
 export default async function ContractPage({
@@ -62,6 +63,13 @@ export default async function ContractPage({
             })
           : t('contract.unavailable')}
       </p>
+      <DiscountBreakdown
+        price={{
+          ...contract,
+          originalMonthlyNetCents: contract.originalMonthlyNetCents ?? contract.monthlyNetCents,
+        }}
+        locale={locale}
+      />
       <InvoiceList invoices={invoices} contractId={id} actor={contract.actor} locale={locale} />
     </div>
   );

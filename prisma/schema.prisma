@@ -68,6 +68,11 @@ model Contract {
   financedCents      Int
   monthlyNetCents    Int
   buyoutNetCents     Int
+  originalMonthlyNetCents Int?
+  monthlyDiscountCents Int @default(0)
+  discountBps Int @default(0)
+  discountRuleId String?
+  discountRuleRevision Int?
 
   @@index([assetId])
 }
@@ -191,4 +196,20 @@ model AssetLifecycleEvent {
   createdAt   DateTime @default(now())
 
   @@index([assetId])
+}
+
+
+// Provider-wide monthly rent promotions. Contract snapshots have no mutable relation here.
+model DiscountRule {
+  archived Boolean @default(false)
+  id String @id
+  providerId String
+  name String
+  minTermMonths Int
+  maxTermMonths Int
+  discountBps Int
+  enabled Boolean
+  revision Int @default(1)
+
+  @@index([providerId])
 }

@@ -24,6 +24,8 @@ const schema = z.strictObject({
   expectedMonthlyNetCents: centsSchema,
   expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
+  expectedDiscountRuleId: z.string().min(1).nullable().default(null),
+  expectedDiscountRuleRevision: z.number().int().positive().nullable().default(null),
 });
 
 export const POST = handleRoute(async (request) => {

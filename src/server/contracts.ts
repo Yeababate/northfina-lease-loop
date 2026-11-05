@@ -6,7 +6,8 @@ import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import { vatCents, vatRateOn } from '@/domain/vat';
 import { ApiError } from './api-response';
 import { getAsset } from './assets';
-import { withAudit } from './audit';
+import { withAudit, type AuditEntry } from './audit';
+import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
 
 /** No update operation is exposed: signing creates an immutable price snapshot. */
@@ -17,66 +18,67 @@ export async function signContract(
     expectedMonthlyNetCents: number;
     expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
+    expectedDiscountRuleId?: string | null;
+    expectedDiscountRuleRevision?: number | null;
   },
   signedOn: string,
   lists: readonly PriceList[],
   table: CoefficientTable
 ) {
-  const result = priceContract(
-    lists,
-    table,
-    {
-      assetId: input.assetId,
-      termMonths: input.termMonths,
-      downPaymentCents: input.downPaymentCents,
-      startOn: input.startOn,
-    },
-    signedOn
-  );
-  if (!result.ok)
-    throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
-  if (
-    result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
-    result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
-    result.price.priceListVersion !== input.expectedPriceListVersion
-  )
-    throw new ApiError(
-      409,
-      'PRICE_CHANGED',
-      'The price changed. Refresh and review before signing'
-    );
   const id = randomUUID();
-  return withAudit(
-    db,
-    {
-      actor: input.actor,
-      action: 'contract.signed',
-      entityType: 'contract',
-      entityId: id,
-      details: result.price,
-    },
-    async (tx) => {
-      const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
-      if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
-      const reserved = await tx.asset.updateMany({
-        where: { id: input.assetId, status: 'available' },
-        data: { status: 'reserved' },
+  const entry: AuditEntry = {
+    actor: input.actor,
+    action: 'contract.signed',
+    entityType: 'contract',
+    entityId: id,
+  };
+  return withAudit(db, entry, async (tx) => {
+    const result = priceContract(
+      lists,
+      table,
+      {
+        assetId: input.assetId,
+        termMonths: input.termMonths,
+        downPaymentCents: input.downPaymentCents,
+        startOn: input.startOn,
+      },
+      signedOn,
+      await rulesForAsset(tx, input.assetId)
+    );
+    if (!result.ok)
+      throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
+    if (
+      result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+      result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
+      result.price.priceListVersion !== input.expectedPriceListVersion ||
+      result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
+      result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
+    )
+      throw new ApiError(
+        409,
+        'PRICE_CHANGED',
+        'The price changed. Refresh and review before signing'
+      );
+    entry.details = result.price;
+    const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
+    if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+    const reserved = await tx.asset.updateMany({
+      where: { id: input.assetId, status: 'available' },
+      data: { status: 'reserved' },
+    });
+    if (reserved.count !== 1) throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+    const contract = await tx.contract.create({
+      data: { id, actor: input.actor, ...result.price },
+    });
+    // Record who provides this lease, from current ownership, in the same transaction.
+    // The link never changes, so the provider keeps access after any later sale.
+    const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
+    if (owner)
+      await tx.contractProvider.create({
+        data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
       });
-      if (reserved.count !== 1)
-        throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
-      const contract = await tx.contract.create({
-        data: { id, actor: input.actor, ...result.price },
-      });
-      // Record who provides this lease, from current ownership, in the same transaction.
-      // The link never changes, so the provider keeps access after any later sale.
-      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
-      if (owner)
-        await tx.contractProvider.create({
-          data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
-        });
-      return contract;
-    }
-  );
+    return contract;
+  });
 }
 
 export type SignApplicationInput = {
@@ -89,6 +91,8 @@ export type SignApplicationInput = {
   expectedMonthlyNetCents: number;
   expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
+  expectedDiscountRuleId?: string | null;
+  expectedDiscountRuleRevision?: number | null;
 };
 
 export type SigningData = {
@@ -112,7 +116,13 @@ export async function signApplication(
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
 
-  const priced = priceContract(data.lists, data.table, input, signedOn);
+  const priced = priceContract(
+    data.lists,
+    data.table,
+    input,
+    signedOn,
+    await rulesForAsset(db, input.assetId)
+  );
   if (!priced.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', priced.reason);
   const vat = vatRateOn(data.vatRates.rates, input.startOn);
