@@ -286,5 +286,8 @@
   "nav.greeting": "Hi, {name}",
   "signing.start_before_signing": "The lease cannot start before the signing date.",
   "sign.confirmRequired": "Read and agree to the contract above to enable signing.",
-  "sign.loadingApplication": "Loading your application answers…"
+  "sign.loadingApplication": "Loading your application answers…",
+  "badge.being_refurbished": "Being refurbished",
+  "asset.refurbishingNote": "Being checked before its next lease",
+  "item.refurbishing": "This item has just come back and is being checked and refurbished. It can be leased again once that is done."
 }
