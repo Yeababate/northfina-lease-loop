@@ -22,20 +22,22 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 
 ## What is here
 
-| File               | What it does                                                             |
-| ------------------ | ------------------------------------------------------------------------ |
-| `coefficient.ts`   | Worked example: finds the monthly factor for a financed amount and term. |
-| `price-list.ts`    | Worked example: finds the net list price of an asset on a date.          |
-| `money.ts`         | Formats cents as euros for a locale. Use it only in the UI.              |
-| `rounding.ts`      | The one rounding rule: integer maths, rounded once, half up.             |
-| `vat.ts`           | VAT rate on a date, the next rate change, VAT on a net amount.           |
-| `pricing.ts`       | Monthly rent, VAT, buyout and total for a term and down payment.         |
-| `catalogue.ts`     | Catalogue filters and sorting, read safely from the URL; badges.         |
-| `iso-date.ts`      | Checks ISO dates and works out an age on a given day.                    |
-| `business-id.ts`   | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
-| `answer-check.ts`  | Checks one application answer against its question type.                 |
-| `question-flow.ts` | Picks the next question and drops answers that stop applying.            |
-| `eligibility.ts`   | Approved, declined or manual review, with the checks behind it.          |
+| File               | What it does                                                                     |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `coefficient.ts`   | Worked example: finds the monthly factor for a financed amount and term.         |
+| `price-list.ts`    | Worked example: finds the net list price of an asset on a date.                  |
+| `money.ts`         | Formats cents as euros for a locale. Use it only in the UI.                      |
+| `rounding.ts`      | The one rounding rule: integer maths, rounded once, half up.                     |
+| `vat.ts`           | VAT rate on a date, the next rate change, VAT on a net amount.                   |
+| `pricing.ts`       | Monthly rent, VAT, buyout and total for a term and down payment.                 |
+| `catalogue.ts`     | Catalogue filters and sorting, read safely from the URL; badges.                 |
+| `iso-date.ts`      | Checks ISO dates and works out an age on a given day.                            |
+| `business-id.ts`   | Checks a Finnish business ID (Y-tunnus) and its check digit.                     |
+| `answer-check.ts`  | Checks one application answer against its question type.                         |
+| `question-flow.ts` | Picks the next question and drops answers that stop applying.                    |
+| `eligibility.ts`   | Approved, declined or manual review, with the checks behind it.                  |
+| `related-items.ts` | Ranks related items with the adjustable rules in `data/related-item-rules.json`. |
+| `bundle.ts`        | Validates provider bundle groupings and whether every component is bookable.     |
 
 ### How the question flow works
 
@@ -118,3 +120,26 @@ starter's audit convention; it is not an authentication mechanism.
 Generation uses one audited transaction and a database unique key on contract and
 period. Retries return the same invoices; the audit records each successful
 generation request, including retries. Missing VAT fails the whole generation.
+
+## Related items
+
+`rankRelatedItems(context, candidates, rules)` is a deterministic ruleset, not a model.
+Hard checks run first: the viewed item, repeated ids, anything not `available`, anything
+without a price on the same basis and anything over an optional monthly budget are left
+out. Category affinity (an explicit matrix; unlisted pairs score the configured fallback,
+0 = excluded), price similarity and condition each score 0–100 and are weighted by the
+rules (default 70/25/5, four results). Equal scores are ordered by asset id.
+
+Prices are compared on one basis only: `monthlyRentBasis`, the existing `quoteLease`
+monthly net rent for the same term with no down payment. A list price is never compared
+with a rent. Each result carries explanation codes for facts that actually hold.
+Change `data/related-item-rules.json` to tune the ranking; no code changes are needed.
+
+## Bundles
+
+A bundle is a provider's grouping of at least two distinct physical assets with the terms
+it can be leased for. `validateBundleDraft` reports every problem at once (duplicates,
+unknown or foreign assets, unsupported terms). `bundleAvailability` derives bookability
+from every component's current state: one reserved or returned component blocks the whole
+bundle. Edits carry a revision (`nextBundleRevision`) so a stale edit is a conflict.
+Bundles carry no prices yet, and signing a bundle as one lease is not implemented.
