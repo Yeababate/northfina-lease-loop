@@ -273,7 +273,7 @@
   "profile.mockSigning": "Demo signing: the application was approved by the server. This is a mock signature.",
   "profile.originalPdf": "Original contract PDF",
   "profile.documentUnavailable": "The original document is unavailable. It has not been recreated from current prices.",
-  "sign.error.LOGIN_REQUIRED": "Select a demo username before signing.",
+  "sign.error.LOGIN_REQUIRED": "Sign in with your name before signing.",
   "signIn.title": "Welcome to Lease Loop",
   "signIn.intro": "This is a demo, so there is no password and no account. Just tell us what to call you.",
   "signIn.label": "Your name",

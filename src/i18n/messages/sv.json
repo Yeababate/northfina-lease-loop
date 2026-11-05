@@ -273,7 +273,7 @@
   "profile.mockSigning": "Demounderskrift: servern godkände ansökan. Detta är en simulerad underskrift.",
   "profile.originalPdf": "Ursprungligt avtals-PDF",
   "profile.documentUnavailable": "Originaldokumentet är inte tillgängligt. Det har inte återskapats med dagens priser.",
-  "sign.error.LOGIN_REQUIRED": "Välj ett demoanvändarnamn innan du skriver under.",
+  "sign.error.LOGIN_REQUIRED": "Logga in med ditt namn innan du skriver under.",
   "signIn.title": "Välkommen till Lease Loop",
   "signIn.intro": "Det här är en demo, så det behövs inget lösenord eller konto. Berätta bara vad vi ska kalla dig.",
   "signIn.label": "Ditt namn",

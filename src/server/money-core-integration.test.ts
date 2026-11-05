@@ -16,6 +16,8 @@ import { checkApplicationForSigning } from '@/domain/application-signing';
 import type { Answers } from '@/domain/answer-check';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
+import { demoNameCookieHeader } from './demo-cookie';
+import { seedDemoParticipants } from './demo-participants';
 import { signApplication, type SigningData } from './contracts';
 import type { PrismaClient } from './prisma-client';
 
@@ -60,6 +62,7 @@ beforeEach(async () => {
   await db.auditLog.deleteMany();
   await db.asset.deleteMany();
   await seedAssets(db, await loadAssets());
+  await seedDemoParticipants(db);
   await db.auditLog.deleteMany();
 });
 
@@ -97,7 +100,8 @@ function preview(assetId = 'ebike-003', start = '2026-01-31', quotedOn = clock.t
 const request = (body: unknown) =>
   new Request('http://localhost/api/contracts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // Signing needs a demo sign-in name; Aino is a seeded participant.
+    headers: { 'Content-Type': 'application/json', cookie: demoNameCookieHeader('Aino') },
     body: JSON.stringify(body),
   });
 

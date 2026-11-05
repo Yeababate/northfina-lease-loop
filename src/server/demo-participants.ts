@@ -1,18 +1,32 @@
-import { loadCustomers } from '@/data/load';
+import { loadAssets, loadCustomers } from '@/data/load';
 import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';
+import { DEMO_PROVIDERS, seedOwnerOf } from './providers';
 
-/** Explicit synthetic owners/personas, not inferred attribution for old contracts. */
+/** The sign-in name for a seeded ID: "cust-aino" → "aino", "provider-kettu" → "kettu". */
+const usernameOf = (id: string) => id.replace(/^(cust|provider)-/, '');
+
+/**
+ * Explicit synthetic owners/personas, not inferred attribution for old contracts. The
+ * owners are the dealer-side demo providers (src/server/providers.ts) with the same IDs and
+ * the same seed ownership, so both sides agree on who provides each item.
+ */
 export async function seedDemoParticipants(db: PrismaClient) {
-  const customers = await loadCustomers();
+  const [customers, packAssets] = await Promise.all([loadCustomers(), loadAssets()]);
+  const seedOwners = new Map(packAssets.map((asset) => [asset.id, seedOwnerOf(asset)]));
   const users = [
     ...customers.map((customer) => ({
       id: customer.id,
-      canonicalUsername: customer.id.replace(/^cust-/, ''),
+      canonicalUsername: usernameOf(customer.id),
       displayName: customer.name,
     })),
-    { id: 'provider-north', canonicalUsername: 'provider1', displayName: 'Loop North' },
-    { id: 'provider-south', canonicalUsername: 'provider2', displayName: 'Loop South' },
+    ...DEMO_PROVIDERS.filter((provider) => !customers.some((c) => c.id === provider.id)).map(
+      (provider) => ({
+        id: provider.id,
+        canonicalUsername: usernameOf(provider.id),
+        displayName: provider.displayName,
+      })
+    ),
   ];
   const existingUsers = await db.demoUser.findMany({
     select: { id: true, canonicalUsername: true },
@@ -25,7 +39,7 @@ export async function seedDemoParticipants(db: PrismaClient) {
   );
   const unowned = await db.asset.findMany({
     where: { ownerId: null },
-    select: { id: true, category: true },
+    select: { id: true },
   });
   if (!toCreate.length && !unowned.length) return { usersCreated: 0, assetsAssigned: 0 };
   return withAudit(
@@ -44,12 +58,8 @@ export async function seedDemoParticipants(db: PrismaClient) {
       for (const user of toCreate) await tx.demoUser.create({ data: user });
       let assetsAssigned = 0;
       for (const asset of unowned) {
-        const desired =
-          asset.id === 'laptop-002'
-            ? 'cust-aino'
-            : asset.category === 'farm_machine'
-              ? 'provider-south'
-              : 'provider-north';
+        const desired = seedOwners.get(asset.id);
+        if (!desired) continue;
         // Canonical username collisions are never resolved by stealing an existing account.
         if (!(await tx.demoUser.findUnique({ where: { id: desired } }))) continue;
         const result = await tx.asset.updateMany({

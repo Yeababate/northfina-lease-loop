@@ -43,7 +43,7 @@ it('reconciles legacy identities and lines explicitly without re-pricing or inve
   const input = {
     contractId: contract.id,
     renterId: 'cust-aino',
-    providerId: 'provider-north',
+    providerId: 'provider-kettu',
     actor: 'operator',
   };
   await expect(

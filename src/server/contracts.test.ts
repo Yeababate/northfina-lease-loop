@@ -14,6 +14,7 @@ import { seedAssets } from './assets';
 import { signApplication, signContract, type SigningData } from './contracts';
 import type { PrismaClient } from './prisma-client';
 import { seedDemoParticipants } from './demo-participants';
+import { demoNameCookieHeader } from './demo-cookie';
 
 vi.mock('@/server/db', () => ({
   get db() {
@@ -234,7 +235,7 @@ it('signing API checks the application and returns the shared response envelope'
   const request = (body: unknown) =>
     new Request('http://localhost/api/contracts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: 'lease-loop-user=cust-aino' },
+      headers: { 'Content-Type': 'application/json', cookie: demoNameCookieHeader('Aino') },
       body: JSON.stringify(body),
     });
   // A typed-in signer name is no longer accepted: the name comes from the application.

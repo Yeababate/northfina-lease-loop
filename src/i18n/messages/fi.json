@@ -273,7 +273,7 @@
   "profile.mockSigning": "Demoallekirjoitus: palvelin hyväksyi hakemuksen. Tämä on esimerkkiallekirjoitus.",
   "profile.originalPdf": "Alkuperäinen sopimus-PDF",
   "profile.documentUnavailable": "Alkuperäinen asiakirja ei ole saatavilla. Sitä ei ole luotu uudelleen nykyisistä hinnoista.",
-  "sign.error.LOGIN_REQUIRED": "Valitse demokäyttäjätunnus ennen allekirjoitusta.",
+  "sign.error.LOGIN_REQUIRED": "Kirjaudu sisään nimelläsi ennen allekirjoitusta.",
   "signIn.title": "Tervetuloa Lease Loopiin",
   "signIn.intro": "Tämä on demo, joten salasanaa tai tiliä ei tarvita. Kerro vain, miten voimme kutsua sinua.",
   "signIn.label": "Nimesi",

@@ -6,9 +6,10 @@ import { createTestDb } from '../../tests/helpers/test-db';
 import { GET as profileGet } from '@/app/api/profile/route';
 import { GET as contractGet } from '@/app/api/contracts/[id]/route';
 import { GET as documentGet } from '@/app/documents/contracts/[id]/route';
-import { POST as login, DELETE as logout } from '@/app/api/demo-session/route';
 import { seedAssets } from './assets';
+import { demoNameCookieHeader } from './demo-cookie';
 import { seedDemoParticipants } from './demo-participants';
+import { seedDealerSide } from './providers';
 import { signContract } from './contracts';
 import {
   getParticipantContract,
@@ -39,12 +40,13 @@ const choice = {
 };
 const participants = {
   renterId: 'cust-aino',
-  providerId: 'provider-north',
-  providerName: 'Loop North',
+  providerId: 'provider-kettu',
+  providerName: 'Kettu Mobility Oy',
   locale: 'en' as const,
 };
-const request = (user = 'cust-aino') =>
-  new Request('http://localhost/api/profile', { headers: { cookie: `lease-loop-user=${user}` } });
+/** A request from the visitor signed in with this demo name. */
+const request = (name = 'Aino') =>
+  new Request('http://localhost/api/profile', { headers: { cookie: demoNameCookieHeader(name) } });
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
   [lists, table] = await Promise.all([loadPriceLists(), loadCoefficientTable()]);
@@ -91,10 +93,10 @@ describe('saved originals', () => {
       ).toMatchObject({ actor: participants.renterId });
       const changed = structuredClone(lists);
       changed[0]!.prices[choice.assetId] = 999999;
-      expect((await getParticipantDocument(db, 'provider-north', contract.id)).bytes).toEqual(
+      expect((await getParticipantDocument(db, 'provider-kettu', contract.id)).bytes).toEqual(
         original.bytes
       );
-      const reply = await documentGet(request('provider-north'), {
+      const reply = await documentGet(request('KETTU'), {
         params: Promise.resolve({ id: contract.id }),
       });
       expect(reply.status).toBe(200);
@@ -117,8 +119,7 @@ describe('saved originals', () => {
       code: 'CONTRACT_NOT_FOUND',
     });
     expect(
-      (await documentGet(request('cust-mikko'), { params: Promise.resolve({ id: contract.id }) }))
-        .status
+      (await documentGet(request('mikko'), { params: Promise.resolve({ id: contract.id }) })).status
     ).toBe(404);
     expect(
       (
@@ -190,7 +191,7 @@ describe('saved originals', () => {
     await expect(
       signContract(
         db,
-        { ...choice, participants: { ...participants, providerId: 'provider-south' } },
+        { ...choice, participants: { ...participants, providerId: 'provider-pelto' } },
         '2026-11-05',
         lists,
         table
@@ -236,33 +237,38 @@ describe('profile tooling', () => {
         summary: { incoming: { active: 1, monthlyNetCents: 10730 } },
       },
     });
-    expect(await (await profileGet(request('provider-north'), undefined)).json()).toMatchObject({
+    expect(await (await profileGet(request('KETTU'), undefined)).json()).toMatchObject({
       data: { outgoing: [{ id: contract.id }], incoming: [] },
     });
     const context = { params: Promise.resolve({ id: contract.id }) };
     expect(await (await contractGet(request(), context)).json()).toMatchObject({
       data: { document: { locale: 'en', href: `/documents/contracts/${contract.id}` } },
     });
-    expect((await contractGet(request('cust-mikko'), context)).status).toBe(404);
+    expect((await contractGet(request('mikko'), context)).status).toBe(404);
     expect((await profileGet(new Request('http://localhost'), undefined)).status).toBe(401);
   });
-  it('provides mock selection/switch/logout with HttpOnly session cookie and stable IDs', async () => {
-    const post = (username: string) =>
-      new Request('http://localhost/api/demo-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      });
-    const first = await login(post('aino'), undefined);
-    expect(first.headers.get('Set-Cookie')).toContain('HttpOnly');
-    expect(await first.json()).toMatchObject({ data: { id: 'cust-aino' } });
-    expect(await (await login(post(' AINO '), undefined)).json()).toMatchObject({
-      data: { id: 'cust-aino' },
+  it('resolves an unknown sign-in name to a new participant with no leases', async () => {
+    await signContract(db, { ...choice, participants }, '2026-11-05', lists, table);
+    const reply = await (await profileGet(request('Somebody New'), undefined)).json();
+    expect(reply).toMatchObject({
+      data: { user: { displayName: 'Somebody New' }, incoming: [], outgoing: [] },
     });
-    expect((await login(post(' '), undefined)).status).toBe(422);
     expect(
-      (await logout(new Request('http://localhost'), undefined)).headers.get('Set-Cookie')
-    ).toContain('Max-Age=0');
+      await db.demoUser.findUnique({ where: { canonicalUsername: 'somebody new' } })
+    ).toMatchObject({ id: reply.data.user.id });
+  });
+  it('seeds the same item owners as the dealer side', async () => {
+    await seedDealerSide(db, await loadAssets());
+    const [assets, ownership] = await Promise.all([
+      db.asset.findMany({ select: { id: true, ownerId: true } }),
+      db.assetOwnership.findMany(),
+    ]);
+    const dealerOwner = new Map(ownership.map((row) => [row.assetId, row.providerId]));
+    expect(assets.length).toBeGreaterThan(0);
+    for (const asset of assets) expect(asset.ownerId).toBe(dealerOwner.get(asset.id));
+    expect(await db.demoUser.findUnique({ where: { canonicalUsername: 'kettu' } })).toMatchObject({
+      id: 'provider-kettu',
+    });
   });
   it('seed reruns do not change ownership or reattribute legacy contracts', async () => {
     expect(await seedDemoParticipants(db)).toEqual({ usersCreated: 0, assetsAssigned: 0 });

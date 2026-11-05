@@ -6,20 +6,35 @@ Existing sign/contract pages have only thin adapters for principal scope, locale
 
 ## Identity
 
-`POST /api/demo-session` with `{ "username": "aino" }` selects a mock profile and sets
-an HttpOnly session cookie. Names are trimmed, Unicode-normalized and case-insensitive.
-Unknown names create stable empty profiles with an audit row. `DELETE /api/demo-session`
-clears selection. This is intentionally mock identity selection, not authentication.
+There is one demo identity: the name the visitor gives on the sign-in page (issue #1,
+`src/app/[locale]/sign-in/`). It is stored in main's HTTP-only `lease-loop-name` cookie
+(`src/server/demo-cookie.ts`) and cleaned by `normaliseDemoName`. This is intentionally
+mock identity selection, not authentication; signing out clears the cookie.
 
-Server components use `currentPrincipal()` from `src/server/current-principal.ts`.
-Route handlers use `requirePrincipal(db, request)` from `src/server/mock-users.ts`.
-Replace those adapters with proper login later; participant relationships use stable IDs.
-Never use the applicant's free-text `Contract.actor` as an authorization key.
+Each name maps to one stable `DemoUser` row, the participant record that contracts and
+later lifecycle records link to. The canonical key (`DemoUser.canonicalUsername`) is
+computed by `demoParticipantName` in `src/domain/demo-participant.ts`:
+`normaliseDemoName`, then Unicode NFKC, whitespace collapsed again, then lower case. So
+" AINO ", "ＡＩＮＯ" and "aino" are the same participant. The display name keeps the
+cleaned spelling of the first sign-in. A name seen for the first time creates its
+DemoUser with an audit row (`demo_user.created`); concurrent first sign-ins resolve to
+one row and one audit entry.
 
-Run `npm run db:setup` to initialize the synthetic participants/owners. Usernames match
-persona ID suffixes (`aino`, `mikko`, etc.); `provider1`/`provider2` are sample providers.
-Aino owns laptop-002 and can be renter/provider across different agreements. The seeder
-does not attribute historical contracts to a user by matching their display names.
+Server components use `currentPrincipal()` from `src/server/current-principal.ts` (it
+reads the name with `readDemoName()`). Route handlers use `requirePrincipal(db, request)`
+or `principalFromRequest(db, request)` from `src/server/mock-users.ts`, which read the
+same cookie from the request's Cookie header. Tests and scripts that call handlers
+directly build that header with `demoNameCookieHeader(name)`. Replace those adapters with
+proper login later; participant relationships use stable IDs.
+Never use the applicant's free-text `Contract.actor` as an authorization key, and a typed
+name never bypasses the server's application approval or signatory checks.
+
+Run `npm run db:setup` to initialize the synthetic participants/owners. Sign-in names
+match persona ID suffixes (`aino`, `mikko`, etc.). The item owners are the dealer-side
+demo providers from `src/server/providers.ts` with the same IDs and seed ownership:
+`kettu` (Kettu Mobility Oy), `pelto` (Pelto Agri Rental Oy) and Aino, who owns ebike-005
+and can be renter/provider across different agreements. The seeder does not attribute
+historical contracts to a user by matching their display names.
 
 ## Query endpoints
 
@@ -40,9 +55,9 @@ Active costs/income use locked monthly net rent, with per-contract date-effectiv
 ## Signing and originals
 
 `POST /api/contracts` retains the existing lease/answer/expected-price fields and now
-accepts `locale` (en/fi/sv/et, default en). A selected mock principal and configured
+accepts `locale` (en/fi/sv/et, default en). A demo sign-in name and a configured
 provider owner are required. Approval and company signatory checks still run on the
-server. The selected principal is linked separately from the approved applicant name.
+server. The signed-in participant is linked separately from the approved applicant name.
 
 `signApplication` delegates to the existing audited signer. The PDF is prepared before
 the transaction; availability/provider is checked again while reserving. Contract,
