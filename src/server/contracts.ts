@@ -15,6 +15,7 @@ export async function signContract(
   input: PricingInput & {
     actor: string;
     expectedMonthlyNetCents: number;
+    expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
   },
   signedOn: string,
@@ -36,6 +37,7 @@ export async function signContract(
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
   if (
     result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+    result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
     result.price.priceListVersion !== input.expectedPriceListVersion
   )
     throw new ApiError(
@@ -75,6 +77,7 @@ export type SignApplicationInput = {
   /** The customer's answers. The application is decided again here, from scratch. */
   answers: Answers;
   expectedMonthlyNetCents: number;
+  expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
 };
 

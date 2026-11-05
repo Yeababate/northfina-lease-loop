@@ -270,5 +270,7 @@
   "nav.signIn": "Sign in",
   "nav.signOut": "Sign out",
   "nav.greeting": "Hi, {name}",
-  "signing.start_before_signing": "The lease cannot start before the signing date."
+  "signing.start_before_signing": "The lease cannot start before the signing date.",
+  "sign.confirmRequired": "Read and agree to the contract above to enable signing.",
+  "sign.loadingApplication": "Loading your application answers…"
 }

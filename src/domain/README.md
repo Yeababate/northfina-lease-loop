@@ -74,7 +74,8 @@ The stored contract includes the list price and version, coefficient identity an
 version, band, factor, down payment, financed amount, monthly net rent, buyout,
 signing date and term. Later catalogue or coefficient edits do not modify it.
 
-The locked period starts on signing and ends at the exclusive monthly anniversary
+The locked period starts on the saved customer-selected `startOn` (on or after
+signing) and ends at the exclusive monthly anniversary
 stored as `endOn`. Short months clamp to their last day. Each monthly net rent and
 the buyout are rounded once to nearest whole euro cent, with half cents rounded up.
 The net rental total is monthly net rent multiplied by the agreed number of months;
@@ -86,8 +87,9 @@ invoice to the nearest cent, half up. The contract page lets the renter compare
 invoice dates; this date comparison previews tax only. The separate invoice list shows persisted invoices.
 
 Signing uses `withAudit` to create the contract and reserve the available item in
-one transaction. This MVP follows the starter's caller-supplied actor convention;
-it does not add customer eligibility or authentication.
+one transaction. The public API reruns application eligibility and derives the
+signer from approved answers. The name alone cannot authorise signing; customer
+authentication remains outside this MVP.
 
 ## Monthly invoices
 
@@ -118,3 +120,7 @@ starter's audit convention; it is not an authentication mechanism.
 Generation uses one audited transaction and a database unique key on contract and
 period. Retries return the same invoices; the audit records each successful
 generation request, including retries. Missing VAT fails the whole generation.
+
+See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
+for start-date evidence, migration failure reproduction and the tested side-by-side
+recovery approach.

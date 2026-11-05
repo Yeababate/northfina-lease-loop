@@ -270,5 +270,7 @@
   "nav.signIn": "Kirjaudu",
   "nav.signOut": "Kirjaudu ulos",
   "nav.greeting": "Hei, {name}",
-  "signing.start_before_signing": "Vuokra ei voi alkaa ennen allekirjoituspäivää."
+  "signing.start_before_signing": "Vuokra ei voi alkaa ennen allekirjoituspäivää.",
+  "sign.confirmRequired": "Lue ja hyväksy yllä oleva sopimus ottaaksesi allekirjoituksen käyttöön.",
+  "sign.loadingApplication": "Ladataan hakemuksesi vastauksia…"
 }
