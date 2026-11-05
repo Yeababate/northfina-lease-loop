@@ -250,6 +250,39 @@ model AssetLifecycleEvent {
   @@index([assetId])
 }
 
+// One immediately published review per completed agreement and reviewer. User IDs
+// are stable participant IDs, validated against the contract by the server service.
+model Rating {
+  id              String           @id
+  contractId      String
+  reviewerId      String
+  subjectId       String
+  direction       String // renter_to_provider | provider_to_renter
+  stars           Int
+  comment         String           @default("")
+  currentRevision Int              @default(1)
+  visibility      String           @default("visible") // visible | hidden
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  revisions       RatingRevision[]
+
+  @@unique([contractId, reviewerId])
+  @@index([subjectId, direction, visibility])
+}
+
+// Immutable evidence for edits and later reports. Author edits append, never replace.
+model RatingRevision {
+  id        String   @id
+  ratingId  String
+  revision  Int
+  stars     Int
+  comment   String
+  authorId  String
+  createdAt DateTime @default(now())
+  rating    Rating   @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+
+  @@unique([ratingId, revision])
+  }
 // A confirmed exit freezes its calculation; later policies do not rewrite this quote.
 model ExitRequest {
   id               String @id
