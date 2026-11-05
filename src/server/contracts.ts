@@ -8,6 +8,14 @@ import { ApiError } from './api-response';
 import { getAsset } from './assets';
 import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';
+import {
+  createReminderPreferencesInTx,
+  validateReminderSetup,
+  type InitialReminders,
+} from './reminders/preferences';
+
+/** Lease-end reminder settings saved with the contract, in the signing transaction. */
+export type SigningReminders = InitialReminders & { now: Date };
 
 /** No update operation is exposed: signing creates an immutable price snapshot. */
 export async function signContract(
@@ -19,7 +27,8 @@ export async function signContract(
   },
   signedOn: string,
   lists: readonly PriceList[],
-  table: CoefficientTable
+  table: CoefficientTable,
+  reminders?: SigningReminders
 ) {
   const result = priceContract(
     lists,
@@ -44,6 +53,13 @@ export async function signContract(
       'The price changed. Refresh and review before signing'
     );
   const id = randomUUID();
+  const event = reminders && {
+    contractId: id,
+    recipientId: reminders.recipientId,
+    endOn: result.price.endOn,
+  };
+  const reminderSetup =
+    reminders && event ? validateReminderSetup(event, reminders.preferences, reminders.now) : null;
   return withAudit(
     db,
     {
@@ -51,7 +67,9 @@ export async function signContract(
       action: 'contract.signed',
       entityType: 'contract',
       entityId: id,
-      details: result.price,
+      details: reminderSetup
+        ? { ...result.price, reminderPreferences: reminderSetup.preferences }
+        : result.price,
     },
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
@@ -62,7 +80,17 @@ export async function signContract(
       });
       if (reserved.count !== 1)
         throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
-      return tx.contract.create({ data: { id, actor: input.actor, ...result.price } });
+      const contract = await tx.contract.create({
+        data: { id, actor: input.actor, ...result.price },
+      });
+      if (reminders && event && reminderSetup)
+        await createReminderPreferencesInTx(
+          tx,
+          event,
+          { ...reminders, preferences: reminderSetup.preferences },
+          reminderSetup.schedule
+        );
+      return contract;
     }
   );
 }
@@ -94,7 +122,8 @@ export async function signApplication(
   db: PrismaClient,
   input: SignApplicationInput,
   signedOn: string,
-  data: SigningData
+  data: SigningData,
+  reminders?: SigningReminders
 ) {
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
@@ -123,5 +152,12 @@ export async function signApplication(
   if (!check.ok)
     throw new ApiError(422, 'NOT_APPROVED', 'The application is not approved', check.reason);
 
-  return signContract(db, { ...input, actor: check.signerName }, signedOn, data.lists, data.table);
+  return signContract(
+    db,
+    { ...input, actor: check.signerName },
+    signedOn,
+    data.lists,
+    data.table,
+    reminders
+  );
 }

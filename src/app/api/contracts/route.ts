@@ -3,9 +3,13 @@
 import { z } from 'zod';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { centsSchema, isoDateSchema } from '@/data/schemas';
+import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
+import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
+import { currentCustomer } from '@/server/current-customer';
 import { db } from '@/server/db';
+import { reminderLocaleSchema, reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
 
 /** One answer, as the question types store it. Sizes are capped so a body stays small. */
@@ -23,21 +27,39 @@ const schema = z.strictObject({
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
+  /** Lease-end reminder settings; 30/7/1 days at 09:00 Helsinki time when left out. */
+  reminders: reminderPreferencesSchema.optional(),
+  /** Language of reminder emails; the signing page's language. */
+  locale: reminderLocaleSchema.optional(),
 });
 
 export const POST = handleRoute(async (request) => {
-  const input = await readJsonBody(request, schema);
+  const { reminders, locale, ...input } = await readJsonBody(request, schema);
+  const customer = await currentCustomer();
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
   ]);
-  const contract = await signApplication(db, input, todayIso(), {
-    lists,
-    table,
-    vatRates,
-    questions: questionsFile.questions,
-  });
+  const contract = await signApplication(
+    db,
+    input,
+    todayIso(),
+    {
+      lists,
+      table,
+      vatRates,
+      questions: questionsFile.questions,
+    },
+    customer
+      ? {
+          recipientId: customer.id,
+          locale: locale ?? 'en',
+          preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
+          now: new Date(),
+        }
+      : undefined
+  );
   return ok(contract, { status: 201 });
 });
