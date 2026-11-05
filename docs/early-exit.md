@@ -41,7 +41,8 @@ does not invent a paid-invoice balance or cancellation-tax classification.
 Both provider actions require `balancesReviewed: true`: the provider explicitly reviews
 ordinary balances and applicable tax outside this net exit-price estimate. This is an
 acknowledgment in the mock, not a payment API, refund, or invented zero balance.
-All API responses use the project's envelope and resolve the selected stable mock user.
+All API responses use the project's envelope and resolve the stable participant from the
+demo sign-in name (see docs/profile-tooling.md).
 
 ## Completion and inventory
 

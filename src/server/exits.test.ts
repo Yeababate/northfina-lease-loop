@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { loadAssets } from '@/data/load';
 import { POST, GET } from '@/app/api/contracts/[id]/exit/route';
 import { createTestDb } from '../../tests/helpers/test-db';
+import { demoNameCookieHeader } from './demo-cookie';
 import { seedAssets } from './assets';
 import { readExitView, requestEarlyExit, withdrawEarlyExit } from './exit-requests';
 import { acknowledgeEarlyExit, finalizeDueReturns } from './exit-completion';
@@ -323,18 +324,18 @@ describe('provider confirmation and completion', () => {
   });
 });
 
-it('API requires mock identity, validates shape, and returns the common envelope', async () => {
+it('API requires a demo sign-in name, validates shape, and returns the common envelope', async () => {
   const http = (body: unknown, user = 'renter') =>
     new Request('http://localhost/api/contracts/contract/exit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: `lease-loop-user=${user}` },
+      headers: { 'Content-Type': 'application/json', cookie: demoNameCookieHeader(user) },
       body: JSON.stringify(body),
     });
   expect((await GET(new Request('http://localhost'), context)).status).toBe(401);
   expect(
     (
       await GET(
-        new Request('http://localhost', { headers: { cookie: 'lease-loop-user=other' } }),
+        new Request('http://localhost', { headers: { cookie: demoNameCookieHeader('other') } }),
         context
       )
     ).status
