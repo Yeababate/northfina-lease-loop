@@ -6,9 +6,9 @@ insufficient. Stable renterId/providerId determine reviewer/subject; actor is no
 
 ## API
 
-All routes use the shared JSON envelope. Mutations require a participant from the demo
-sign-in name (the HTTP-only `lease-loop-name` cookie, see src/server/mock-users.ts) and
-accept no identity fields in the body: strict schemas reject them.
+All routes use the shared JSON envelope. Mutations require the demo sign-in name (main's
+lease-loop-name cookie), resolved to a stable participant ID by requirePrincipal (see
+docs/profile-tooling.md). They accept no extra identity fields: strict schemas reject them.
 
 - GET /api/contracts/:id/ratings returns the selected participant's rating or null.
 - POST /api/contracts/:id/ratings accepts { stars, comment? } and creates one review.

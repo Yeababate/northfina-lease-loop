@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { GET as ownGET, POST } from '@/app/api/contracts/[id]/ratings/route';
 import { PATCH } from '@/app/api/ratings/[id]/route';
 import { GET as publicGET } from '@/app/api/users/[id]/ratings/route';
-import { demoNameCookieHeader } from './demo-cookie';
 import { createTestDb } from '../../tests/helpers/test-db';
+import { demoNameCookieHeader } from './demo-cookie';
 import type { PrismaClient } from './prisma-client';
 import { createRating, editRating, ownContractRating, publicRatings } from './ratings';
 
@@ -202,15 +202,15 @@ describe('rating API tools', () => {
       method,
       headers: {
         'Content-Type': 'application/json',
-        // Identity is the demo sign-in name (main's design); test users' names equal their ids.
-        ...(user !== null ? { cookie: demoNameCookieHeader(user) } : {}),
+        ...(user === null ? {} : { cookie: demoNameCookieHeader(user) }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   it('requires selected identity and rejects forged subject/reviewer fields', async () => {
     expect((await POST(request(null, { stars: 5 }), context('done'))).status).toBe(401);
-    // Any valid name is a participant now, so an invalid (blank) name stands in for a forged one.
-    expect((await POST(request(' ', { stars: 5 }), context('done'))).status).toBe(401);
+    expect((await POST(request('  ', { stars: 5 }), context('done'))).status).toBe(401);
+    // A new sign-in name is a new participant, never a party to someone else's contract.
+    expect((await POST(request('missing', { stars: 5 }), context('done'))).status).toBe(403);
     const invalid = await POST(
       request('renter', { stars: 5, subjectId: 'other' }),
       context('done')
