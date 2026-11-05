@@ -61,6 +61,27 @@ describe('priceContract', () => {
     expect(priceContract(changed, table, input, '2026-11-05')).not.toEqual(result);
     expect(result.price.monthlyNetCents).toBe(10730);
   });
+  it('starts on the signing day unless a later start date is chosen', () => {
+    expect(priceContract(lists, table, input, '2026-11-05')).toMatchObject({
+      ok: true,
+      price: { signedOn: '2026-11-05', startOn: '2026-11-05', endOn: '2029-11-05' },
+    });
+    expect(
+      priceContract(lists, table, { ...input, startOn: '2026-12-01' }, '2026-11-05')
+    ).toMatchObject({
+      ok: true,
+      price: { signedOn: '2026-11-05', startOn: '2026-12-01', endOn: '2029-12-01' },
+    });
+  });
+  it('refuses a start date before the signing day, and a malformed one', () => {
+    expect(priceContract(lists, table, { ...input, startOn: '2026-11-04' }, '2026-11-05')).toEqual({
+      ok: false,
+      reason: 'start_before_signing',
+    });
+    expect(() =>
+      priceContract(lists, table, { ...input, startOn: '1.12.2026' }, '2026-11-05')
+    ).toThrow();
+  });
   it('uses signing date rather than earlier quote date', () => {
     const laptop = { ...input, assetId: 'laptop-004' };
     const quote = priceContract(lists, table, laptop, '2026-11-05');

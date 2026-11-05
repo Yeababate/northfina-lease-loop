@@ -5,7 +5,13 @@ import { quoteLease } from './pricing';
 import { vatCents as calculateVatCents } from './vat';
 import { listPriceOn } from './price-list';
 
-export type PricingInput = { assetId: string; termMonths: number; downPaymentCents: number };
+export type PricingInput = {
+  assetId: string;
+  termMonths: number;
+  downPaymentCents: number;
+  /** First day of the lease. Defaults to the signing day; may not be before it. */
+  startOn?: string;
+};
 
 /** Prices become binding on signing, using that day's catalogue and coefficients. */
 export function priceContract(
@@ -16,6 +22,9 @@ export function priceContract(
 ) {
   if (!Number.isSafeInteger(input.downPaymentCents)) throw new RangeError('Whole cents required');
   if (input.downPaymentCents < 0) return { ok: false, reason: 'invalid_down_payment' } as const;
+  const startOn = input.startOn ?? signedOn;
+  isoDateSchema.parse(startOn);
+  if (startOn < signedOn) return { ok: false, reason: 'start_before_signing' } as const;
   const price = listPriceOn(lists, input.assetId, signedOn);
   if (!price.ok) return price;
   if (table.valid_from > signedOn) return { ok: false, reason: 'no_coefficient_on_date' } as const;
@@ -37,7 +46,8 @@ export function priceContract(
     price: {
       ...input,
       signedOn,
-      endOn: contractEndOn(signedOn, input.termMonths),
+      startOn,
+      endOn: contractEndOn(startOn, input.termMonths),
       listPriceCents: price.priceCents,
       priceListVersion: price.priceListVersion,
       coefficientVersion: table.version,
