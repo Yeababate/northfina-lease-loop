@@ -32,5 +32,19 @@
   "usage.km": "{value} km",
   "usage.battery_cycles": "{value} laddningscykler",
   "usage.engine_hours": "{value} motortimmar",
-  "footer.skeleton": "Startskelett — byt ut mig"
+  "footer.skeleton": "Startskelett — byt ut mig",
+  "contract.title": "Undertecknat avtal",
+  "contract.rule": "Nettopriset låses vid signering enligt prislistan på signeringsdagen. Tidigare offerter är uppskattningar. Senare prisändringar påverkar inte din avtalade nettohyra.",
+  "contract.term": "Löptid (månader)",
+  "contract.down": "Kontantinsats (netto, eurocent)",
+  "contract.actor": "Undertecknarens namn",
+  "contract.monthly": "Månadshyra exkl. moms: {amount}",
+  "contract.period": "Låst från {start} till {end} (slutdagen ingår inte).",
+  "contract.sign": "Granska och underteckna",
+  "contract.error": "Signeringen misslyckades. Uppdatera sidan, granska pris och tillgänglighet och försök igen.",
+  "contract.unavailable": "Priset kan inte beräknas för dessa uppgifter.",
+  "contract.tax": "Moms läggs till enligt skattesatsen på fakturadagen. En skatteändring kan ändra totalen medan nettohyran förblir låst.",
+  "contract.invoiceDate": "Fakturadatum",
+  "contract.calculate": "Beräkna moms",
+  "contract.invoice": "Moms {rate}%: {tax}. Månadstotal inkl. moms: {total}."
 }

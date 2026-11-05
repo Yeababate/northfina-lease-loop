@@ -32,5 +32,19 @@
   "usage.km": "{value} km",
   "usage.battery_cycles": "{value} latauskertaa",
   "usage.engine_hours": "{value} käyttötuntia",
-  "footer.skeleton": "Aloituspohja — korvaa minut"
+  "footer.skeleton": "Aloituspohja — korvaa minut",
+  "contract.title": "Allekirjoitettu sopimus",
+  "contract.rule": "Nettohinta lukitaan allekirjoituspäivän hinnaston mukaan. Aiemmat tarjoukset ovat arvioita. Myöhemmät hinnaston muutokset eivät muuta sovittua nettohintaa.",
+  "contract.term": "Kesto (kuukautta)",
+  "contract.down": "Käsiraha (netto, eurosentteinä)",
+  "contract.actor": "Allekirjoittajan nimi",
+  "contract.monthly": "Kuukausivuokra ilman ALV:tä: {amount}",
+  "contract.period": "Hinta lukittu {start}–{end} (päättymispäivä ei sisälly).",
+  "contract.sign": "Tarkista ja allekirjoita",
+  "contract.error": "Allekirjoitus epäonnistui. Päivitä sivu, tarkista hinta ja saatavuus ja yritä uudelleen.",
+  "contract.unavailable": "Hintaa ei voida laskea näillä tiedoilla.",
+  "contract.tax": "ALV lisätään laskutuspäivän verokannan mukaan. Veromuutos voi muuttaa loppusummaa, vaikka nettovuokra pysyy lukittuna.",
+  "contract.invoiceDate": "Laskutuspäivä",
+  "contract.calculate": "Laske ALV",
+  "contract.invoice": "ALV {rate}%: {tax}. Kuukausisumma ALV:n kanssa: {total}."
 }

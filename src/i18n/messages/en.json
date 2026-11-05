@@ -32,5 +32,19 @@
   "usage.km": "{value} km",
   "usage.battery_cycles": "{value} battery cycles",
   "usage.engine_hours": "{value} engine hours",
-  "footer.skeleton": "Starter skeleton — replace me"
+  "footer.skeleton": "Starter skeleton — replace me",
+  "contract.title": "Signed contract",
+  "contract.rule": "The net price locks when you sign, using the price list valid on the signing date. Earlier quotes are estimates. Later catalogue changes do not change your agreed net rent.",
+  "contract.term": "Term (months)",
+  "contract.down": "Down payment (net euro cents)",
+  "contract.actor": "Signer name",
+  "contract.monthly": "Monthly rent excl. VAT: {amount}",
+  "contract.period": "Locked from {start} until {end} (end date excluded).",
+  "contract.sign": "Review and sign",
+  "contract.error": "Signing failed. Refresh to review the current price and availability, then try again.",
+  "contract.unavailable": "Pricing unavailable for these details.",
+  "contract.tax": "VAT is added at the rate on each invoice date. A tax change can change your total while your net rent stays locked.",
+  "contract.invoiceDate": "Invoice date",
+  "contract.calculate": "Calculate VAT",
+  "contract.invoice": "VAT {rate}%: {tax}. Monthly total incl. VAT: {total}."
 }
