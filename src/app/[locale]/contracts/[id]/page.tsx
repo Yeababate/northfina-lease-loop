@@ -32,7 +32,7 @@ export default async function ContractPage({
           amount: formatEuro(contract.monthlyNetCents, intlLocale[locale]),
         })}
       </p>
-      <p>{t('contract.period', { start: contract.signedOn, end: contract.endOn })}</p>
+      <p>{t('contract.period', { start: contract.startOn, end: contract.endOn })}</p>
       <p>{t('asset.priceListVersion', { version: contract.priceListVersion })}</p>
       <p>{t('contract.tax')}</p>
       <form>

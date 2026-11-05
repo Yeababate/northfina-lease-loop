@@ -28,6 +28,8 @@ type LeaseCalculatorProps = {
   nextVatChange: VatChange | null;
   initialTerm: number;
   startDate: string;
+  /** Today: the day this price was shown, so signing can explain a price-list change. */
+  quotedOn: string;
   /** The application page; term, down payment and start date are added as query params. */
   applyPath: string;
   /** Photo, facts and list price: rendered on the server, shown above the apply button. */
@@ -65,6 +67,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
     term: String(termMonths),
     down: String(downPaymentCents),
     start: props.startDate,
+    quoted: props.quotedOn,
   })}`;
 
   return (

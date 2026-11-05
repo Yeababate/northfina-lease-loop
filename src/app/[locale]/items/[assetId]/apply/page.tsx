@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { ApplicationWizard } from '@/components/application/application-wizard';
+import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
 import { availableTerms, DEFAULT_TERM_MONTHS, quoteLease } from '@/domain/pricing';
@@ -43,6 +45,9 @@ export default async function ApplyPage({
     terms: availableTerms(table),
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
+  // The day the customer saw the price, for "Why this price?" when signing. Never after today.
+  const quotedText = typeof query.quoted === 'string' ? query.quoted : '';
+  const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
   const downText = typeof query.down === 'string' ? query.down : '0';
   const downPaymentCents = /^\d{1,12}$/.test(downText) ? Number(downText) : -1;
 
@@ -93,10 +98,10 @@ export default async function ApplyPage({
             }}
             coefficientTable={table}
             monthlyRentWithVatCents={quote.quote.monthlyGrossCents}
-            storageKey={`lease-loop:application:${asset.id}:${leaseParams}`}
+            storageKey={applicationStorageKey(asset.id, termMonths, downPaymentCents, startDate)}
             links={{
               item: itemHref,
-              sign: `/${locale}/items/${asset.id}/sign?${leaseParams}`,
+              sign: `/${locale}/items/${asset.id}/sign?${leaseParams}&${new URLSearchParams({ quoted: quotedOn })}`,
               catalogue: `/${locale}`,
             }}
           />
