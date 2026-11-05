@@ -62,8 +62,6 @@
   "filters.searchPlaceholder": "Name, make or model",
   "filters.category": "Category",
   "filters.price": "List price (net, EUR)",
-  "filters.priceFrom": "From",
-  "filters.priceTo": "To",
   "filters.lease": "Lease",
   "filters.startDate": "Start date",
   "filters.termLength": "Lease length",
@@ -197,5 +195,12 @@
   "reason.pep_manual_review": "You told us that you or an owner is a politically exposed person. The law requires a person, not a rule, to check these applications.",
   "reason.financed_below": "The amount to finance is below {min}, the smallest lease we offer.",
   "reason.financed_above": "The amount to finance is above {max}, the largest lease we offer.",
-  "reason.other": "One of your answers means we cannot offer a lease."
+  "reason.other": "One of your answers means we cannot offer a lease.",
+  "filters.priceMin": "Lowest list price",
+  "filters.priceMax": "Highest list price",
+  "filters.priceAny": "Any list price",
+  "filters.priceFromOnly": "From {min}",
+  "filters.priceUpTo": "Up to {max}",
+  "filters.priceBetween": "{min} to {max}",
+  "filters.priceNoLimit": "{amount}+"
 }

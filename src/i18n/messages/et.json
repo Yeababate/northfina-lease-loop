@@ -62,8 +62,6 @@
   "filters.searchPlaceholder": "Nimi, mark või mudel",
   "filters.category": "Kategooria",
   "filters.price": "Hinnakirja hind (km-ta, EUR)",
-  "filters.priceFrom": "Alates",
-  "filters.priceTo": "Kuni",
   "filters.lease": "Liising",
   "filters.startDate": "Alguskuupäev",
   "filters.termLength": "Liisinguperiood",
@@ -197,5 +195,12 @@
   "reason.pep_manual_review": "Sa ütlesid, et sina või mõni omanik on riikliku taustaga isik. Seadus nõuab, et selliseid taotlusi kontrolliks inimene, mitte reegel.",
   "reason.financed_below": "Rahastatav summa on alla {min}, mis on väikseim liising, mida pakume.",
   "reason.financed_above": "Rahastatav summa on üle {max}, mis on suurim liising, mida pakume.",
-  "reason.other": "Üks sinu vastustest tähendab, et me ei saa liisingut pakkuda."
+  "reason.other": "Üks sinu vastustest tähendab, et me ei saa liisingut pakkuda.",
+  "filters.priceMin": "Madalaim hind",
+  "filters.priceMax": "Kõrgeim hind",
+  "filters.priceAny": "Iga hinnaga",
+  "filters.priceFromOnly": "Alates {min}",
+  "filters.priceUpTo": "Kuni {max}",
+  "filters.priceBetween": "{min} kuni {max}",
+  "filters.priceNoLimit": "{amount}+"
 }
