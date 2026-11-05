@@ -270,5 +270,7 @@
   "nav.signIn": "Logga in",
   "nav.signOut": "Logga ut",
   "nav.greeting": "Hej, {name}",
-  "signing.start_before_signing": "Leasen kan inte börja före signeringsdagen."
+  "signing.start_before_signing": "Leasen kan inte börja före signeringsdagen.",
+  "sign.confirmRequired": "Läs och godkänn avtalet ovan för att kunna signera.",
+  "sign.loadingApplication": "Läser in dina ansökningssvar…"
 }

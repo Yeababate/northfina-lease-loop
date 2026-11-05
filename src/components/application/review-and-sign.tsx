@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type ReactNode } from 'react';
 import type { CoefficientTable, Question } from '@/data/schemas';
-import { checkApplicationForSigning } from '@/domain/application-signing';
+import { checkApplicationForSigning, signingOfferKey } from '@/domain/application-signing';
 import { formatEuro } from '@/domain/money';
 import type { Deal } from '@/domain/question-flow';
 import { formatIsoDate } from '@/i18n/format';
@@ -50,7 +50,13 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
   const agreeId = useId();
   const canRead = useCanReadAnswers();
   const answers = useSavedAnswers(props.storageKey);
-  const [agreed, setAgreed] = useState(false);
+  // Consent belongs to the exact displayed offer, including buyout and VAT preview.
+  const offerKey = signingOfferKey({
+    ...lease,
+    monthlyGrossCents: props.monthlyRentWithVatCents,
+  });
+  const [agreedOffer, setAgreedOffer] = useState<string | null>(null);
+  const agreed = agreedOffer === offerKey;
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
 
@@ -63,7 +69,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
   });
 
   async function sign() {
-    if (!agreed || busy) return;
+    if (!agreed || busy || !canRead || !check.ok || errorKey === 'sign.error.PRICE_CHANGED') return;
     setBusy(true);
     setErrorKey(null);
     try {
@@ -77,6 +83,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           startOn: lease.startOn,
           answers,
           expectedMonthlyNetCents: lease.monthlyNetCents,
+          expectedBuyoutNetCents: lease.buyoutCents,
           expectedPriceListVersion: lease.priceListVersion,
         }),
       });
@@ -84,6 +91,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
         await response.json();
       if (!result.success || !result.data) {
         const code = result.error?.code ?? '';
+        if (code === 'PRICE_CHANGED') setAgreedOffer(null);
         setErrorKey(
           SIGN_ERRORS.includes(code) ? (`sign.error.${code}` as MessageKey) : 'sign.error.generic'
         );
@@ -141,22 +149,32 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           <h2 id="sign-panel" className="text-xl font-semibold">
             {t('sign.panelTitle')}
           </h2>
-          {!canRead ? null : check.ok ? (
+          {!canRead ? (
+            <p role="status">{t('sign.loadingApplication')}</p>
+          ) : check.ok ? (
             <>
               <div className="mt-4 flex items-start gap-3">
                 <input
                   id={agreeId}
                   type="checkbox"
                   checked={agreed}
-                  onChange={(event) => setAgreed(event.target.checked)}
+                  onChange={(event) => setAgreedOffer(event.target.checked ? offerKey : null)}
                   className="mt-1 size-4 accent-blue-600"
                 />
                 <label htmlFor={agreeId}>{t('sign.agree')}</label>
               </div>
+              <p role="status" className="mt-3 text-sm" id={`${agreeId}-status`}>
+                {busy
+                  ? t('sign.signing')
+                  : !agreed
+                    ? t('sign.confirmRequired')
+                    : t('sign.signingAs', { name: check.signerName })}
+              </p>
               <button
+                aria-describedby={`${agreeId}-status`}
                 type="button"
                 onClick={sign}
-                disabled={!agreed || busy}
+                disabled={!agreed || busy || errorKey === 'sign.error.PRICE_CHANGED'}
                 className={`${primaryButton} mt-4 w-full disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {busy ? t('sign.signing') : t('sign.button')}
