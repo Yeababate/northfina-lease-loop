@@ -26,6 +26,7 @@ model Asset {
   usage_value    Int
   previous_lives Int
   status         String // available | reserved | returned
+  ownerId        String?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -51,6 +52,8 @@ model AuditLog {
 model Contract {
   id                 String @id
   actor              String
+  renterId           String?
+  providerId         String?
   assetId            String
   /// First day of the lease, chosen by the customer. On or after signedOn.
   startOn            String
@@ -67,8 +70,60 @@ model Contract {
   financedCents      Int
   monthlyNetCents    Int
   buyoutNetCents     Int
+  lines              ContractLine[]
+  lifecycle          ContractLifecycle?
+  document           ContractDocument?
 
   @@index([assetId])
+  @@index([renterId])
+  @@index([providerId])
+}
+
+// Mock accounts are selected by username; lifecycle relationships use stable IDs.
+model DemoUser {
+  id                String @id
+  canonicalUsername String @unique
+  displayName       String
+  moderator         Boolean @default(false)
+}
+
+// Financial line snapshots allow later bundles without rewriting existing prices.
+model ContractLine {
+  id                 String @id
+  contractId         String
+  contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId            String
+  listPriceCents     Int
+  downPaymentCents   Int
+  financedCents      Int
+  monthlyNetCents    Int
+  buyoutNetCents     Int
+  priceListVersion   Int
+  coefficientVersion Int
+  coefficientId      String
+  band               String
+  factor             Float
+
+  @@unique([contractId, assetId])
+}
+
+// Mutable operational state is separate from the signed financial snapshot.
+model ContractLifecycle {
+  contractId String @id
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  status     String @default("active")
+  actualEndOn String?
+  revision   Int @default(0)
+}
+
+model ContractDocument {
+  contractId     String @id
+  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  locale         String
+  templateVersion String
+  generatedAt    String
+  sha256         String
+  bytes          Bytes
 }
 
 // One immediately published review per completed agreement and reviewer. User IDs
