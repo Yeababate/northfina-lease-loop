@@ -62,8 +62,6 @@
   "filters.searchPlaceholder": "Nimi, merkki tai malli",
   "filters.category": "Tuoteryhmä",
   "filters.price": "Listahinta (veroton, EUR)",
-  "filters.priceFrom": "Alkaen",
-  "filters.priceTo": "Enintään",
   "filters.lease": "Vuokrasopimus",
   "filters.startDate": "Alkupäivä",
   "filters.termLength": "Sopimuskausi",
@@ -197,5 +195,12 @@
   "reason.pep_manual_review": "Kerroit, että sinä tai omistaja olette poliittisesti vaikutusvaltaisia henkilöitä. Laki edellyttää, että henkilö, ei sääntö, tarkistaa nämä hakemukset.",
   "reason.financed_below": "Rahoitettava summa on alle {min}, joka on pienin tarjoamamme sopimus.",
   "reason.financed_above": "Rahoitettava summa on yli {max}, joka on suurin tarjoamamme sopimus.",
-  "reason.other": "Jokin vastauksistasi estää sopimuksen tarjoamisen."
+  "reason.other": "Jokin vastauksistasi estää sopimuksen tarjoamisen.",
+  "filters.priceMin": "Alin listahinta",
+  "filters.priceMax": "Ylin listahinta",
+  "filters.priceAny": "Mikä tahansa listahinta",
+  "filters.priceFromOnly": "Alkaen {min}",
+  "filters.priceUpTo": "Enintään {max}",
+  "filters.priceBetween": "{min}–{max}",
+  "filters.priceNoLimit": "{amount}+"
 }

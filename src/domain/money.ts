@@ -11,6 +11,16 @@ export function formatEuro(cents: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
+/** Whole euros without cents, for slider ends and filters: 15000 → "€15,000" (en). */
+export function formatWholeEuros(euros: number, locale: string): string {
+  if (!Number.isInteger(euros)) throw new RangeError(`euros must be whole, got ${euros}`);
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(euros);
+}
+
 export type ParseEurosResult = { ok: true; cents: number } | { ok: false };
 
 /**

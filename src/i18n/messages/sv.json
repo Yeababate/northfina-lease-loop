@@ -62,8 +62,6 @@
   "filters.searchPlaceholder": "Namn, märke eller modell",
   "filters.category": "Kategori",
   "filters.price": "Listpris (exkl. moms, EUR)",
-  "filters.priceFrom": "Från",
-  "filters.priceTo": "Till",
   "filters.lease": "Leasing",
   "filters.startDate": "Startdatum",
   "filters.termLength": "Avtalstid",
@@ -197,5 +195,12 @@
   "reason.pep_manual_review": "Du berättade att du eller en ägare är en person i politiskt utsatt ställning. Lagen kräver att en person, inte en regel, granskar sådana ansökningar.",
   "reason.financed_below": "Beloppet att finansiera är under {min}, det minsta avtal vi erbjuder.",
   "reason.financed_above": "Beloppet att finansiera är över {max}, det största avtal vi erbjuder.",
-  "reason.other": "Ett av dina svar gör att vi inte kan erbjuda ett avtal."
+  "reason.other": "Ett av dina svar gör att vi inte kan erbjuda ett avtal.",
+  "filters.priceMin": "Lägsta listpris",
+  "filters.priceMax": "Högsta listpris",
+  "filters.priceAny": "Alla listpriser",
+  "filters.priceFromOnly": "Från {min}",
+  "filters.priceUpTo": "Upp till {max}",
+  "filters.priceBetween": "{min} till {max}",
+  "filters.priceNoLimit": "{amount}+"
 }

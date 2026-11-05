@@ -10,6 +10,7 @@ import type { CatalogueQuery, CatalogueSort } from '@/domain/catalogue';
 import type { MessageKey } from '@/i18n/get-t';
 import { getT } from '@/i18n/get-t';
 import type { Locale } from '@/i18n/locales';
+import { PriceRangeSlider } from './price-range-slider';
 import { secondaryButton, textLink } from './ui';
 
 export const CATALOGUE_FORM_ID = 'catalogue-filters';
@@ -31,9 +32,10 @@ export function CatalogueFilters(props: CatalogueFiltersProps) {
   const t = getT(locale);
 
   // Free-text fields wait for Enter or the button; choices apply as soon as they change.
+  // The price slider applies itself when a handle is let go, not on every step of a drag.
   function applyChoice(event: FormEvent<HTMLFormElement>) {
     const target = event.target as HTMLInputElement;
-    if (target.type === 'text' || target.type === 'number' || target.type === 'search') return;
+    if (['text', 'number', 'search', 'range'].includes(target.type)) return;
     event.currentTarget.requestSubmit();
   }
 
@@ -72,13 +74,14 @@ export function CatalogueFilters(props: CatalogueFiltersProps) {
         checked={query.conditions}
       />
 
-      <fieldset>
-        <legend className="font-semibold">{t('filters.price')}</legend>
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <PriceField name="min" label={t('filters.priceFrom')} value={query.minPriceEuros} />
-          <PriceField name="max" label={t('filters.priceTo')} value={query.maxPriceEuros} />
-        </div>
-      </fieldset>
+      <PriceRangeSlider
+        // A new URL (for example "Clear all filters") resets the handles.
+        key={`${query.minPriceEuros}-${query.maxPriceEuros}`}
+        minEuros={query.minPriceEuros}
+        maxEuros={query.maxPriceEuros}
+        locale={locale}
+        t={t}
+      />
 
       <fieldset className="space-y-3">
         <legend className="font-semibold">{t('filters.lease')}</legend>
@@ -185,34 +188,5 @@ function CheckboxGroup(props: {
         ))}
       </ul>
     </fieldset>
-  );
-}
-
-function PriceField({ name, label, value }: { name: string; label: string; value: number | null }) {
-  const id = `filter-${name}`;
-  return (
-    <div>
-      <label htmlFor={id} className="text-sm">
-        {label}
-      </label>
-      <div className="relative mt-1">
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 left-3 flex items-center text-stone-500"
-        >
-          €
-        </span>
-        <input
-          id={id}
-          name={name}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={1}
-          defaultValue={value ?? ''}
-          className={`${fieldClass} pl-7`}
-        />
-      </div>
-    </div>
   );
 }
