@@ -4,6 +4,7 @@ import { loadAssets } from '@/data/load';
 import { seedAssets } from '@/server/assets';
 import { seedDealerSide } from '@/server/providers';
 import { createPrismaClient } from '@/server/prisma-client';
+import { seedDemoParticipants } from '@/server/demo-participants';
 
 const db = createPrismaClient();
 try {
@@ -13,6 +14,10 @@ try {
   const dealer = await seedDealerSide(db, assets);
   console.log(
     `🌱 Dealer side: ${dealer.providers} providers, ${dealer.ownership} ownership rows, ${dealer.intakes} imported returns.`
+  );
+  const participants = await seedDemoParticipants(db);
+  console.log(
+    `Seeded ${participants.usersCreated} demo users and assigned ${participants.assetsAssigned} unowned demo assets.`
   );
 } finally {
   await db.$disconnect();

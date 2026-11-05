@@ -22,6 +22,7 @@ import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { currentPrincipal } from '@/server/current-principal';
 
 export default async function SignPage({
   params,
@@ -41,6 +42,7 @@ export default async function SignPage({
   if (!asset) notFound();
 
   const t = getT(locale);
+  const principal = await currentPrincipal();
   const today = todayIso();
   const query = await searchParams;
   const { termMonths, startDate } = parseCatalogueQuery(query, {
@@ -159,7 +161,13 @@ export default async function SignPage({
             buyoutCents: price.buyoutNetCents,
             priceListVersion: price.priceListVersion,
           }}
-          storageKey={applicationStorageKey(asset.id, termMonths, downPaymentCents, startDate)}
+          storageKey={applicationStorageKey(
+            asset.id,
+            termMonths,
+            downPaymentCents,
+            startDate,
+            principal?.id
+          )}
           questions={questionsFile.questions}
           deal={{
             category: asset.category,

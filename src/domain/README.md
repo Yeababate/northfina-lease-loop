@@ -38,6 +38,7 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `eligibility.ts`         | Approved, declined or manual review, with the checks behind it.          |
 | `refurbishment-rules.ts` | Required work for a returned item, from the data-pack rules (no costs).  |
 | `next-life.ts`           | Returned item state machine: receipt, inspection, work, guarded relist.  |
+| `demo-participant.ts`    | Canonical participant key for a demo sign-in name; reads one cookie.     |
 
 ### How the question flow works
 

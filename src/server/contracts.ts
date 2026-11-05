@@ -8,6 +8,15 @@ import { ApiError } from './api-response';
 import { getAsset } from './assets';
 import { withAudit } from './audit';
 import type { PrismaClient } from './prisma-client';
+import { renderContractPdf } from './contract-pdf';
+import type { Locale } from '@/i18n/locales';
+
+export type SigningParticipants = {
+  renterId: string;
+  providerId: string;
+  providerName: string;
+  locale: Locale;
+};
 
 /** No update operation is exposed: signing creates an immutable price snapshot. */
 export async function signContract(
@@ -17,6 +26,7 @@ export async function signContract(
     expectedMonthlyNetCents: number;
     expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
+    participants?: SigningParticipants;
   },
   signedOn: string,
   lists: readonly PriceList[],
@@ -46,10 +56,22 @@ export async function signContract(
       'The price changed. Refresh and review before signing'
     );
   const id = randomUUID();
+  const assetSnapshot = await db.asset.findUnique({ where: { id: input.assetId } });
+  if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  const document = await renderContractPdf({
+    ...result.price,
+    id,
+    actor: input.actor,
+    providerName: input.participants?.providerName ?? '',
+    assetName: `${assetSnapshot.make} ${assetSnapshot.model}`,
+    serialNumber: assetSnapshot.serial_number,
+    locale: input.participants?.locale ?? 'en',
+    generatedAt: new Date().toISOString(),
+  });
   return withAudit(
     db,
     {
-      actor: input.actor,
+      actor: input.participants?.renterId ?? input.actor,
       action: 'contract.signed',
       entityType: 'contract',
       entityId: id,
@@ -58,14 +80,41 @@ export async function signContract(
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
       if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      if (input.participants && asset.ownerId !== input.participants.providerId)
+        throw new ApiError(409, 'PROVIDER_CHANGED', 'The provider changed. Review before signing');
       const reserved = await tx.asset.updateMany({
         where: { id: input.assetId, status: 'available' },
         data: { status: 'reserved' },
       });
       if (reserved.count !== 1)
         throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+      const { assetId, ...linePrice } = result.price;
       const contract = await tx.contract.create({
-        data: { id, actor: input.actor, ...result.price },
+        data: {
+          id,
+          actor: input.actor,
+          ...result.price,
+          renterId: input.participants?.renterId ?? null,
+          providerId: input.participants?.providerId ?? null,
+          lines: {
+            create: {
+              id: `${id}:${assetId}`,
+              assetId,
+              listPriceCents: linePrice.listPriceCents,
+              downPaymentCents: linePrice.downPaymentCents,
+              financedCents: linePrice.financedCents,
+              monthlyNetCents: linePrice.monthlyNetCents,
+              buyoutNetCents: linePrice.buyoutNetCents,
+              priceListVersion: linePrice.priceListVersion,
+              coefficientVersion: linePrice.coefficientVersion,
+              coefficientId: linePrice.coefficientId,
+              band: linePrice.band,
+              factor: linePrice.factor,
+            },
+          },
+          lifecycle: { create: {} },
+          document: { create: document },
+        },
       });
       // Record who provides this lease, from current ownership, in the same transaction.
       // The link never changes, so the provider keeps access after any later sale.
@@ -89,6 +138,7 @@ export type SignApplicationInput = {
   expectedMonthlyNetCents: number;
   expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
+  locale?: Locale;
 };
 
 export type SigningData = {
@@ -107,7 +157,8 @@ export async function signApplication(
   db: PrismaClient,
   input: SignApplicationInput,
   signedOn: string,
-  data: SigningData
+  data: SigningData,
+  principalId?: string
 ) {
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
@@ -136,5 +187,32 @@ export async function signApplication(
   if (!check.ok)
     throw new ApiError(422, 'NOT_APPROVED', 'The application is not approved', check.reason);
 
-  return signContract(db, { ...input, actor: check.signerName }, signedOn, data.lists, data.table);
+  let participants: SigningParticipants | undefined;
+  if (principalId) {
+    const [principal, ownedAsset] = await Promise.all([
+      db.demoUser.findUnique({ where: { id: principalId } }),
+      db.asset.findUnique({ where: { id: input.assetId } }),
+    ]);
+    if (!principal) throw new ApiError(401, 'LOGIN_REQUIRED', 'Select a demo username first');
+    if (!ownedAsset?.ownerId)
+      throw new ApiError(422, 'PROVIDER_REQUIRED', 'The item has no configured provider');
+    if (ownedAsset.ownerId === principal.id)
+      throw new ApiError(422, 'OWN_ASSET', 'Choose an item from another provider');
+    const provider = await db.demoUser.findUnique({ where: { id: ownedAsset.ownerId } });
+    if (!provider)
+      throw new ApiError(422, 'PROVIDER_REQUIRED', 'The item has no configured provider');
+    participants = {
+      renterId: principal.id,
+      providerId: provider.id,
+      providerName: provider.displayName,
+      locale: input.locale ?? 'en',
+    };
+  }
+  return signContract(
+    db,
+    { ...input, actor: check.signerName, participants },
+    signedOn,
+    data.lists,
+    data.table
+  );
 }
