@@ -83,8 +83,37 @@ the down payment and optional buyout are separate amounts.
 VAT is not locked. `invoicePrice` takes the stored monthly net rent and selects the
 VAT rate by invoice date (inclusive validity boundaries), rounding tax once per
 invoice to the nearest cent, half up. The contract page lets the renter compare
-invoice dates; it previews tax and does not issue or persist invoices.
+invoice dates; this date comparison previews tax only. The separate invoice list shows persisted invoices.
 
 Signing uses `withAudit` to create the contract and reserve the available item in
 one transaction. This MVP follows the starter's caller-supplied actor convention;
 it does not add customer eligibility or authentication.
+
+## Monthly invoices
+
+`invoices.ts` schedules exactly `termMonths` full rental invoices in advance.
+The first invoice date and payment due date are the signing date. For a mid-month
+start, the first period runs from that day to the next monthly anniversary: there
+is no calendar-month proration or extra stub-period charge. Invoice date and due
+date are deliberately identical; no additional payment grace period is assumed.
+
+Each date is calculated from the original signing day with `contractEndOn`,
+clamping independently to the last day of each shorter month. A 31 January 2026
+start bills on 28 February 2026, 31 March 2026 and 29 February 2028. The final
+invoice precedes the exclusive contract end date.
+
+Every net amount is the saved contract's locked monthly net rent, already rounded
+at signing. The net rental total is exactly rent × term. Down payment and optional
+buyout are separate, excluded from rental invoices. VAT is selected using each
+invoice date and rounded once per invoice to whole cents, half up; gross totals
+sum those individual net and tax lines, never an independently rounded total.
+
+The contract page's explicit generation button issues the entire schedule,
+including future dated invoices, using the VAT table known at generation time.
+Issued invoice amounts are immutable snapshots; future statutory changes would
+need an explicit adjustment workflow outside this MVP. GET never issues invoices.
+POST /api/contracts/[id]/invoices accepts a caller-supplied actor, matching the
+starter's audit convention; it is not an authentication mechanism.
+Generation uses one audited transaction and a database unique key on contract and
+period. Retries return the same invoices; the audit records each successful
+generation request, including retries. Missing VAT fails the whole generation.

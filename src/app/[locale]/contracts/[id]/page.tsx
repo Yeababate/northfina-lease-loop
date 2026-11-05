@@ -8,6 +8,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { InvoiceList } from '@/components/invoice-list';
 
 export default async function ContractPage({
   params,
@@ -18,6 +19,10 @@ export default async function ContractPage({
   await connection();
   const contract = await db.contract.findUnique({ where: { id } });
   if (!contract) notFound();
+  const invoices = await db.invoice.findMany({
+    where: { contractId: id },
+    orderBy: { period: 'asc' },
+  });
   const t = getT(locale);
   const query = await searchParams;
   const date = isoDateSchema.safeParse(query.invoiceDate ?? todayIso());
@@ -57,6 +62,7 @@ export default async function ContractPage({
             })
           : t('contract.unavailable')}
       </p>
+      <InvoiceList invoices={invoices} contractId={id} actor={contract.actor} locale={locale} />
     </div>
   );
 }
