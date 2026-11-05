@@ -39,6 +39,9 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `refurbishment-rules.ts` | Required work for a returned item, from the data-pack rules (no costs).  |
 | `next-life.ts`           | Returned item state machine: receipt, inspection, work, guarded relist.  |
 | `demo-participant.ts`    | Canonical participant key for a demo sign-in name; reads one cookie.     |
+| `co2-factors.ts`         | Versioned CO2 factor sets (fictional data pack values → grams, ppm).     |
+| `co2-wear.ts`            | Wear credit 0..1 from condition and usage (a price-derived proxy).       |
+| `co2-impact.ts`          | Illustrative "rent instead of buying new" CO2 estimate, in whole grams.  |
 
 ### How the question flow works
 
@@ -127,3 +130,24 @@ generation request, including retries. Missing VAT fails the whole generation.
 See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
 for start-date evidence, migration failure reproduction and the tested side-by-side
 recovery approach.
+
+## Circular impact: the CO2 estimate (illustrative)
+
+`estimateRentalCo2Saving({ asset, termMonths, knownHistory, factors, wearPolicy, method })`
+gives the renter a prospective estimate of CO2 saved by renting this item instead of buying
+a new one. It is **illustrative**: the factors in `data/co2-factors.json` are fictional.
+
+- **Formula** (method `prospective-circular-use` v1): new-item manufacturing × wear credit −
+  new-item manufacturing × refurbishment share. No travel/car-displacement credit.
+- **Wear credit** (`co2-wear.ts`, policy `residual-proxy` v1): condition multiplier ×
+  (1 − capped usage penalty), copied from `residual-curves.json` as a price-derived proxy.
+  Completed usage steps only. A counter reset adds known prior usage; unknown prior usage
+  counts as the maximum penalty, never as zero.
+- **First use** uses the same method (a prospective circular-use scenario); the method's
+  `firstUse` setting is the one place to change that.
+- **Units and rounding**: grams of CO2e and parts per million, integers only. Each component
+  is rounded once to whole grams, half up; the saving is their exact difference. Zero and
+  negative results are kept and shown as "no estimated saving" / "additional impact".
+- **Versions**: every result carries its factor set, wear policy and method id/version.
+  Replacing factors or the method means a new version; callers and UI do not change.
+- The term is part of the interface but this method does not allocate impact by duration.
