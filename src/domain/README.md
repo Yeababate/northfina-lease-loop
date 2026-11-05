@@ -22,20 +22,26 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 
 ## What is here
 
-| File               | What it does                                                             |
-| ------------------ | ------------------------------------------------------------------------ |
-| `coefficient.ts`   | Worked example: finds the monthly factor for a financed amount and term. |
-| `price-list.ts`    | Worked example: finds the net list price of an asset on a date.          |
-| `money.ts`         | Formats cents as euros for a locale. Use it only in the UI.              |
-| `rounding.ts`      | The one rounding rule: integer maths, rounded once, half up.             |
-| `vat.ts`           | VAT rate on a date, the next rate change, VAT on a net amount.           |
-| `pricing.ts`       | Monthly rent, VAT, buyout and total for a term and down payment.         |
-| `catalogue.ts`     | Catalogue filters and sorting, read safely from the URL; badges.         |
-| `iso-date.ts`      | Checks ISO dates and works out an age on a given day.                    |
-| `business-id.ts`   | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
-| `answer-check.ts`  | Checks one application answer against its question type.                 |
-| `question-flow.ts` | Picks the next question and drops answers that stop applying.            |
-| `eligibility.ts`   | Approved, declined or manual review, with the checks behind it.          |
+| File                      | What it does                                                             |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `coefficient.ts`          | Worked example: finds the monthly factor for a financed amount and term. |
+| `price-list.ts`           | Worked example: finds the net list price of an asset on a date.          |
+| `money.ts`                | Formats cents as euros for a locale. Use it only in the UI.              |
+| `rounding.ts`             | The one rounding rule: integer maths, rounded once, half up.             |
+| `vat.ts`                  | VAT rate on a date, the next rate change, VAT on a net amount.           |
+| `pricing.ts`              | Monthly rent, VAT, buyout and total for a term and down payment.         |
+| `catalogue.ts`            | Catalogue filters and sorting, read safely from the URL; badges.         |
+| `iso-date.ts`             | Checks ISO dates and works out an age on a given day.                    |
+| `business-id.ts`          | Checks a Finnish business ID (Y-tunnus) and its check digit.             |
+| `answer-check.ts`         | Checks one application answer against its question type.                 |
+| `question-flow.ts`        | Picks the next question and drops answers that stop applying.            |
+| `eligibility.ts`          | Approved, declined or manual review, with the checks behind it.          |
+| `local-time.ts`           | Local clock time in a saved IANA zone ↔ UTC instant; DST gap/fold rules. |
+| `reminder-preferences.ts` | Per-lease reminder rules (days before, HH:MM, channels) and defaults.    |
+| `reminder-schedule.ts`    | Turns rules into dated reminder occurrences before the exclusive end.    |
+| `reminder-reconcile.ts`   | Which saved occurrences move, cancel or stay when settings change.       |
+| `reminder-dispatch.ts`    | Due selection, re-check, one catch-up per lease, retry backoff.          |
+| `reminder-timing.ts`      | "N days left" / "ended" worded from a given moment.                      |
 
 ### How the question flow works
 
@@ -118,3 +124,18 @@ starter's audit convention; it is not an authentication mechanism.
 Generation uses one audited transaction and a database unique key on contract and
 period. Retries return the same invoices; the audit records each successful
 generation request, including retries. Missing VAT fails the whole generation.
+
+## Lease-end reminders
+
+Defaults are 30, 7 and 1 calendar days before the lease ends, at 09:00 in the renter's
+saved IANA time zone (Europe/Helsinki only as a fallback), through in-app and simulated
+email. The deadline is 00:00 on the exclusive `endOn` in Helsinki, viewed in the
+renter's zone; a reminder at or after it is rejected. A spring-gap time moves forward
+by the gap; an autumn-fold time uses the earlier occurrence.
+
+An occurrence's identity is lease + recipient + end-date version + rule ID + day
+offset, so changing only the clock time or zone never resends a delivered reminder.
+Reminders already past when settings are saved are not backfilled. Reminders missed
+while the server was down become ONE catch-up notification per lease, worded with the
+actual time left when it is generated; future thresholds stay scheduled.
+Persistence, the worker and the simulated delivery live in `src/server/reminders/`.
