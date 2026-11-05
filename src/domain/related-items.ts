@@ -12,7 +12,15 @@
 // Price similarity compares like with like: the caller prices every item, the viewed one
 // included, as the monthly net rent for the same term with no down payment (the `basis`
 // named in the rules). A list price is never compared with a monthly rent.
-import type { Asset, AssetCondition, RelatedItemRules } from '@/data/schemas';
+import type {
+  Asset,
+  AssetCondition,
+  CoefficientTable,
+  PriceList,
+  RelatedItemRules,
+} from '@/data/schemas';
+import { listPriceOn } from './price-list';
+import { quoteLease } from './pricing';
 import { divideRoundHalfUp } from './rounding';
 
 export type RelatedContext = {
@@ -155,4 +163,28 @@ function conditionRank(condition: AssetCondition): number {
 
 function compareIds(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * The price basis every item is compared on: the existing quoteLease monthly net rent for
+ * `termMonths` with no down payment, from the list valid on `onDate`. Null when the item
+ * cannot be leased on those terms (no list price, too cheap or too expensive to finance).
+ * This only reads the shared pricing; it does not calculate prices of its own.
+ */
+export function monthlyRentBasis(
+  lists: readonly PriceList[],
+  table: CoefficientTable,
+  assetId: string,
+  termMonths: number,
+  onDate: string
+): number | null {
+  const price = listPriceOn(lists, assetId, onDate);
+  if (!price.ok) return null;
+  const quote = quoteLease(table, {
+    listPriceCents: price.priceCents,
+    downPaymentCents: 0,
+    termMonths,
+    vatRatePercent: 0,
+  });
+  return quote.ok ? quote.quote.monthlyNetCents : null;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { loadCoefficientTable, loadPriceLists } from '@/data/load';
 import { relatedItemRulesSchema, type Asset, type RelatedItemRules } from '@/data/schemas';
 import {
+  monthlyRentBasis,
   priceDifferenceBps,
   priceSimilarityScore,
   rankRelatedItems,
@@ -197,5 +199,17 @@ describe('related-item rules schema', () => {
         price: { ...rules.price, full_score_within_bps: 20000 },
       }).success
     ).toBe(false);
+  });
+});
+
+describe('monthlyRentBasis', () => {
+  it('uses the shared quote: monthly net rent, same term, no down payment', async () => {
+    const [lists, table] = await Promise.all([loadPriceLists(), loadCoefficientTable()]);
+    // The data pack worked example: ebike-003, 36 months, 5 Nov 2026 → 10730 cents.
+    expect(monthlyRentBasis(lists, table, 'ebike-003', 36, '2026-11-05')).toBe(10730);
+    // Too cheap to finance (below the smallest band) and unknown items have no basis.
+    expect(monthlyRentBasis(lists, table, 'ebike-010', 36, '2026-11-05')).toBeNull();
+    expect(monthlyRentBasis(lists, table, 'nope', 36, '2026-11-05')).toBeNull();
+    expect(monthlyRentBasis(lists, table, 'ebike-003', 18, '2026-11-05')).toBeNull();
   });
 });
