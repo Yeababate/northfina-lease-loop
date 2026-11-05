@@ -50,7 +50,6 @@
   "nav.main": "Huvudmeny",
   "nav.catalogue": "Sortiment",
   "nav.myLeases": "Mina avtal",
-  "nav.greeting": "Hej, {name}",
   "catalogue.showing": "Visar {shown} av {total} produkter",
   "catalogue.noMatches": "Inga produkter matchar filtren. Prova att ta bort ett.",
   "catalogue.sortBy": "Sortera efter",
@@ -261,5 +260,15 @@
   "sign.error.NOT_APPROVED": "Din ansökan är inte godkänd, så den kan inte skrivas under.",
   "sign.error.SIGNATORY_REQUIRED": "Bara företagets firmatecknare kan skriva under.",
   "sign.error.generic": "Underskriften misslyckades. Försök igen.",
+  "signIn.title": "Välkommen till Lease Loop",
+  "signIn.intro": "Det här är en demo, så det behövs inget lösenord eller konto. Berätta bara vad vi ska kalla dig.",
+  "signIn.label": "Ditt namn",
+  "signIn.continue": "Fortsätt",
+  "signIn.problem.empty": "Ange ett namn för att fortsätta.",
+  "signIn.problem.too_long": "Använd ett kortare namn, högst {max} tecken.",
+  "signIn.privacy": "Vi sparar ditt namn bara tills du stänger webbläsaren.",
+  "nav.signIn": "Logga in",
+  "nav.signOut": "Logga ut",
+  "nav.greeting": "Hej, {name}",
   "signing.start_before_signing": "Leasen kan inte börja före signeringsdagen."
 }

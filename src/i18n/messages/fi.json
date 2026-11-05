@@ -50,7 +50,6 @@
   "nav.main": "Päävalikko",
   "nav.catalogue": "Valikoima",
   "nav.myLeases": "Omat sopimukset",
-  "nav.greeting": "Hei, {name}",
   "catalogue.showing": "Näytetään {shown}/{total} tuotetta",
   "catalogue.noMatches": "Yksikään tuote ei vastaa suodattimia. Kokeile poistaa jokin niistä.",
   "catalogue.sortBy": "Järjestys",
@@ -261,5 +260,15 @@
   "sign.error.NOT_APPROVED": "Hakemustasi ei ole hyväksytty, joten sitä ei voi allekirjoittaa.",
   "sign.error.SIGNATORY_REQUIRED": "Vain yrityksen nimenkirjoitusoikeutettu voi allekirjoittaa.",
   "sign.error.generic": "Allekirjoitus epäonnistui. Yritä uudelleen.",
+  "signIn.title": "Tervetuloa Lease Loopiin",
+  "signIn.intro": "Tämä on demo, joten salasanaa tai tiliä ei tarvita. Kerro vain, miten voimme kutsua sinua.",
+  "signIn.label": "Nimesi",
+  "signIn.continue": "Jatka",
+  "signIn.problem.empty": "Anna nimi jatkaaksesi.",
+  "signIn.problem.too_long": "Käytä lyhyempää nimeä, enintään {max} merkkiä.",
+  "signIn.privacy": "Säilytämme nimesi vain siihen asti, kun suljet selaimen.",
+  "nav.signIn": "Kirjaudu",
+  "nav.signOut": "Kirjaudu ulos",
+  "nav.greeting": "Hei, {name}",
   "signing.start_before_signing": "Vuokra ei voi alkaa ennen allekirjoituspäivää."
 }
