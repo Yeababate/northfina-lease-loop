@@ -10,6 +10,7 @@ import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { priceLockNote } from '@/domain/application-signing';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
+import { unavailableMessage } from '@/components/unavailable-message';
 import { priceContract } from '@/domain/contract-pricing';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
@@ -73,7 +74,9 @@ export default async function SignPage({
         </Link>
         <div className="mt-6">
           <InfoBox>
-            <p role="status">{isLeasable(asset) ? t('sign.unavailable') : t('item.reserved')}</p>
+            <p role="status">
+              {isLeasable(asset) ? t('sign.unavailable') : unavailableMessage(asset, t)}
+            </p>
           </InfoBox>
         </div>
       </div>

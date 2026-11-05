@@ -272,5 +272,8 @@
   "nav.greeting": "Hei, {name}",
   "signing.start_before_signing": "Vuokra ei voi alkaa ennen allekirjoituspäivää.",
   "sign.confirmRequired": "Lue ja hyväksy yllä oleva sopimus ottaaksesi allekirjoituksen käyttöön.",
-  "sign.loadingApplication": "Ladataan hakemuksesi vastauksia…"
+  "sign.loadingApplication": "Ladataan hakemuksesi vastauksia…",
+  "badge.being_refurbished": "Kunnostettavana",
+  "asset.refurbishingNote": "Tarkistetaan ennen seuraavaa vuokrausta",
+  "item.refurbishing": "Tuote on juuri palautettu, ja se tarkistetaan ja kunnostetaan. Sen voi vuokrata uudelleen, kun työ on valmis."
 }
