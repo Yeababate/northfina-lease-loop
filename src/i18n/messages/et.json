@@ -45,7 +45,6 @@
   "nav.main": "Peamenüü",
   "nav.catalogue": "Kataloog",
   "nav.myLeases": "Minu lepingud",
-  "nav.greeting": "Tere, {name}",
   "catalogue.showing": "Näidatakse {shown} toodet {total}-st",
   "catalogue.noMatches": "Ükski toode ei vasta filtritele. Proovi mõni neist eemaldada.",
   "catalogue.sortBy": "Järjesta",
@@ -228,5 +227,15 @@
   "sign.error.ASSET_UNAVAILABLE": "Keegi teine liisis just selle toote. Vali palun teine.",
   "sign.error.NOT_APPROVED": "Sinu taotlust ei ole kinnitatud, seega ei saa seda allkirjastada.",
   "sign.error.SIGNATORY_REQUIRED": "Allkirjastada saab ainult ettevõtte allkirjaõiguslik isik.",
-  "sign.error.generic": "Allkirjastamine ebaõnnestus. Proovi uuesti."
+  "sign.error.generic": "Allkirjastamine ebaõnnestus. Proovi uuesti.",
+  "signIn.title": "Tere tulemast Lease Loopi",
+  "signIn.intro": "See on demo, seega pole parooli ega kontot vaja. Ütle lihtsalt, kuidas sind kutsuda.",
+  "signIn.label": "Sinu nimi",
+  "signIn.continue": "Jätka",
+  "signIn.problem.empty": "Jätkamiseks sisesta nimi.",
+  "signIn.problem.too_long": "Kasuta lühemat nime, kuni {max} tähemärki.",
+  "signIn.privacy": "Hoiame sinu nime ainult seni, kuni sulged brauseri.",
+  "nav.signIn": "Logi sisse",
+  "nav.signOut": "Logi välja",
+  "nav.greeting": "Tere, {name}"
 }
