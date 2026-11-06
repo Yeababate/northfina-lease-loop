@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { signApplication } from '@/server/contracts';
 import { generateInvoices } from '@/server/invoices';
 import { signAsSignatory } from '@/server/signatory';
+import { signatoryOffer } from '@/server/signatory';
 import { DAY_ONE, previewScenario, withScenario } from './fixtures';
 
 // As corrected by the organisers: Norvi applies for 1 × ebike-004. The applicant answers
@@ -54,7 +55,9 @@ it('card 6: Norvi’s contract waits for the authorised signatory, then becomes 
         displayName: 'signatory@norvi.example.com',
       },
     });
-    const signed = await signAsSignatory(db, signatory, sent.id, DAY_ONE);
+    const offer = await signatoryOffer(db, signatory, sent.id, DAY_ONE, data);
+    if (!offer.ok) throw new Error('Expected a current signatory offer');
+    const signed = await signAsSignatory(db, signatory, sent.id, DAY_ONE, data, offer.snapshot);
     expect(signed).toMatchObject({ signatorySignedOn: DAY_ONE, lifecycle: { status: 'active' } });
     expect(await generateInvoices(db, sent.id, 'cust-norvi', data.vatRates)).toHaveLength(36);
   });

@@ -49,11 +49,22 @@ export default async function ApplyPage({
   const today = todayIso();
   const demoName = await readDemoName();
   const query = await searchParams;
-  const { termMonths, startDate } = parseCatalogueQuery(query, {
+  const parsed = parseCatalogueQuery(query, {
     today,
     terms: availableTerms(table),
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
+  const quoteId = typeof query.quoteId === 'string' ? query.quoteId : null;
+  const savedQuote = quoteId ? await db.quote.findUnique({ where: { id: quoteId } }) : null;
+  const quoteConfigMatches = savedQuote
+    ? principal?.id === savedQuote.renterId &&
+      savedQuote.assetId === asset.id &&
+      query.term === String(savedQuote.termMonths) &&
+      query.down === String(savedQuote.downPaymentCents) &&
+      query.start === savedQuote.startOn
+    : false;
+  const termMonths = savedQuote && quoteConfigMatches ? savedQuote.termMonths : parsed.termMonths;
+  const startDate = savedQuote && quoteConfigMatches ? savedQuote.startOn : parsed.startDate;
   // The day the customer saw the price, for "Why this price?" when signing. Never after today.
   const quotedText = typeof query.quoted === 'string' ? query.quoted : '';
   const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
@@ -62,8 +73,8 @@ export default async function ApplyPage({
 
   const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
-  const quote =
-    price.ok && vat.ok && isLeasable(asset)
+  const calculated =
+    !savedQuote && price.ok && vat.ok && isLeasable(asset)
       ? quoteLease(
           table,
           {
@@ -75,12 +86,28 @@ export default async function ApplyPage({
           discountRules
         )
       : null;
+  const quote =
+    savedQuote !== null && quoteConfigMatches
+      ? {
+          downPaymentCents: savedQuote.downPaymentCents,
+          financedCents: savedQuote.financedCents,
+          termMonths: savedQuote.termMonths,
+          originalMonthlyNetCents: savedQuote.originalMonthlyNetCents,
+          monthlyDiscountCents: savedQuote.monthlyDiscountCents,
+          discountBps: savedQuote.discountBps,
+          monthlyNetCents: savedQuote.monthlyNetCents,
+          monthlyGrossCents: savedQuote.monthlyGrossCents,
+          buyoutCents: savedQuote.buyoutNetCents,
+        }
+      : calculated?.ok
+        ? calculated.quote
+        : null;
 
   const leaseParams = new URLSearchParams({
     term: String(termMonths),
     down: String(downPaymentCents),
     start: startDate,
-  }).toString();
+  });
   const itemHref = `/${locale}/items/${asset.id}?${new URLSearchParams({ term: String(termMonths), start: startDate })}`;
   const name = `${asset.make} ${asset.model}`;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
@@ -91,27 +118,27 @@ export default async function ApplyPage({
         ← {t('apply.back', { name })}
       </Link>
 
-      {quote?.ok ? (
+      {quote ? (
         <>
           <p className="mt-2 mb-6 text-sm text-stone-600 dark:text-stone-400">
             {t('apply.deal', {
               months: termMonths,
-              down: euro(quote.quote.downPaymentCents),
-              monthly: euro(quote.quote.monthlyGrossCents),
+              down: euro(quote.downPaymentCents),
+              monthly: euro(quote.monthlyGrossCents),
             })}
           </p>
-          <DiscountBreakdown price={quote.quote} locale={locale} />
+          <DiscountBreakdown price={quote} locale={locale} />
           <ApplicationWizard
             locale={locale}
             questions={questionsFile.questions}
             deal={{
               category: asset.category,
-              financedAmountCents: quote.quote.financedCents,
+              financedAmountCents: quote.financedCents,
               termMonths,
               startDate,
             }}
             coefficientTable={table}
-            monthlyRentWithVatCents={quote.quote.monthlyGrossCents}
+            monthlyRentWithVatCents={quote.monthlyGrossCents}
             storageKey={applicationStorageKey(
               asset.id,
               termMonths,
@@ -122,7 +149,9 @@ export default async function ApplyPage({
             prefill={demoName ? { q_full_name: demoName } : undefined}
             links={{
               item: itemHref,
-              sign: `/${locale}/items/${asset.id}/sign?${leaseParams}&${new URLSearchParams({ quoted: quotedOn })}`,
+              sign: `/${locale}/items/${asset.id}/sign?${leaseParams}${
+                savedQuote ? `&quoteId=${encodeURIComponent(savedQuote.id)}` : `&quoted=${quotedOn}`
+              }`,
               catalogue: `/${locale}`,
             }}
           />
@@ -131,7 +160,11 @@ export default async function ApplyPage({
         <div className="mt-6 max-w-xl">
           <InfoBox>
             <p role="status">
-              {isLeasable(asset) ? t('apply.unavailable') : unavailableMessage(asset, t)}
+              {quoteId && !quoteConfigMatches
+                ? t('quote.invalid')
+                : isLeasable(asset)
+                  ? t('apply.unavailable')
+                  : unavailableMessage(asset, t)}
             </p>
           </InfoBox>
         </div>

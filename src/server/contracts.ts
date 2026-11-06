@@ -43,6 +43,13 @@ export async function signContract(
     passOnContractId?: string;
     expectedDiscountRuleId?: string | null;
     expectedDiscountRuleRevision?: number | null;
+    expectedCoefficientVersion?: number;
+    expectedCoefficientId?: string;
+    expectedBand?: string;
+    expectedFactor?: number;
+    expectedFinancedCents?: number;
+    quoteId?: string;
+    quotedPriceListVersion?: number;
     participants?: SigningParticipants;
     /**
      * Card 6: the company's signatory email when the applicant may not sign. The contract
@@ -94,7 +101,15 @@ export async function signContract(
     (input.expectedListPriceCents !== undefined &&
       result.price.listPriceCents !== input.expectedListPriceCents) ||
     result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
-    result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
+    result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null) ||
+    (input.expectedCoefficientVersion !== undefined &&
+      result.price.coefficientVersion !== input.expectedCoefficientVersion) ||
+    (input.expectedCoefficientId !== undefined &&
+      result.price.coefficientId !== input.expectedCoefficientId) ||
+    (input.expectedBand !== undefined && result.price.band !== input.expectedBand) ||
+    (input.expectedFactor !== undefined && result.price.factor !== input.expectedFactor) ||
+    (input.expectedFinancedCents !== undefined &&
+      result.price.financedCents !== input.expectedFinancedCents)
   )
     throw new ApiError(
       409,
@@ -187,6 +202,10 @@ export async function signContract(
         currentPrice.price.originalMonthlyNetCents !== result.price.originalMonthlyNetCents ||
         currentPrice.price.monthlyDiscountCents !== result.price.monthlyDiscountCents ||
         currentPrice.price.discountBps !== result.price.discountBps ||
+        currentPrice.price.coefficientVersion !== result.price.coefficientVersion ||
+        currentPrice.price.coefficientId !== result.price.coefficientId ||
+        currentPrice.price.band !== result.price.band ||
+        currentPrice.price.factor !== result.price.factor ||
         currentPrice.price.financedCents !== result.price.financedCents ||
         currentPrice.price.downPaymentCents !== result.price.downPaymentCents ||
         currentPrice.price.listPriceCents !== result.price.listPriceCents
@@ -217,6 +236,11 @@ export async function signContract(
       const contract = await tx.contract.create({
         data: {
           id,
+          quoteId: input.quoteId ?? null,
+          quotedPriceListVersion: input.quotedPriceListVersion ?? input.expectedPriceListVersion,
+          lockedPriceListVersion: input.awaitingSignatory
+            ? null
+            : currentPrice.price.priceListVersion,
           actor: input.actor,
           ...currentPrice.price,
           renterId: input.participants?.renterId ?? null,
@@ -279,6 +303,13 @@ export type SignApplicationInput = {
   passOnContractId?: string;
   expectedDiscountRuleId?: string | null;
   expectedDiscountRuleRevision?: number | null;
+  expectedCoefficientVersion?: number;
+  expectedCoefficientId?: string;
+  expectedBand?: string;
+  expectedFactor?: number;
+  expectedFinancedCents?: number;
+  /** Optional for legacy application links created before quote persistence. */
+  quoteId?: string;
   locale?: Locale;
 };
 
@@ -302,6 +333,26 @@ export async function signApplication(
   principalId?: string,
   reminders?: SigningReminders
 ) {
+  const savedQuote = input.quoteId
+    ? await db.quote.findUnique({ where: { id: input.quoteId } })
+    : null;
+  if (input.quoteId) {
+    if (!savedQuote || savedQuote.renterId !== principalId)
+      throw new ApiError(404, 'QUOTE_NOT_FOUND', 'Quote not found');
+    if (
+      savedQuote.assetId !== input.assetId ||
+      savedQuote.termMonths !== input.termMonths ||
+      savedQuote.downPaymentCents !== input.downPaymentCents ||
+      savedQuote.startOn !== input.startOn
+    )
+      throw new ApiError(
+        409,
+        'QUOTE_MISMATCH',
+        'The application no longer matches its saved quote'
+      );
+    const previousContract = await db.contract.findUnique({ where: { quoteId: savedQuote.id } });
+    if (previousContract) return previousContract;
+  }
   const [assetRow, discountRules] = await Promise.all([
     db.asset.findUnique({ where: { id: input.assetId } }),
     rulesForAsset(db, input.assetId),
@@ -373,21 +424,33 @@ export async function signApplication(
     };
   }
   const companyName = input.answers.q_company_name;
-  return signContract(
-    db,
-    {
-      ...input,
-      actor: check.ok
-        ? check.signerName
-        : typeof companyName === 'string' && companyName.trim()
-          ? companyName.trim()
-          : 'Company',
-      participants,
-      awaitingSignatory,
-    },
-    signedOn,
-    data.lists,
-    data.table,
-    reminders
-  );
+  try {
+    return await signContract(
+      db,
+      {
+        ...input,
+        actor: check.ok
+          ? check.signerName
+          : typeof companyName === 'string' && companyName.trim()
+            ? companyName.trim()
+            : 'Company',
+        participants,
+        awaitingSignatory,
+        quoteId: savedQuote?.id,
+        quotedPriceListVersion: savedQuote?.priceListVersion,
+      },
+      signedOn,
+      data.lists,
+      data.table,
+      reminders
+    );
+  } catch (error) {
+    // A concurrent retry can lose the asset-reservation race after the other request
+    // committed this quote. Return that immutable contract rather than inviting a duplicate.
+    if (savedQuote) {
+      const completed = await db.contract.findUnique({ where: { quoteId: savedQuote.id } });
+      if (completed && completed.renterId === principalId) return completed;
+    }
+    throw error;
+  }
 }

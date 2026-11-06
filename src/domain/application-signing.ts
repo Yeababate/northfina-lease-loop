@@ -20,6 +20,11 @@ export type SigningOffer = {
   monthlyGrossCents: number;
   discountRuleId?: string | null;
   discountRuleRevision?: number | null;
+  coefficientVersion?: number;
+  coefficientId?: string;
+  band?: string;
+  factor?: number;
+  financedCents?: number;
 };
 
 /** A consent checkbox belongs only to this exact displayed offer. */
@@ -37,6 +42,11 @@ export function signingOfferKey(offer: SigningOffer): string {
     offer.monthlyGrossCents,
     offer.discountRuleId ?? null,
     offer.discountRuleRevision ?? null,
+    offer.coefficientVersion ?? null,
+    offer.coefficientId ?? null,
+    offer.band ?? null,
+    offer.factor ?? null,
+    offer.financedCents ?? null,
   ]);
 }
 
@@ -89,6 +99,8 @@ export type PriceLockNote = {
   direction: 'same' | 'lower' | 'higher';
   /** Absolute difference in monthly net rent, in cents. */
   differenceCents: number;
+  /** Signing-date policy: a higher price is charged at signing, never silently honoured. */
+  reasonCode: 'cheaper_at_signing' | 'more_expensive_at_signing' | 'unchanged';
 };
 
 /**
@@ -106,5 +118,11 @@ export function priceLockNote(
       (quoted.priceSource ?? 'price_list') !== (locked.priceSource ?? 'price_list'),
     direction: difference === 0 ? 'same' : difference < 0 ? 'lower' : 'higher',
     differenceCents: Math.abs(difference),
+    reasonCode:
+      difference < 0
+        ? 'cheaper_at_signing'
+        : difference > 0
+          ? 'more_expensive_at_signing'
+          : 'unchanged',
   };
 }

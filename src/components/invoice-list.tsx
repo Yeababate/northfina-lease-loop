@@ -1,5 +1,8 @@
 import type { Invoice } from '@/generated/prisma/client';
+import { Fragment } from 'react';
 import { formatEuro } from '@/domain/money';
+import { explainInvoiceChange } from '@/domain/invoices';
+import { formatIsoDate, formatNumber } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { GenerateInvoices } from './generate-invoices';
@@ -60,20 +63,43 @@ export function InvoiceList({
               </tr>
             </thead>
             <tbody>
-              {invoices.map((row) => (
-                <tr className="border-t" key={row.id}>
-                  <th scope="row" className="p-2">
-                    {row.period}
-                  </th>
-                  <td className="p-2 whitespace-nowrap">{row.invoiceDate}</td>
-                  <td className="p-2 whitespace-nowrap">{row.dueDate}</td>
-                  <td className="p-2">{money(row.netCents)}</td>
-                  <td className="p-2">
-                    {money(row.vatCents)} ({row.vatPercent}%)
-                  </td>
-                  <td className="p-2">{money(row.grossCents)}</td>
-                </tr>
-              ))}
+              {invoices.map((row, index) => {
+                const previous = invoices[index - 1];
+                const change = previous ? explainInvoiceChange(previous, row) : null;
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-t">
+                      <th scope="row" className="p-2">
+                        {row.period}
+                      </th>
+                      <td className="p-2 whitespace-nowrap">{row.invoiceDate}</td>
+                      <td className="p-2 whitespace-nowrap">{row.dueDate}</td>
+                      <td className="p-2">{money(row.netCents)}</td>
+                      <td className="p-2">
+                        {money(row.vatCents)} ({row.vatPercent}%)
+                      </td>
+                      <td className="p-2">{money(row.grossCents)}</td>
+                    </tr>
+                    {change && previous ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-2 pb-3 text-sm text-stone-600 dark:text-stone-400"
+                        >
+                          {t('invoices.vatChanged', {
+                            net: money(row.netCents),
+                            oldRate: formatNumber(change.oldVatPercent, locale),
+                            oldDate: formatIsoDate(previous.invoiceDate, locale),
+                            newRate: formatNumber(change.newVatPercent, locale),
+                            newDate: formatIsoDate(row.invoiceDate, locale),
+                            difference: money(change.differenceCents),
+                          })}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t font-semibold">

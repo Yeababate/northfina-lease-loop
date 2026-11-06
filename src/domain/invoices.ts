@@ -1,6 +1,7 @@
 import { isoDateSchema, type VatRates } from '@/data/schemas';
 import { contractEndOn } from './contract-period';
 import { invoicePrice } from './contract-pricing';
+import { vatCents as vatOnCents } from './vat';
 
 export type RentalContract = {
   signedOn: string;
@@ -8,6 +9,37 @@ export type RentalContract = {
   termMonths: number;
   monthlyNetCents: number;
 };
+
+export type InvoiceSnapshot = {
+  invoiceDate: string;
+  netCents: number;
+  vatPercent: number;
+  vatCents: number;
+  grossCents: number;
+};
+
+/** Explains a saved invoice change only when unchanged net and saved VAT arithmetic prove it. */
+export function explainInvoiceChange(previous: InvoiceSnapshot, invoice: InvoiceSnapshot) {
+  isoDateSchema.parse(previous.invoiceDate);
+  isoDateSchema.parse(invoice.invoiceDate);
+  if (
+    invoice.invoiceDate <= previous.invoiceDate ||
+    previous.netCents !== invoice.netCents ||
+    previous.grossCents === invoice.grossCents ||
+    previous.vatPercent === invoice.vatPercent ||
+    previous.grossCents !== previous.netCents + previous.vatCents ||
+    invoice.grossCents !== invoice.netCents + invoice.vatCents ||
+    previous.vatCents !== vatOnCents(previous.netCents, previous.vatPercent) ||
+    invoice.vatCents !== vatOnCents(invoice.netCents, invoice.vatPercent)
+  )
+    return null;
+  return {
+    reason: 'vat_rate_changed' as const,
+    oldVatPercent: previous.vatPercent,
+    newVatPercent: invoice.vatPercent,
+    differenceCents: Math.abs(invoice.grossCents - previous.grossCents),
+  };
+}
 
 /** Advance billing: first invoice and payment due on lease start; no proration. */
 export function invoiceSchedule(signedOn: string, termMonths: number) {

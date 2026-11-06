@@ -24,6 +24,7 @@ const schema = z.strictObject({
   termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(48)]),
   downPaymentCents: centsSchema,
   startOn: isoDateSchema,
+  quoteId: z.string().uuid().optional(),
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,
   expectedBuyoutNetCents: centsSchema,
@@ -34,6 +35,11 @@ const schema = z.strictObject({
   /** The price preview's rule identity/version prevents signing a stale discount. */
   expectedDiscountRuleId: z.string().min(1).nullable().default(null),
   expectedDiscountRuleRevision: z.number().int().positive().nullable().default(null),
+  expectedCoefficientVersion: z.number().int().positive().optional(),
+  expectedCoefficientId: z.string().min(1).optional(),
+  expectedBand: z.string().min(1).optional(),
+  expectedFactor: z.number().positive().optional(),
+  expectedFinancedCents: centsSchema.optional(),
   /** Language of the contract PDF and of reminder emails; the signing page's language. */
   locale: z.enum(['en', 'fi', 'sv', 'et']).default('en'),
   /** Lease-end reminder settings (#10); 30/7/1 days at 09:00 Helsinki time when left out. */
