@@ -10,6 +10,7 @@ import {
 import { invoicePrice } from '@/domain/contract-pricing';
 import { leaseMonthOn, nextInvoiceOn, previousDay } from '@/domain/lease-overview';
 import { isCompletedLease, leasePhase, type LeasePhase } from '@/domain/profile-leases';
+import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { getAsset } from './assets';
 import { estimateForAsset, type ImpactInputs } from './impact';
 import type { PrismaClient } from './prisma-client';
@@ -23,6 +24,8 @@ export type LeaseCardView = {
   completed: boolean;
   /** An early end the customer asked for, still waiting for the provider. */
   endingEarly: boolean;
+  /** Card 6: the company signatory this contract waits for, or null once signed. */
+  awaitingSignatory: string | null;
   month: number;
   termMonths: number;
   startOn: string;
@@ -99,6 +102,8 @@ export async function loadMyLeases(
       phase: leasePhase(contract, today),
       completed: isCompletedLease(contract),
       endingEarly: endingEarly.has(contract.id),
+      awaitingSignatory:
+        contract.lifecycle?.status === AWAITING_SIGNATURE ? contract.signatoryEmail : null,
       month: leaseMonthOn(contract, today),
       termMonths: contract.termMonths,
       startOn: contract.startOn,

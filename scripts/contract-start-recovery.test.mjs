@@ -328,6 +328,9 @@ it('preserves populated contracts and invoices through discount and schema recon
     expect(upgraded.prepare('SELECT * FROM Contract').all()).toEqual([
       {
         ...legacy,
+        // Contracts from before card 6's signatory flow were signed by the renter.
+        signatoryEmail: null,
+        signatorySignedOn: null,
         originalMonthlyNetCents: null,
         monthlyDiscountCents: 0,
         discountBps: 0,

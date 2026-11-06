@@ -82,8 +82,14 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
     coefficientTable: props.coefficientTable,
   });
 
+  // Card 6: the applicant may not sign for the company, so the contract is sent to the named
+  // signatory instead. It is saved waiting for them; nothing is active until they sign.
+  const sendToSignatory = !check.ok && check.reason === 'signatory_required';
+  const signatoryEmail = !check.ok ? (check.signatoryEmail ?? '') : '';
+
   async function sign() {
-    if (!agreed || busy || !canRead || !check.ok || errorKey === 'sign.error.PRICE_CHANGED') return;
+    if (!agreed || busy || !canRead || !(check.ok || sendToSignatory)) return;
+    if (errorKey === 'sign.error.PRICE_CHANGED') return;
     setBusy(true);
     setErrorKey(null);
     try {
@@ -175,7 +181,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           </h2>
           {!canRead ? (
             <p role="status">{t('sign.loadingApplication')}</p>
-          ) : check.ok ? (
+          ) : check.ok || sendToSignatory ? (
             <>
               <div className="mt-4 flex items-start gap-3">
                 <input
@@ -192,7 +198,9 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
                   ? t('sign.signing')
                   : !agreed
                     ? t('sign.confirmRequired')
-                    : t('sign.signingAs', { name: check.signerName })}
+                    : check.ok
+                      ? t('sign.signingAs', { name: check.signerName })
+                      : t('sign.sendingTo', { email: signatoryEmail })}
               </p>
               <button
                 aria-describedby={`${agreeId}-status`}
@@ -201,10 +209,16 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
                 disabled={!agreed || busy || errorKey === 'sign.error.PRICE_CHANGED'}
                 className={`${primaryButton} mt-4 w-full disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                {busy ? t('sign.signing') : t('sign.button')}
+                {busy
+                  ? t('sign.signing')
+                  : check.ok
+                    ? t('sign.button')
+                    : t('sign.sendButton', { email: signatoryEmail })}
               </button>
               <p className="mt-3 text-sm text-stone-600 dark:text-stone-400">
-                {t('sign.signingAs', { name: check.signerName })}
+                {check.ok
+                  ? t('sign.signingAs', { name: check.signerName })
+                  : t('sign.sendExplain', { email: signatoryEmail })}
               </p>
               {errorKey ? (
                 <p role="alert" className="mt-3 font-medium text-red-700 dark:text-red-400">

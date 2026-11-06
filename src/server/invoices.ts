@@ -1,3 +1,4 @@
+import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { randomUUID } from 'node:crypto';
 import type { VatRates } from '@/data/schemas';
 import { calculateInvoices } from '@/domain/invoices';
@@ -18,6 +19,10 @@ export async function generateInvoices(
   actor: string,
   vat: VatRates
 ) {
+  // Card 6: nothing is billed before the company's signatory has signed.
+  const lifecycle = await db.contractLifecycle.findUnique({ where: { contractId } });
+  if (lifecycle?.status === AWAITING_SIGNATURE)
+    throw new ApiError(409, 'AWAITING_SIGNATURE', 'The contract is waiting for its signatory');
   return withAudit(
     db,
     {

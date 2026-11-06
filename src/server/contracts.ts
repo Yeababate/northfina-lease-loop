@@ -5,6 +5,7 @@ import { checkApplicationForSigning } from '@/domain/application-signing';
 import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import type { PriceSource } from '@/domain/price-list';
 import { vatCents, vatRateOn } from '@/domain/vat';
+import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { ApiError } from './api-response';
 import { assetPriceOverride, toAsset } from './assets';
 import { withAudit } from './audit';
@@ -43,6 +44,11 @@ export async function signContract(
     expectedDiscountRuleId?: string | null;
     expectedDiscountRuleRevision?: number | null;
     participants?: SigningParticipants;
+    /**
+     * Card 6: the company's signatory email when the applicant may not sign. The contract
+     * is saved waiting for that person: reserved and priced, but not active until they sign.
+     */
+    awaitingSignatory?: string;
   },
   signedOn: string,
   lists: readonly PriceList[],
@@ -120,6 +126,7 @@ export async function signContract(
     ...result.price,
     ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
     ...(passOnId && { passOnContractId: passOnId }),
+    ...(input.awaitingSignatory && { awaitingSignatory: input.awaitingSignatory }),
   };
   return withAudit(
     db,
@@ -231,7 +238,10 @@ export async function signContract(
               factor: linePrice.factor,
             },
           },
-          lifecycle: { create: {} },
+          signatoryEmail: input.awaitingSignatory ?? null,
+          lifecycle: {
+            create: input.awaitingSignatory ? { status: AWAITING_SIGNATURE } : {},
+          },
           document: { create: document },
         },
       });
@@ -331,9 +341,13 @@ export async function signApplication(
     monthlyRentWithVatCents: monthlyNet + vatCents(monthlyNet, vat.rate.rate_percent),
     coefficientTable: data.table,
   });
-  if (!check.ok && check.reason === 'signatory_required')
+  // Card 6: the applicant may not sign for the company. Save the contract waiting for the
+  // named signatory instead of refusing, so the app can show what happens next.
+  const awaitingSignatory =
+    !check.ok && check.reason === 'signatory_required' ? check.signatoryEmail : undefined;
+  if (!check.ok && check.reason === 'signatory_required' && !awaitingSignatory)
     throw new ApiError(403, 'SIGNATORY_REQUIRED', 'Only the authorised signatory can sign');
-  if (!check.ok)
+  if (!check.ok && !awaitingSignatory)
     throw new ApiError(422, 'NOT_APPROVED', 'The application is not approved', check.reason);
 
   let participants: SigningParticipants | undefined;
@@ -358,9 +372,19 @@ export async function signApplication(
       locale: input.locale ?? 'en',
     };
   }
+  const companyName = input.answers.q_company_name;
   return signContract(
     db,
-    { ...input, actor: check.signerName, participants },
+    {
+      ...input,
+      actor: check.ok
+        ? check.signerName
+        : typeof companyName === 'string' && companyName.trim()
+          ? companyName.trim()
+          : 'Company',
+      participants,
+      awaitingSignatory,
+    },
     signedOn,
     data.lists,
     data.table,

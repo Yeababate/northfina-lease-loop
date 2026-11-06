@@ -16,6 +16,9 @@ export type ActivityActor = { kind: 'you' } | { kind: 'person'; name: string } |
 
 export type ActivityEvent =
   | { type: 'signed'; termMonths: number | null; monthlyNetCents: number | null }
+  /** Card 6: saved and sent to the company's signatory instead of signed. */
+  | { type: 'sent_to_signatory'; email: string }
+  | { type: 'signatory_signed' }
   | { type: 'invoices_issued' }
   | { type: 'reminders'; enabled: boolean }
   | {
@@ -72,11 +75,15 @@ function toEvent(action: string, details: unknown): ActivityEvent | null {
   const d = isRecord(details) ? details : {};
   switch (action) {
     case 'contract.signed':
+      if (typeof d.awaitingSignatory === 'string')
+        return { type: 'sent_to_signatory', email: d.awaitingSignatory };
       return {
         type: 'signed',
         termMonths: wholeNumber(d.termMonths),
         monthlyNetCents: wholeNumber(d.monthlyNetCents),
       };
+    case 'contract.signatory_signed':
+      return { type: 'signatory_signed' };
     case 'invoices.generated':
       return { type: 'invoices_issued' };
     case 'reminder_preferences.updated': {

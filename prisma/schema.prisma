@@ -62,6 +62,10 @@ model Contract {
   startOn                 String
   endOn                   String
   signedOn                String
+  /// Card 6: the company's signatory the contract was sent to; null when the renter signed.
+  signatoryEmail          String?
+  /// The day the signatory signed; the lease is active from then. Null while waiting.
+  signatorySignedOn       String?
   termMonths              Int
   downPaymentCents        Int
   listPriceCents          Int
