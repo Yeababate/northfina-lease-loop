@@ -51,6 +51,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
               dealsLabel={t('deals.nav')}
               profileLabel={name ? t('nav.profile') : undefined}
               dealersLabel={t('dealers.nav')}
+              auditLabel={t('audit.nav')}
             />
             <div className="ml-auto flex items-center gap-6">
               <LanguageSwitcher current={locale} label={t('nav.language')} />
@@ -95,6 +96,12 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
               className="underline underline-offset-2 hover:text-stone-900 dark:hover:text-white"
             >
               {t('discount.manage')}
+            </Link>
+            <Link
+              href={`/${locale}/returns`}
+              className="underline underline-offset-2 hover:text-stone-900 dark:hover:text-white"
+            >
+              {t('returns.nav')}
             </Link>
           </div>
         </footer>

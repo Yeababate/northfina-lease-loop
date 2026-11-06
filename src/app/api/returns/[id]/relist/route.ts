@@ -8,7 +8,11 @@ import { relist } from '@/server/next-life-commands';
 import { requireProvider } from '@/server/providers';
 import { todayIso } from '@/server/today';
 
-const schema = z.strictObject({ expectedRevision: z.number().int().nonnegative() });
+const schema = z.strictObject({
+  expectedRevision: z.number().int().nonnegative(),
+  waitingListEntryId: z.string().min(1).optional(),
+  renterId: z.string().min(1).optional(),
+});
 
 export const POST = handleRoute(
   async (request, { params }: RouteContext<'/api/returns/[id]/relist'>) => {

@@ -11,6 +11,7 @@ import { assetPriceOverride, toAsset } from './assets';
 import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
 import { savedAnswersFor } from './saved-answers';
+import { activePlacement } from './waiting-list-placement';
 
 export type ReadinessData = {
   lists: readonly PriceList[];
@@ -32,6 +33,7 @@ export type ItemReadiness = { assetId: string } & (Readiness | { status: 'not_fo
 async function readinessItem(
   db: PrismaClient,
   assetId: string,
+  userId: string | null,
   query: ReadinessQuery,
   today: string,
   data: ReadinessData
@@ -40,6 +42,15 @@ async function readinessItem(
   if (!row) return null;
   const asset = toAsset(row);
   if (asset.status !== 'available') return { ok: false, problem: 'not_available' };
+  const placement = await activePlacement(db, assetId, today);
+  if (
+    placement
+      ? !userId ||
+        placement.participantId !== userId ||
+        placement.preferredTermMonths !== query.termMonths
+      : asset.condition === 'fair' || asset.condition === 'poor'
+  )
+    return { ok: false, problem: 'not_available' };
   const priced = priceContract(
     data.lists,
     data.table,
@@ -51,6 +62,8 @@ async function readinessItem(
   const vat = vatRateOn(data.vatRates.rates, today);
   if (!priced.ok || !vat.ok) return { ok: false, problem: 'not_priceable' };
   const net = priced.price.monthlyNetCents;
+  if (placement && net > placement.maxMonthlyNetRentCents)
+    return { ok: false, problem: 'not_priceable' };
   return {
     ok: true,
     deal: {
@@ -80,7 +93,7 @@ export async function readinessForAssets(
   const savedAnswers: Answers = saved?.answers ?? {};
   const items: ItemReadiness[] = [];
   for (const assetId of query.assetIds) {
-    const item = await readinessItem(db, assetId, query, today, data);
+    const item = await readinessItem(db, assetId, userId, query, today, data);
     if (!item) {
       items.push({ assetId, status: 'not_found' });
       continue;

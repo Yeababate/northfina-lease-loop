@@ -11,7 +11,7 @@ import {
 type ValuationState = Pick<InspectedState, 'condition' | 'usageValue'>;
 type OptionId = 'as_is' | 'to_fair' | 'to_good' | 'to_like_new';
 
-type Option = {
+export type RefurbishmentOption = {
   id: OptionId;
   after: ValuationState;
   work: { action: RequiredAction; costCents: number }[];
@@ -23,6 +23,28 @@ type Option = {
   unsupported: WorkRequirements['unsupported'];
 };
 
+/**
+ * Mandatory work makes an already acceptable item safe to lease; it need not increase its
+ * resale value. Keep that baseline if the resulting value covers its cost. Optional work
+ * must recover at least as much as that baseline (or the untreated value if none exists).
+ */
+export function refurbishmentIsWorthIt(
+  option: RefurbishmentOption,
+  options: readonly RefurbishmentOption[]
+): boolean {
+  if (!option.leasable || option.marketValueCents === null || option.netValueAddedCents === null)
+    return false;
+  if (option.marketValueCents < option.costCents) return false;
+  const baseline = options.find(
+    (row) =>
+      row.id === 'as_is' &&
+      row.leasable &&
+      row.marketValueCents !== null &&
+      row.marketValueCents >= row.costCents
+  );
+  return option.netValueAddedCents >= Math.min(0, baseline?.netValueAddedCents ?? 0);
+}
+
 type Recommendation =
   | { optionId: OptionId; reason: 'best_net_value' | 'mandatory_step_only' }
   | { optionId: null; reason: 'incomplete_requirements' | 'not_worth_it_sell_or_scrap' };
@@ -33,7 +55,11 @@ export function decideRefurbishment(
   rules: RefurbishmentCosts,
   marketValue: (state: ValuationState) => number,
   minimum: 'fair' | 'good' = LISTING_MIN_CONDITION
-): { marketValueBeforeCents: number; options: Option[]; recommendation: Recommendation } {
+): {
+  marketValueBeforeCents: number;
+  options: RefurbishmentOption[];
+  recommendation: Recommendation;
+} {
   const category = rules[state.category];
   const marketValueBeforeCents = marketValue({
     condition: state.condition,
@@ -51,7 +77,7 @@ export function decideRefurbishment(
   if (!meetsCondition(state.condition, 'like_new'))
     targets.push({ id: 'to_like_new', condition: 'like_new' });
 
-  const options = targets.map(({ id, condition }): Option => {
+  const options = targets.map(({ id, condition }): RefurbishmentOption => {
     const { required, missing, unsupported } = requiredWork(state, rules, condition);
     const after = { condition: state.condition, usageValue: state.usageValue };
     const work = required.map((action) => {
@@ -83,12 +109,12 @@ export function decideRefurbishment(
   });
 
   // Prefer lower cost on equal net value, then keep the first (least ambitious) option.
-  let best: { option: Option; netValue: number } | undefined;
+  let best: { option: RefurbishmentOption; netValue: number } | undefined;
   for (const option of options) {
     const netValue = option.netValueAddedCents;
     if (
       netValue !== null &&
-      netValue >= 0 &&
+      refurbishmentIsWorthIt(option, options) &&
       (!best ||
         netValue > best.netValue ||
         (netValue === best.netValue && option.costCents < best.option.costCents))

@@ -1,3 +1,4 @@
+import { placementBlocksViewer } from '@/server/waiting-list-placement';
 // Review and sign (wireframe 5). Prices the lease for today, the signing day, and explains
 // the lock: which price list applies and why, and that VAT is not part of it. Signing itself
 // goes through POST /api/contracts, which decides the application again on the server.
@@ -48,6 +49,8 @@ export default async function SignPage({
   const t = getT(locale);
   const principal = await currentPrincipal();
   const today = todayIso();
+  if (await placementBlocksViewer(db, asset.id, principal?.id ?? null, today))
+    asset.status = 'reserved';
   const query = await searchParams;
   const parsed = parseCatalogueQuery(query, {
     today,

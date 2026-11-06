@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { AWAITING_SIGNATURE, checkSignatorySignature, isNamedSignatory } from './signatory';
+import {
+  AWAITING_SIGNATURE,
+  checkSignatorySignature,
+  isNamedSignatory,
+  passOnHandoverTiming,
+} from './signatory';
+
+describe('passOnHandoverTiming', () => {
+  it('completes a pass-on at once when the recipient signs the new lease themselves', () => {
+    expect(passOnHandoverTiming(false)).toBe('now');
+  });
+
+  it('waits for the named signatory before handing over to a company (Card 6)', () => {
+    expect(passOnHandoverTiming(true)).toBe('at_signatory_signature');
+  });
+});
 
 describe('isNamedSignatory', () => {
   it('matches the email the way sign-in does: trimmed and case-insensitive', () => {

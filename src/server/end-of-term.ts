@@ -1,6 +1,7 @@
 import { loadResidualCurves, loadVatRates } from '@/data/load';
 import type { CoefficientTable, PriceList, ResidualCurves } from '@/data/schemas';
 import { endOfTermBuyout, endOfTermOptions, type EndTermKind } from '@/domain/end-of-term';
+import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { ApiError } from './api-response';
 import { toAsset } from './assets';
 import { withAudit, type TransactionClient } from './audit';
@@ -106,6 +107,14 @@ export async function withdrawEndTerm(db: PrismaClient, contractId: string, user
         throw new ApiError(403, 'NOT_RENTER', 'Only the renter can withdraw');
       if (await tx.returnIntake.findFirst({ where: { contractId } }))
         throw new ApiError(409, 'END_TERM_CHANGED', 'The item has already been received');
+      // A pass-on lease still waiting for the company's signatory is cancelled with the offer,
+      // so it can never be signed into a second active lease for the same item (#78).
+      const pending = await tx.endTermChoice.findUnique({ where: { contractId } });
+      if (pending?.nextContractId && !pending.completedOn)
+        await tx.contractLifecycle.updateMany({
+          where: { contractId: pending.nextContractId, status: AWAITING_SIGNATURE },
+          data: { status: 'cancelled', revision: { increment: 1 } },
+        });
       const withdrawn = await tx.endTermChoice.deleteMany({
         where: { contractId, completedOn: null },
       });
@@ -177,7 +186,13 @@ export async function getPassOnPrice(
   assetId: string,
   renterId: string,
   today: string,
-  data: { lists: readonly PriceList[]; table: CoefficientTable; curves?: ResidualCurves }
+  data: {
+    lists: readonly PriceList[];
+    table: CoefficientTable;
+    curves?: ResidualCurves;
+    /** The new lease already waiting for its company signatory, when pricing that signature. */
+    pendingContractId?: string;
+  }
 ) {
   const [{ context, assetIds }, choice, asset] = await Promise.all([
     loadExitContract(db, contractId),
@@ -188,6 +203,8 @@ export async function getPassOnPrice(
     throw new ApiError(404, 'PASS_ON_NOT_FOUND', 'Pass-on offer not found');
   if (
     choice.completedOn ||
+    // Only one new lease per pass-on: a pending one blocks any other application (#78).
+    (choice.nextContractId ?? null) !== (data.pendingContractId ?? null) ||
     context.status !== 'active' ||
     today < context.endOn ||
     assetIds.length !== 1 ||
@@ -208,6 +225,30 @@ export async function getPassOnPrice(
       price.reason
     );
   return { priceCents: price.priceCents, pricedOn: today, endOn: context.endOn };
+}
+
+/**
+ * Card 6 pass-on (#78): link the new company lease to the offer without completing anything.
+ * The old lease stays active and the item held until the named signatory signs.
+ */
+export async function linkPendingPassOnInTx(
+  tx: TransactionClient,
+  contractId: string,
+  nextContractId: string
+) {
+  const linked = await tx.endTermChoice.updateMany({
+    where: { contractId, kind: 'pass_on', completedOn: null, nextContractId: null },
+    data: { nextContractId },
+  });
+  if (linked.count !== 1)
+    throw new ApiError(409, 'PASS_ON_UNAVAILABLE', 'This item cannot be passed on now');
+}
+
+/** The open pass-on offer whose new lease is waiting for its signatory, or null. */
+export function findPendingPassOn(db: Reader, nextContractId: string) {
+  return db.endTermChoice.findFirst({
+    where: { nextContractId, kind: 'pass_on', completedOn: null },
+  });
 }
 
 export async function completePassOnInTx(
