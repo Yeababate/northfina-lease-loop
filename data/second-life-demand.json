@@ -6,6 +6,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2026-11-20",
+    "signed_up_on": "2026-11-01",
     "who": "Student in Helsinki"
   },
   {
@@ -15,6 +16,7 @@
     "min_condition": "fair",
     "preferred_term_months": 12,
     "needed_by": "2026-11-10",
+    "signed_up_on": "2026-11-01",
     "who": "Delivery courier, accepts scratches"
   },
   {
@@ -24,6 +26,7 @@
     "min_condition": "like_new",
     "preferred_term_months": 36,
     "needed_by": "2026-12-15",
+    "signed_up_on": "2026-11-01",
     "who": "Commuter, wants it to look new"
   },
   {
@@ -33,6 +36,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2027-01-05",
+    "signed_up_on": "2026-11-01",
     "who": "Small bakery, cargo bike for deliveries"
   },
   {
@@ -42,6 +46,7 @@
     "min_condition": "good",
     "preferred_term_months": 12,
     "needed_by": "2026-11-08",
+    "signed_up_on": "2026-11-01",
     "who": "Tourist rental shop, short term"
   },
   {
@@ -51,6 +56,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2026-11-15",
+    "signed_up_on": "2026-11-01",
     "who": "First-year Hive student"
   },
   {
@@ -60,6 +66,7 @@
     "min_condition": "like_new",
     "preferred_term_months": 12,
     "needed_by": "2026-11-30",
+    "signed_up_on": "2026-11-01",
     "who": "Freelance designer"
   },
   {
@@ -69,6 +76,7 @@
     "min_condition": "fair",
     "preferred_term_months": 36,
     "needed_by": "2026-11-12",
+    "signed_up_on": "2026-11-01",
     "who": "Non-profit, needs 3 office laptops"
   },
   {
@@ -78,6 +86,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2026-11-09",
+    "signed_up_on": "2026-11-01",
     "who": "School pilot programme"
   },
   {
@@ -87,6 +96,7 @@
     "min_condition": "good",
     "preferred_term_months": 48,
     "needed_by": "2027-03-01",
+    "signed_up_on": "2026-11-01",
     "who": "Young farmer starting out"
   },
   {
@@ -96,6 +106,7 @@
     "min_condition": "fair",
     "preferred_term_months": 36,
     "needed_by": "2027-04-15",
+    "signed_up_on": "2026-11-01",
     "who": "Contractor, seasonal work"
   },
   {
@@ -105,6 +116,7 @@
     "min_condition": "like_new",
     "preferred_term_months": 48,
     "needed_by": "2027-02-01",
+    "signed_up_on": "2026-11-01",
     "who": "Large dairy farm"
   },
   {
@@ -114,6 +126,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2026-11-10",
+    "signed_up_on": "2026-11-01",
     "who": "Delivery courier, same budget as wait-02"
   },
   {
@@ -123,6 +136,7 @@
     "min_condition": "good",
     "preferred_term_months": 24,
     "needed_by": "2026-11-15",
+    "signed_up_on": "2026-11-02",
     "who": "Same needs as wait-06, signed up one day later"
   }
 ]

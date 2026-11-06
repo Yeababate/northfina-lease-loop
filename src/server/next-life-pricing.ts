@@ -13,6 +13,17 @@ export async function priceNextLife(
     table,
   }: { lists: readonly PriceList[]; curves: ResidualCurves; table: CoefficientTable }
 ) {
+  const basis = await nextLifeBasis(tx, asset, today, lists);
+  if (!basis.ok) return basis;
+  return nextLifeListPriceCents({ ...asset, ...basis.input }, curves, table);
+}
+
+export async function nextLifeBasis(
+  tx: Pick<TransactionClient, 'contract'>,
+  asset: Asset,
+  today: string,
+  lists: readonly PriceList[]
+) {
   const first = await tx.contract.findFirst({
     where: { assetId: asset.id },
     orderBy: [{ startOn: 'asc' }, { signedOn: 'asc' }, { id: 'asc' }],
@@ -32,13 +43,11 @@ export async function priceNextLife(
   if (firstLeaseListPriceCents === undefined)
     return { ok: false, reason: 'missing_reference_price' } as const;
 
-  return nextLifeListPriceCents(
-    {
-      ...asset,
+  return {
+    ok: true,
+    input: {
       firstLeaseListPriceCents,
       ageMonths: marketAgeMonths(first?.startOn ?? null, asset.model_year, today),
     },
-    curves,
-    table
-  );
+  } as const;
 }
