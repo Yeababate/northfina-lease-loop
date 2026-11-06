@@ -579,5 +579,10 @@
   "compare.moreTotal": "{amount} rohkem kokku",
   "compare.lessTotal": "{amount} vähem kokku",
   "compare.notPossible": "Selle sissemaksega pole võimalik",
-  "lease.noDownNeeded": "Sissemakset pole vaja"
+  "lease.noDownNeeded": "Sissemakset pole vaja",
+  "reminders.endsOn": "Sinu leping lõpeb {date}.",
+  "reminders.willRemind": "Tuletame sulle meelde:",
+  "reminders.dateTime": "{date} kell {time}",
+  "reminders.daysBeforeShort": "{days} päeva enne",
+  "reminders.onLastDay": "viimasel päeval"
 }

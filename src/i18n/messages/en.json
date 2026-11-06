@@ -579,5 +579,10 @@
   "compare.moreTotal": "{amount} more in total",
   "compare.lessTotal": "{amount} less in total",
   "compare.notPossible": "Not available with this down payment",
-  "lease.noDownNeeded": "No down payment needed"
+  "lease.noDownNeeded": "No down payment needed",
+  "reminders.endsOn": "Your lease ends on {date}.",
+  "reminders.willRemind": "We'll remind you:",
+  "reminders.dateTime": "{date}, {time}",
+  "reminders.daysBeforeShort": "{days} days before",
+  "reminders.onLastDay": "on the last day"
 }

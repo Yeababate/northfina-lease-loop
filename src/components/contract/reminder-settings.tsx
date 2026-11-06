@@ -21,9 +21,11 @@ type ReminderSettingsProps = {
   contractId: string;
   locale: Locale;
   settings: ReminderSettingsView;
+  /** The lease's last day (its exclusive end date minus one), so the dates have context. */
+  lastDay: string;
 };
 
-export function ReminderSettings({ contractId, locale, settings }: ReminderSettingsProps) {
+export function ReminderSettings({ contractId, locale, settings, lastDay }: ReminderSettingsProps) {
   const t = getT(locale);
   const router = useRouter();
   const switchId = useId();
@@ -94,30 +96,40 @@ export function ReminderSettings({ contractId, locale, settings }: ReminderSetti
       ) : null}
 
       {preferences.enabled && rules.length > 0 ? (
-        <ul className="space-y-1.5 text-sm">
-          {rules.map((rule) => {
-            const planned = settings.schedule.find(
-              (row) => row.ruleId === rule.id && row.status === 'pending'
-            );
-            const channels = rule.channels.map((channel) => t(`reminders.channel.${channel}`));
-            return (
-              <li key={rule.id} className="flex flex-wrap justify-between gap-x-4">
-                <span>
-                  {t(rule.daysBefore === 1 ? 'reminders.oneDay' : 'reminders.days', {
-                    days: rule.daysBefore,
-                    time: rule.time,
-                    channels: channels.join(t('reminders.and')),
-                  })}
-                </span>
-                <span className="text-stone-600 dark:text-stone-400">
-                  {planned
-                    ? t('reminders.on', { date: formatIsoDate(planned.localDate, locale) })
-                    : t('reminders.notPlanned')}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="text-sm">
+          <p>{t('reminders.endsOn', { date: formatIsoDate(lastDay, locale) })}</p>
+          <p className="mt-0.5 text-stone-600 dark:text-stone-400">{t('reminders.willRemind')}</p>
+          <ul className="mt-2 space-y-2">
+            {rules.map((rule) => {
+              const planned = settings.schedule.find(
+                (row) => row.ruleId === rule.id && row.status === 'pending'
+              );
+              const channels = rule.channels
+                .map((channel) => t(`reminders.channel.${channel}`))
+                .join(t('reminders.and'));
+              // The end date is exclusive, so "1 day before the end" is the lease's last day.
+              const when =
+                rule.daysBefore === 1
+                  ? t('reminders.onLastDay')
+                  : t('reminders.daysBeforeShort', { days: rule.daysBefore });
+              return (
+                <li key={rule.id}>
+                  <p className="font-semibold">
+                    {planned
+                      ? t('reminders.dateTime', {
+                          date: formatIsoDate(planned.localDate, locale),
+                          time: planned.localTime,
+                        })
+                      : t('reminders.notPlanned')}
+                  </p>
+                  <p className="text-stone-600 dark:text-stone-400">
+                    {when} · {channels}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : (
         <p className="text-sm text-stone-600 dark:text-stone-400">{t('reminders.off')}</p>
       )}
