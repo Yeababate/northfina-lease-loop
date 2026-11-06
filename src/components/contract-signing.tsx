@@ -7,7 +7,7 @@ import type { RentalDiscountRule } from '@/domain/discounts';
 import { DiscountBreakdown } from './discount-breakdown';
 import { contractSigningState } from '@/domain/contract-signing';
 import { availableTerms, minDownPaymentCents } from '@/domain/pricing';
-import { listPriceOn } from '@/domain/price-list';
+import { listPriceOn, type PriceOverride } from '@/domain/price-list';
 import { formatEuro } from '@/domain/money';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
@@ -20,11 +20,13 @@ export function ContractSigning({
   locale,
   vat,
   discountRules,
+  priceOverride,
   initialTermMonths = 36,
   initialDownPaymentCents,
 }: {
   assetId: string;
   discountRules?: readonly RentalDiscountRule[];
+  priceOverride?: PriceOverride;
   lists: PriceList[];
   table: CoefficientTable;
   today: string;
@@ -35,7 +37,7 @@ export function ContractSigning({
 }) {
   const terms = availableTerms(table);
   const [termMonths, setTerm] = useState(initialTermMonths);
-  const price = listPriceOn(lists, assetId, today);
+  const price = listPriceOn(lists, assetId, today, priceOverride);
   const [downText, setDown] = useState(
     String(initialDownPaymentCents ?? (price.ok ? minDownPaymentCents(table, price.priceCents) : 0))
   );
@@ -52,7 +54,8 @@ export function ContractSigning({
     today,
     actor,
     busy,
-    discountRules
+    discountRules,
+    priceOverride
   );
   const statusId = useId();
   return (

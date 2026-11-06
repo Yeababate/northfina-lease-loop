@@ -1,6 +1,7 @@
 import type { RentalDiscountRule } from './discounts';
 import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
 import { invoicePrice, priceContract, type PricingInput } from './contract-pricing';
+import type { PriceOverride } from './price-list';
 
 /** One explanation for the exact condition that prevents signing. */
 export function contractSigningState(
@@ -11,10 +12,11 @@ export function contractSigningState(
   signedOn: string,
   actor: string,
   busy: boolean,
-  discountRules: readonly RentalDiscountRule[] = []
+  discountRules: readonly RentalDiscountRule[] = [],
+  priceOverride?: PriceOverride
 ) {
   const quote = Number.isSafeInteger(input.downPaymentCents)
-    ? priceContract(lists, table, input, signedOn, discountRules)
+    ? priceContract(lists, table, input, signedOn, discountRules, priceOverride)
     : { ok: false as const, reason: 'invalid_down_payment' as const };
   const tax = quote.ok ? invoicePrice(quote.price, vat, signedOn) : null;
   const reason = busy

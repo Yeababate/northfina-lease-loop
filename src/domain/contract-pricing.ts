@@ -4,7 +4,7 @@ import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
 import type { RentalDiscountRule } from './discounts';
 import { quoteLease } from './pricing';
 import { vatCents as calculateVatCents } from './vat';
-import { listPriceOn } from './price-list';
+import { listPriceOn, type PriceOverride } from './price-list';
 
 export type PricingInput = {
   assetId: string;
@@ -20,14 +20,15 @@ export function priceContract(
   table: CoefficientTable,
   input: PricingInput,
   signedOn: string,
-  discountRules: readonly RentalDiscountRule[] = []
+  discountRules: readonly RentalDiscountRule[] = [],
+  priceOverride?: PriceOverride
 ) {
   if (!Number.isSafeInteger(input.downPaymentCents)) throw new RangeError('Whole cents required');
   if (input.downPaymentCents < 0) return { ok: false, reason: 'invalid_down_payment' } as const;
   const startOn = input.startOn ?? signedOn;
   isoDateSchema.parse(startOn);
   if (startOn < signedOn) return { ok: false, reason: 'start_before_signing' } as const;
-  const price = listPriceOn(lists, input.assetId, signedOn);
+  const price = listPriceOn(lists, input.assetId, signedOn, priceOverride);
   if (!price.ok) return price;
   if (table.valid_from > signedOn) return { ok: false, reason: 'no_coefficient_on_date' } as const;
   if (input.downPaymentCents > price.priceCents)
@@ -56,6 +57,7 @@ export function priceContract(
       endOn: contractEndOn(startOn, input.termMonths),
       listPriceCents: price.priceCents,
       priceListVersion: price.priceListVersion,
+      priceSource: price.priceSource ?? 'price_list',
       coefficientVersion: table.version,
       coefficientId: table.id,
       band: quote.band.band,

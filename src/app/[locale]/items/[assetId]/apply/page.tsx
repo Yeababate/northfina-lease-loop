@@ -18,7 +18,7 @@ import { availableTerms, DEFAULT_TERM_MONTHS, quoteLease } from '@/domain/pricin
 import { vatRateOn } from '@/domain/vat';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
-import { getAsset } from '@/server/assets';
+import { assetPriceOverride, toAsset } from '@/server/assets';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { readDemoName } from '@/server/demo-session';
@@ -33,14 +33,15 @@ export default async function ApplyPage({
   if (!isLocale(locale)) notFound();
   await connection();
 
-  const [asset, priceLists, table, vatRates, questionsFile] = await Promise.all([
-    getAsset(db, assetId),
+  const [assetRow, priceLists, table, vatRates, questionsFile] = await Promise.all([
+    db.asset.findUnique({ where: { id: assetId } }),
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
   ]);
-  if (!asset) notFound();
+  if (!assetRow) notFound();
+  const asset = toAsset(assetRow);
   const discountRules = await rulesForAsset(db, assetId);
 
   const t = getT(locale);
@@ -59,7 +60,7 @@ export default async function ApplyPage({
   const downText = typeof query.down === 'string' ? query.down : '0';
   const downPaymentCents = /^\d{1,12}$/.test(downText) ? Number(downText) : -1;
 
-  const price = listPriceOn(priceLists, asset.id, today);
+  const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
   const quote =
     price.ok && vat.ok && isLeasable(asset)

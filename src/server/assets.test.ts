@@ -102,6 +102,8 @@ describe('toAsset', () => {
     const row = {
       ...toAssetRowData(first),
       ownerId: null,
+      nextLifePriceCents: null,
+      nextLifePricedOn: null,
       status: 'stolen',
       created_at: new Date(),
       updated_at: new Date(),

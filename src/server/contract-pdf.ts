@@ -27,6 +27,7 @@ export type ContractPdfInput = {
   downPaymentCents: number;
   financedCents: number;
   priceListVersion: number;
+  priceSource?: string;
   band: string;
   factor: number;
   locale: Locale;
@@ -64,7 +65,9 @@ export async function renderContractPdf(input: ContractPdfInput) {
     `${t('discount.amount')} (${formatNumber(input.discountBps / 100, input.locale)}%): −${euro(input.monthlyDiscountCents)}`,
     `${t('discount.final')}: ${euro(input.monthlyNetCents)}`,
     `${t('explain.buyout')}: ${euro(input.buyoutNetCents)}`,
-    `${t('asset.priceListVersion', { version: input.priceListVersion })}`,
+    input.priceSource === 'next_life'
+      ? t('asset.nextLifePrice')
+      : t('asset.priceListVersion', { version: input.priceListVersion }),
     `${t('explain.factor', { band: input.band, months: input.termMonths })}: ${input.factor}`,
     t('contract.rule'),
     t('contract.tax'),

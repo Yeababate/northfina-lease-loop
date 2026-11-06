@@ -19,7 +19,7 @@ import type {
   PriceList,
   RelatedItemRules,
 } from '@/data/schemas';
-import { listPriceOn } from './price-list';
+import { listPriceOn, type PriceOverride } from './price-list';
 import { quoteLease } from './pricing';
 import { divideRoundHalfUp } from './rounding';
 
@@ -176,9 +176,10 @@ export function monthlyRentBasis(
   table: CoefficientTable,
   assetId: string,
   termMonths: number,
-  onDate: string
+  onDate: string,
+  priceOverride?: PriceOverride
 ): number | null {
-  const price = listPriceOn(lists, assetId, onDate);
+  const price = listPriceOn(lists, assetId, onDate, priceOverride);
   if (!price.ok) return null;
   const quote = quoteLease(table, {
     listPriceCents: price.priceCents,

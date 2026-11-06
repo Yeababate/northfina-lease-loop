@@ -13,7 +13,7 @@ import { GET as listRoute } from '@/app/api/returns/route';
 import { loadAssets, loadCoefficientTable, loadPriceLists } from '@/data/load';
 import { priceContract } from '@/domain/contract-pricing';
 import { createTestDb } from '../../tests/helpers/test-db';
-import { seedAssets } from './assets';
+import { assetPriceOverride, seedAssets } from './assets';
 import { signContract } from './contracts';
 import { finalizeDueReturns, recordInspection, recordReceipt, relist } from './next-life-commands';
 import type { PrismaClient } from './prisma-client';
@@ -291,6 +291,75 @@ describe('scope, concurrency and rollback', () => {
     );
     return work.body.data.revision as number;
   };
+
+  it('prices a seed return and locks that price on the next lease', async () => {
+    const revision = await ready();
+    await relist(db, KETTU, 'seed-ebike-008', { expectedRevision: revision }, today);
+    const asset = await db.asset.findUniqueOrThrow({ where: { id: 'ebike-008' } });
+    expect(asset).toMatchObject({
+      status: 'available',
+      nextLifePriceCents: 36_363,
+      nextLifePricedOn: today,
+    });
+
+    const [lists, table] = await Promise.all([loadPriceLists(), loadCoefficientTable()]);
+    const input = { assetId: asset.id, termMonths: 24, downPaymentCents: 0 };
+    const signingDate = '2026-11-06';
+    const quote = priceContract(lists, table, input, signingDate, [], assetPriceOverride(asset));
+    if (!quote.ok) throw new Error('The relisted item must be priceable');
+    const signing = {
+      ...input,
+      actor: 'Aino Virtanen',
+      expectedMonthlyNetCents: quote.price.monthlyNetCents,
+      expectedBuyoutNetCents: quote.price.buyoutNetCents,
+      expectedListPriceCents: quote.price.listPriceCents,
+      expectedPriceListVersion: quote.price.priceListVersion,
+    };
+    await expect(signContract(db, signing, signingDate, lists, table)).rejects.toMatchObject({
+      code: 'PRICE_CHANGED',
+    });
+    const contract = await signContract(
+      db,
+      { ...signing, expectedPriceSource: 'next_life' },
+      signingDate,
+      lists,
+      table
+    );
+    expect(contract).toMatchObject({ listPriceCents: 36_363, priceSource: 'next_life' });
+    expect(
+      await db.contractLine.findFirstOrThrow({ where: { contractId: contract.id } })
+    ).toMatchObject({ listPriceCents: 36_363, priceSource: 'next_life' });
+  });
+
+  it('revalues the fair e-bike after its battery and condition work', async () => {
+    const intake = 'seed-ebike-007';
+    await recordInspection(
+      db,
+      KETTU,
+      intake,
+      {
+        expectedRevision: 0,
+        condition: 'fair',
+        usageValue: 18_400,
+        hoursSinceService: null,
+      },
+      today
+    );
+    let revision = 1;
+    for (const actionId of ['battery_replacement', 'safety_inspection', 'upgrade:fair->good']) {
+      const work = await json(
+        await workRoute(as(KETTU, { expectedRevision: revision, actionId }), ctx(intake))
+      );
+      expect(work.status).toBe(201);
+      revision = work.body.data.revision;
+    }
+    await relist(db, KETTU, intake, { expectedRevision: revision }, today);
+    expect(await db.asset.findUniqueOrThrow({ where: { id: 'ebike-007' } })).toMatchObject({
+      status: 'available',
+      usage_value: 0,
+      nextLifePriceCents: 172_661,
+    });
+  });
 
   it('lists only own stock and hides foreign intakes', async () => {
     const kettu = (await json(await listRoute(as(KETTU), undefined))).body.data;

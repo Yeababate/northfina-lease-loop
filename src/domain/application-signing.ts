@@ -4,6 +4,7 @@
 import type { CoefficientTable, Question } from '@/data/schemas';
 import type { Answers } from './answer-check';
 import { decideApplication } from './eligibility';
+import type { PriceSource } from './price-list';
 import { resolveFlow, type Deal } from './question-flow';
 
 export type SigningOffer = {
@@ -14,6 +15,8 @@ export type SigningOffer = {
   monthlyNetCents: number;
   buyoutCents: number;
   priceListVersion: number;
+  priceSource?: PriceSource;
+  listPriceCents?: number;
   monthlyGrossCents: number;
   discountRuleId?: string | null;
   discountRuleRevision?: number | null;
@@ -29,6 +32,8 @@ export function signingOfferKey(offer: SigningOffer): string {
     offer.monthlyNetCents,
     offer.buyoutCents,
     offer.priceListVersion,
+    offer.priceSource ?? 'price_list',
+    offer.listPriceCents ?? null,
     offer.monthlyGrossCents,
     offer.discountRuleId ?? null,
     offer.discountRuleRevision ?? null,
@@ -87,17 +92,18 @@ export type PriceLockNote = {
 };
 
 /**
- * Compares the quote the customer saw with the price that locks on signing. The price list
- * valid on the signing day always applies (see contract-pricing.ts); this says whether
- * that changed anything, so the page can explain it.
+ * Compares the quote with the price that locks on signing. The page can explain a change
+ * in the applicable list or a transition to second-life pricing.
  */
 export function priceLockNote(
-  quoted: { priceListVersion: number; monthlyNetCents: number },
-  locked: { priceListVersion: number; monthlyNetCents: number }
+  quoted: { priceListVersion: number; monthlyNetCents: number; priceSource?: PriceSource },
+  locked: { priceListVersion: number; monthlyNetCents: number; priceSource?: PriceSource }
 ): PriceLockNote {
   const difference = locked.monthlyNetCents - quoted.monthlyNetCents;
   return {
-    listChanged: quoted.priceListVersion !== locked.priceListVersion,
+    listChanged:
+      quoted.priceListVersion !== locked.priceListVersion ||
+      (quoted.priceSource ?? 'price_list') !== (locked.priceSource ?? 'price_list'),
     direction: difference === 0 ? 'same' : difference < 0 ? 'lower' : 'higher',
     differenceCents: Math.abs(difference),
   };

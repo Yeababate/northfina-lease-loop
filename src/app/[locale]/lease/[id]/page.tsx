@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { ContractSigning } from '@/components/contract-signing';
 import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
 import { isLocale } from '@/i18n/locales';
+import { assetPriceOverride } from '@/server/assets';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
@@ -40,6 +41,7 @@ export default async function LeasePage({
       </h1>
       <ContractSigning
         assetId={id}
+        priceOverride={assetPriceOverride(asset)}
         discountRules={await rulesForAsset(db, id)}
         lists={lists}
         table={table}

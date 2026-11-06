@@ -15,7 +15,7 @@ import { listPriceOn } from '@/domain/price-list';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
-import { listAssets } from '@/server/assets';
+import { assetPriceOverride, toAsset } from '@/server/assets';
 import { providerBadgesForAssets } from '@/server/reputation';
 import { dealBadgesForAssets, providerOffer } from '@/server/deals';
 import { textLink } from '@/components/ui';
@@ -31,8 +31,8 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
 
   const t = getT(locale);
   const today = todayIso(); // the page decides what "today" is; domain code never reads the clock
-  const [assets, priceLists, table] = await Promise.all([
-    listAssets(db),
+  const [assetRows, priceLists, table] = await Promise.all([
+    db.asset.findMany({ orderBy: { id: 'asc' } }),
     loadPriceLists(),
     loadCoefficientTable(),
   ]);
@@ -44,8 +44,9 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
 
-  const items: CatalogueItem[] = assets.map((asset) => {
-    const price = listPriceOn(priceLists, asset.id, today);
+  const items: CatalogueItem[] = assetRows.map((row) => {
+    const asset = toAsset(row);
+    const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(row));
     return { asset, listPriceCents: price.ok ? price.priceCents : null };
   });
   // "See these items" on the Deals page narrows the catalogue to one provider's stock.

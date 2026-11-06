@@ -9,6 +9,7 @@ import { useId, useState, type ReactNode } from 'react';
 import type { CoefficientTable, Question } from '@/data/schemas';
 import { checkApplicationForSigning, signingOfferKey } from '@/domain/application-signing';
 import { formatEuro } from '@/domain/money';
+import type { PriceSource } from '@/domain/price-list';
 import type { Deal } from '@/domain/question-flow';
 import { formatIsoDate } from '@/i18n/format';
 import { getT, type MessageKey } from '@/i18n/get-t';
@@ -30,6 +31,8 @@ export type LeaseSummary = {
   discountRuleRevision: number | null;
   buyoutCents: number;
   priceListVersion: number;
+  priceSource: PriceSource;
+  listPriceCents: number;
 };
 
 type ReviewAndSignProps = {
@@ -97,6 +100,8 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           expectedMonthlyNetCents: lease.monthlyNetCents,
           expectedBuyoutNetCents: lease.buyoutCents,
           expectedPriceListVersion: lease.priceListVersion,
+          expectedPriceSource: lease.priceSource,
+          expectedListPriceCents: lease.listPriceCents,
           expectedDiscountRuleId: lease.discountRuleId,
           expectedDiscountRuleRevision: lease.discountRuleRevision,
         }),

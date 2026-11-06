@@ -28,6 +28,8 @@ const schema = z.strictObject({
   expectedMonthlyNetCents: centsSchema,
   expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
+  expectedPriceSource: z.enum(['price_list', 'next_life']).optional(),
+  expectedListPriceCents: centsSchema.optional(),
   /** The price preview's rule identity/version prevents signing a stale discount. */
   expectedDiscountRuleId: z.string().min(1).nullable().default(null),
   expectedDiscountRuleRevision: z.number().int().positive().nullable().default(null),

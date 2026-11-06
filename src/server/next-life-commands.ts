@@ -1,10 +1,14 @@
 // Audited commands for a returned item's next life: receipt, lease completion, inspection,
 // work records and relisting. Each one re-checks scope and the domain rules inside its
 // withAudit transaction and writes every affected row through that `tx`, so a stale or
-// concurrent request either applies completely or not at all. Relisting changes availability
-// only: the item keeps its existing catalogue price.
+// concurrent request either applies completely or not at all.
 import { randomUUID } from 'node:crypto';
-import { loadRefurbishmentCosts } from '@/data/load';
+import {
+  loadCoefficientTable,
+  loadPriceLists,
+  loadRefurbishmentCosts,
+  loadResidualCurves,
+} from '@/data/load';
 import { assetStatusSchema, type AssetCondition } from '@/data/schemas';
 import {
   checkInspection,
@@ -14,8 +18,10 @@ import {
   isLeaseDueToComplete,
 } from '@/domain/next-life';
 import { ApiError } from './api-response';
+import { toAsset } from './assets';
 import { withAudit, type TransactionClient } from './audit';
 import { loadIntake, sequencedId } from './next-life-reads';
+import { priceNextLife } from './next-life-pricing';
 import type { PrismaClient } from './prisma-client';
 
 type Event = {
@@ -317,7 +323,12 @@ export async function relist(
   today: string
 ) {
   await finalizeDueReturns(db, today);
-  const rules = await loadRefurbishmentCosts();
+  const [rules, lists, curves, table] = await Promise.all([
+    loadRefurbishmentCosts(),
+    loadPriceLists(),
+    loadResidualCurves(),
+    loadCoefficientTable(),
+  ]);
   return intakeCommand(
     db,
     { providerId, intakeId, expectedRevision: input.expectedRevision, action: 'return.relisted' },
@@ -325,9 +336,21 @@ export async function relist(
       const view = deriveNextLife(facts, rules);
       if (!view.canRelist)
         throw new ApiError(409, 'NOT_READY', 'This item cannot be relisted yet', view.blockers);
+      const price = await priceNextLife(tx, toAsset(asset), today, { lists, curves, table });
+      if (!price.ok)
+        throw new ApiError(
+          422,
+          'INVALID_NEXT_LIFE_PRICE',
+          'This item cannot be priced for its next lease',
+          price.reason
+        );
       const released = await tx.asset.updateMany({
         where: { id: asset.id, status: 'returned' },
-        data: { status: 'available' },
+        data: {
+          status: 'available',
+          nextLifePriceCents: price.priceCents,
+          nextLifePricedOn: today,
+        },
       });
       if (released.count !== 1)
         throw new ApiError(409, 'ASSET_NOT_RETURNED', 'This item cannot be relisted yet');
@@ -335,7 +358,7 @@ export async function relist(
         where: { id: intakeId },
         data: { relistedOn: today, relistedBy: providerId },
       });
-      Object.assign(details, { condition: view.current?.condition, relistedOn: today });
+      Object.assign(details, { condition: view.current?.condition, relistedOn: today, price });
       await addEvent(tx, {
         assetId: asset.id,
         intakeId,
@@ -343,7 +366,11 @@ export async function relist(
         type: 'relisted',
         on: today,
         actor: providerId,
-        details: { condition: view.current?.condition, usageValue: view.current?.usageValue },
+        details: {
+          condition: view.current?.condition,
+          usageValue: view.current?.usageValue,
+          priceCents: price.priceCents,
+        },
       });
       return { id: intakeId, assetId: asset.id, relistedOn: today, revision: intake.revision + 1 };
     }
