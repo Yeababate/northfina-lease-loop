@@ -9,7 +9,8 @@ import {
 } from '@/data/load';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
-import { createBundleOffer, DEMO_PROVIDER_ID } from './bundles';
+import { createBundleOffer } from './bundles';
+import { seedDealerSide } from './providers';
 import type { PrismaClient } from './prisma-client';
 import { relatedItemsFor, type RelatedItemsData } from './related-items';
 
@@ -40,7 +41,9 @@ beforeEach(async () => {
   await db.bundleOffer.deleteMany();
   await db.auditLog.deleteMany();
   await db.asset.deleteMany();
-  await seedAssets(db, await loadAssets());
+  const assets = await loadAssets();
+  await seedAssets(db, assets);
+  await seedDealerSide(db, assets); // bundles check each item's stored owner
 });
 
 const query = { assetId: 'ebike-003', termMonths: 36, onDate: '2026-11-05' };
@@ -94,7 +97,7 @@ describe('GET /api/assets/:id/related', () => {
         terms: [36],
         published: true,
       },
-      { providerId: DEMO_PROVIDER_ID, supportedTerms: [12, 24, 36, 48], id: 'kit' }
+      { providerId: 'provider-kettu', supportedTerms: [12, 24, 36, 48], id: 'kit' }
     );
     const response = await get('/api/assets/ebike-003/related?term=36', 'ebike-003');
     expect(response.status).toBe(200);

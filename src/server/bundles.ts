@@ -17,13 +17,18 @@ import { withAudit, type TransactionClient } from './audit';
 import type { PrismaClient } from './prisma-client';
 
 /**
- * Main has no asset ownership or provider login yet: all inventory belongs to the one
- * demo provider. Replace `assetOwnerId` when assets get a stored owner; the domain checks
- * already reject bundles that mix providers.
+ * Before items had stored owners, every bundle belonged to this one placeholder provider.
+ * Bundles still saved under it are moved to their items' real provider by seedBundleOffers.
  */
-export const DEMO_PROVIDER_ID = 'lease-loop-fleet';
-export function assetOwnerId(): string {
-  return DEMO_PROVIDER_ID;
+export const LEGACY_FLEET_PROVIDER_ID = 'lease-loop-fleet';
+
+/** Each item's current provider, from AssetOwnership (the same source discounts use). */
+async function ownersOf(client: Client, assetIds: readonly string[]) {
+  const rows = await client.assetOwnership.findMany({
+    where: { assetId: { in: [...assetIds] } },
+    select: { assetId: true, providerId: true },
+  });
+  return new Map(rows.map((row) => [row.assetId, row.providerId]));
 }
 
 export type BundleOfferView = {
@@ -54,7 +59,12 @@ async function loadComponents(client: Client, assetIds?: readonly string[]) {
   const rows = await client.asset.findMany(
     assetIds ? { where: { id: { in: [...assetIds] } } } : undefined
   );
-  return rows.map((row) => ({ asset: toAsset(row), ownerId: assetOwnerId() }));
+  const owners = await ownersOf(
+    client,
+    rows.map((row) => row.id)
+  );
+  // An item without an owner matches no provider, so a bundle with it is never bookable.
+  return rows.map((row) => ({ asset: toAsset(row), ownerId: owners.get(row.id) ?? '' }));
 }
 
 async function toViews(
@@ -229,17 +239,36 @@ export async function updateBundleOffer(
   return view;
 }
 
-/** Adds the example bundles from data/bundle-offers.json that are not in the database yet. */
+/**
+ * Adds the example bundles from data/bundle-offers.json that are not in the database yet,
+ * each owned by the provider of its items (run after seedDealerSide has stored ownership).
+ * A seed whose items have no single provider is skipped and counted as `unowned`. Bundles
+ * saved under the old placeholder provider are moved to their items' provider (audited).
+ */
 export async function seedBundleOffers(
   db: PrismaClient,
   seeds: readonly BundleOfferSeed[],
   supportedTerms: readonly number[]
-): Promise<{ created: number; skipped: number }> {
+): Promise<{ created: number; skipped: number; unowned: number; reowned: number }> {
   const existing = new Set(
     (await db.bundleOffer.findMany({ select: { id: true } })).map((o) => o.id)
   );
   const missing = seeds.filter((seed) => !existing.has(seed.id));
+  const soleOwner = async (assetIds: readonly string[]) => {
+    const owners = await ownersOf(db, assetIds);
+    const distinct = new Set(assetIds.map((id) => owners.get(id)));
+    const [only] = distinct;
+    return distinct.size === 1 && only ? only : null;
+  };
+
+  let created = 0;
+  let unowned = 0;
   for (const seed of missing) {
+    const providerId = await soleOwner(seed.asset_ids);
+    if (!providerId) {
+      unowned += 1;
+      continue;
+    }
     await createBundleOffer(
       db,
       {
@@ -249,8 +278,31 @@ export async function seedBundleOffers(
         terms: seed.terms,
         published: seed.published,
       },
-      { providerId: DEMO_PROVIDER_ID, supportedTerms, id: seed.id }
+      { providerId, supportedTerms, id: seed.id }
     );
+    created += 1;
   }
-  return { created: missing.length, skipped: seeds.length - missing.length };
+
+  let reowned = 0;
+  for (const offer of await findOffers(db, { providerId: LEGACY_FLEET_PROVIDER_ID })) {
+    const providerId = await soleOwner(offer.items.map((item) => item.assetId));
+    if (!providerId) continue;
+    await withAudit(
+      db,
+      {
+        actor: 'system:bundle-owners',
+        action: 'bundle_offer.reowned',
+        entityType: 'bundle_offer',
+        entityId: offer.id,
+        details: { from: LEGACY_FLEET_PROVIDER_ID, to: providerId },
+      },
+      (tx) =>
+        tx.bundleOffer.update({
+          where: { id: offer.id },
+          data: { providerId, revision: { increment: 1 } },
+        })
+    );
+    reowned += 1;
+  }
+  return { created, skipped: seeds.length - missing.length, unowned, reowned };
 }
