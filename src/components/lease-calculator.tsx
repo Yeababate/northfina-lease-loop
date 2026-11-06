@@ -100,8 +100,8 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
   const tooCheap = listPriceCents < minimumFinanced;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
-      <div>
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.4fr]">
+      <div className="min-w-0">
         {props.summary}
         {props.liveReadiness && result.ok ? (
           <LiveReadiness

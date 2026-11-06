@@ -171,8 +171,8 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
   ];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_22rem]">
-      <div>
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_22rem]">
+      <div className="min-w-0">
         <h1 className="text-3xl font-semibold tracking-tight">{t('sign.title')}</h1>
         <section
           aria-labelledby="lease-summary"

@@ -51,7 +51,8 @@ export function NavLinks({
               href={link.href}
               aria-current={link.active ? 'page' : undefined}
               className={
-                'block border-b-2 py-1 font-medium transition-colors ' +
+                // At least 44px tall on phones, so every link is an easy tap target (#76).
+                'flex min-h-11 items-center border-b-2 py-1 font-medium transition-colors sm:min-h-0 ' +
                 (link.active
                   ? 'border-blue-600 text-stone-950 dark:border-blue-400 dark:text-white'
                   : 'border-transparent text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white')

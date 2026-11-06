@@ -271,12 +271,12 @@ function Unavailable(props: {
 }) {
   const { summary, extras, message, note } = props;
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
-      <div>
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.4fr]">
+      <div className="min-w-0">
         {summary}
         <div className="mt-6">{extras}</div>
       </div>
-      <div>
+      <div className="min-w-0">
         <InfoBox>
           <p role="status">{message}</p>
         </InfoBox>
