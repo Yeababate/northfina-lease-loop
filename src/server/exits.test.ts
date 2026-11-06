@@ -306,9 +306,21 @@ describe('provider confirmation and completion', () => {
       previous_lives: 1,
     });
     expect(await db.assetLifeCompletion.count()).toBe(1);
+    // The returned item enters the returns workflow so it can be inspected and relisted.
+    const intakes = await db.returnIntake.findMany({ where: { assetId: 'ebike-003' } });
+    expect(intakes).toHaveLength(1);
+    expect(intakes[0]).toMatchObject({
+      contractId: 'contract',
+      providerId: 'provider',
+      source: 'receipt',
+      receivedOn: on,
+      completedOn: boundary,
+      relistedOn: null,
+    });
     expect(await acknowledgeEarlyExit(db, acknowledgment(exit.id), boundary)).toMatchObject({
       status: 'completed',
     });
+    expect(await db.returnIntake.count({ where: { assetId: 'ebike-003' } })).toBe(1);
     expect(await db.contract.findUnique({ where: { id: 'contract' } })).toEqual(original);
   });
 

@@ -73,6 +73,28 @@ async function finish(
         ...(request.kind === 'buyout' ? { ownerId: request.renterId } : {}),
       },
     });
+    // A returned item enters the returns workflow (inspect, required work, relist), like an
+    // end-of-term return; without an intake it would stay 'returned' and never be relisted.
+    // The life is already counted above, so the intake starts completed.
+    if (request.kind === 'return') {
+      const receipt = request.receipts.find((r) => r.assetId === assetId);
+      const existing = await tx.returnIntake.findUnique({
+        where: { contractId_assetId: { contractId: request.contractId, assetId } },
+      });
+      if (!existing)
+        await tx.returnIntake.create({
+          data: {
+            id: randomUUID(),
+            assetId,
+            contractId: request.contractId,
+            providerId: request.providerId,
+            source: 'receipt',
+            receivedOn: receipt?.receivedOn ?? today,
+            receivedBy: receipt?.receivedBy ?? actor,
+            completedOn: today,
+          },
+        });
+    }
   }
   await tx.contractLifecycle.update({
     where: { contractId: request.contractId },
