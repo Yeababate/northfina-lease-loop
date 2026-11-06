@@ -11,6 +11,7 @@ import { InfoBox, textLink } from '@/components/ui';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
+import { VatNote } from '@/components/vat-note';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
@@ -119,16 +120,22 @@ export default async function ApplyPage({
       </Link>
 
       {quote ? (
-        <>
-          <p className="mt-2 mb-6 text-sm text-stone-600 dark:text-stone-400">
-            {t('apply.deal', {
-              months: termMonths,
-              down: euro(quote.downPaymentCents),
-              monthly: euro(quote.monthlyGrossCents),
-            })}
-          </p>
-          <DiscountBreakdown price={quote} locale={locale} />
+        <div className="mt-4">
           <ApplicationWizard
+            intro={
+              // The price and the VAT note sit together, before the first question.
+              <div className="mb-6 max-w-xl">
+                <p className="text-sm text-stone-600 dark:text-stone-400">
+                  {t('apply.deal', {
+                    months: termMonths,
+                    down: euro(quote.downPaymentCents),
+                    monthly: euro(quote.monthlyGrossCents),
+                  })}
+                </p>
+                <VatNote rates={vatRates.rates} on={today} locale={locale} className="mt-1" />
+                <DiscountBreakdown price={quote} locale={locale} />
+              </div>
+            }
             locale={locale}
             questions={questionsFile.questions}
             deal={{
@@ -155,7 +162,7 @@ export default async function ApplyPage({
               catalogue: `/${locale}`,
             }}
           />
-        </>
+        </div>
       ) : (
         <div className="mt-6 max-w-xl">
           <InfoBox>

@@ -28,7 +28,7 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `price-list.ts`           | Worked example: finds the net list price of an asset on a date.                  |
 | `money.ts`                | Formats cents as euros for a locale. Use it only in the UI.                      |
 | `rounding.ts`             | The one rounding rule: integer maths, rounded once, half up.                     |
-| `vat.ts`                  | VAT rate on a date, the next rate change, VAT on a net amount.                   |
+| `vat.ts`                  | VAT rate on a date, the next change, both together, VAT on a net amount.         |
 | `pricing.ts`              | Monthly rent, VAT, buyout and total for a term and down payment.                 |
 | `catalogue.ts`            | Catalogue filters and sorting, read safely from the URL; badges.                 |
 | `iso-date.ts`             | Checks ISO dates and works out an age on a given day.                            |

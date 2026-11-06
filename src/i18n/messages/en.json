@@ -175,7 +175,6 @@
   "decision.manual.text": "Some applications are always checked by a person. This is normal and does not mean the answer is no. We will email you at {email} within 2 working days.",
   "decision.why": "Why",
   "decision.checked": "What we checked",
-  "decision.seeAnswers": "See my answers",
   "decision.backToCatalogue": "Back to the catalogue",
   "decision.changeLease": "Change the term or down payment",
   "check.passed": "Passed",
@@ -695,5 +694,8 @@
   "asset.unavailableDetailsOf": "Details and waiting list for {name}",
   "signatory.replaceStart": "Choose a start date on or after today and review the updated offer. Your item stays reserved. New dates and prices take effect when you confirm and sign.",
   "signatory.startDate": "Lease start date",
-  "signatory.reviewDates": "Review updated offer"
+  "signatory.reviewDates": "Review updated offer",
+  "vatNote.change": "Net prices exclude VAT. VAT is added to each invoice at the rate on its invoice date: {now} % now, {next} % from {date}.",
+  "vatNote.same": "Net prices exclude VAT. VAT is added to each invoice at the rate on its invoice date: {now} % now.",
+  "vatNote.unknown": "Net prices exclude VAT. VAT is added to each invoice at the rate on its invoice date."
 }
