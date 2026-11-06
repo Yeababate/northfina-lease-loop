@@ -24,11 +24,11 @@ export default async function ProfilePage({ params }: PageProps<'/[locale]/profi
   const sets = principal ? await rememberedSetsFor(db, principal.id, questions, todayIso()) : null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-3xl font-semibold tracking-tight">{t('myAnswers.title')}</h1>
-      <p className="mt-2 text-stone-700 dark:text-stone-300">{t('myAnswers.intro')}</p>
+      <p className="mt-2 max-w-3xl text-stone-700 dark:text-stone-300">{t('myAnswers.intro')}</p>
       {sets === null ? (
-        <div className="mt-6">
+        <div className="mt-6 max-w-3xl">
           <InfoBox>
             <p>
               {t('myAnswers.signedOut')}{' '}
