@@ -413,6 +413,8 @@
   "leases.endEarly": "Lõpeta liising ennetähtaegselt",
   "leases.endingEarlyLink": "Ennetähtaegne lõpetamine taotletud",
   "leases.rate": "Hinda seda liisingut",
+  "leases.rating.yours": "Sinu hinnang",
+  "leases.rating.invite": "See liising on lõppenud. Kuidas see läks?",
   "leases.empty.title": "Sa ei liisi veel midagi",
   "leases.empty.body": "Alustamiseks sirvi kataloogi.",
   "leases.browse": "Sirvi kataloogi",

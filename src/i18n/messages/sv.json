@@ -413,6 +413,8 @@
   "leases.endEarly": "Avsluta leasingen i förtid",
   "leases.endingEarlyLink": "Förtida avslut begärt",
   "leases.rate": "Betygsätt leasingen",
+  "leases.rating.yours": "Ditt betyg",
+  "leases.rating.invite": "Den här leasingen är avslutad. Hur gick den?",
   "leases.empty.title": "Du leasar inget ännu",
   "leases.empty.body": "Bläddra i katalogen för att börja.",
   "leases.browse": "Bläddra i katalogen",

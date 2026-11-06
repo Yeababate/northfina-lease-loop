@@ -413,6 +413,8 @@
   "leases.endEarly": "End the lease early",
   "leases.endingEarlyLink": "Early end requested",
   "leases.rate": "Rate this lease",
+  "leases.rating.yours": "Your rating",
+  "leases.rating.invite": "This lease is complete. How did it go?",
   "leases.empty.title": "You are not leasing anything yet",
   "leases.empty.body": "Browse the catalogue to start.",
   "leases.browse": "Browse the catalogue",
