@@ -32,12 +32,49 @@ export type CatalogueQuery = {
 };
 
 /**
- * The price slider runs from €0 to this amount. Its top end reads "€15,000+" and means
- * "no upper limit", so expensive farm machines stay reachable.
+ * With no category chosen the price slider runs from €0 to this amount, and its top end
+ * reads "€6,000+" and means "no upper limit": e-bikes and laptops fit under it, and farm
+ * machines, which start far higher, are all above. Choosing categories fits the slider to
+ * their prices instead (priceSlider).
  */
-export const PRICE_SLIDER_MAX_EUROS = 15_000;
-/** The slider moves in steps of this many euros. */
+export const PRICE_SLIDER_DEFAULT_TOP_EUROS = 6_000;
+/** Steps of €100; ranges above this top move in €1,000 steps so the handles stay usable. */
 export const PRICE_SLIDER_STEP_EUROS = 100;
+const LARGE_RANGE_EUROS = 20_000;
+const LARGE_STEP_EUROS = 1_000;
+
+export type PriceSlider = {
+  topEuros: number;
+  stepEuros: number;
+  /** True when the top end means "and up" (no category chosen). */
+  openEnded: boolean;
+};
+
+/**
+ * The slider's range for the chosen categories: €0 to their most expensive list price today,
+ * rounded up to a whole step. No category (or nothing priced) uses the default "€6,000+".
+ */
+export function priceSlider(
+  items: readonly CatalogueItem[],
+  categories: readonly AssetCategory[]
+): PriceSlider {
+  const prices = items
+    .filter((item) => categories.includes(item.asset.category))
+    .flatMap((item) => (item.listPriceCents === null ? [] : [item.listPriceCents]));
+  if (categories.length === 0 || prices.length === 0)
+    return {
+      topEuros: PRICE_SLIDER_DEFAULT_TOP_EUROS,
+      stepEuros: PRICE_SLIDER_STEP_EUROS,
+      openEnded: true,
+    };
+  const highestEuros = Math.ceil(Math.max(...prices) / 100);
+  const stepEuros = highestEuros > LARGE_RANGE_EUROS ? LARGE_STEP_EUROS : PRICE_SLIDER_STEP_EUROS;
+  return {
+    topEuros: Math.max(stepEuros, Math.ceil(highestEuros / stepEuros) * stepEuros),
+    stepEuros,
+    openEnded: false,
+  };
+}
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -67,7 +104,8 @@ export function parseCatalogueQuery(
     search: first('q').slice(0, 100),
     categories: unique(all('category').filter(isCategory)),
     conditions: unique(all('condition').filter(isCondition)),
-    ...normalisePriceRange(wholeEuros(first('min')), wholeEuros(first('max'))),
+    // The slider's top depends on the categories; the page re-applies it (priceSlider).
+    ...normalisePriceRange(wholeEuros(first('min')), wholeEuros(first('max')), Infinity),
     sort: (catalogueSorts as readonly string[]).includes(sort)
       ? (sort as CatalogueSort)
       : 'price_asc',
@@ -83,10 +121,11 @@ export function parseCatalogueQuery(
  */
 export function normalisePriceRange(
   minEuros: number | null,
-  maxEuros: number | null
+  maxEuros: number | null,
+  topEuros: number = PRICE_SLIDER_DEFAULT_TOP_EUROS
 ): { minPriceEuros: number | null; maxPriceEuros: number | null } {
-  let min = minEuros === 0 || minEuros === null ? null : Math.min(minEuros, PRICE_SLIDER_MAX_EUROS);
-  let max = maxEuros !== null && maxEuros >= PRICE_SLIDER_MAX_EUROS ? null : maxEuros;
+  let min = minEuros === 0 || minEuros === null ? null : Math.min(minEuros, topEuros);
+  let max = maxEuros !== null && maxEuros >= topEuros ? null : maxEuros;
   if (min !== null && max !== null && min > max) [min, max] = [max, min];
   return { minPriceEuros: min, maxPriceEuros: max };
 }
