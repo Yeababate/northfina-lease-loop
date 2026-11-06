@@ -24,6 +24,7 @@ Typed loaders and Zod schemas for every file live in `src/data/`. Read those for
 | `questions.json`           | The application question bank in 4 languages, the targeting rules (`ask_when`) and the eligibility rules.                                                                                                           |
 | `customers.json`           | Ten personas, each with a `story`. Several of them are edge cases on purpose.                                                                                                                                       |
 | `co2-factors.json`         | **Fictional** manufacturing footprints, for the circular-impact problem.                                                                                                                                            |
+| `dealer-locations.json`    | **Fictional** dealer locations (6 towns, linked to the demo providers) and a home-town table for the nearby-dealer map. Town names and coordinates rounded to 0.1° only, never a street address.                    |
 
 ## Worked example: the monthly price
 

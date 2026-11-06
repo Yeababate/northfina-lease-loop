@@ -10,6 +10,7 @@ import {
   co2FactorsSchema,
   coefficientTableSchema,
   customersFileSchema,
+  dealerLocationsFileSchema,
   priceListsFileSchema,
   questionsFileSchema,
   refurbishmentCostsSchema,
@@ -53,3 +54,5 @@ export const loadCo2Factors = () => loadDataFile('co2-factors.json', co2FactorsS
 export const loadRelatedItemRules = () =>
   loadDataFile('related-item-rules.json', relatedItemRulesSchema);
 export const loadBundleOffers = () => loadDataFile('bundle-offers.json', bundleOffersFileSchema);
+export const loadDealerLocations = () =>
+  loadDataFile('dealer-locations.json', dealerLocationsFileSchema);

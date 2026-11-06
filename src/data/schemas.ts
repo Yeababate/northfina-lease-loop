@@ -452,3 +452,67 @@ export const bundleOfferSeedSchema = z.strictObject({
 });
 export type BundleOfferSeed = z.infer<typeof bundleOfferSeedSchema>;
 export const bundleOffersFileSchema = z.array(bundleOfferSeedSchema);
+
+// ---------------------------------------------------------------------------
+// data/dealer-locations.json: fictional dealer locations for the nearby-dealer map, and a
+// small table of home cities. Privacy by shape: only a city or area name and coordinates
+// with at most one decimal (0.1° ≈ 11 km north–south, ≈ 5 km east–west in Finland). There is
+// no address field, and strictObject rejects one if somebody adds it.
+// ---------------------------------------------------------------------------
+
+/** True when `value` has at most one decimal, allowing for binary floating-point noise. */
+function hasAtMostOneDecimal(value: number): boolean {
+  return Math.abs(value * 10 - Math.round(value * 10)) < 1e-9;
+}
+
+const coarseLatSchema = z
+  .number()
+  .min(-90)
+  .max(90)
+  .refine(hasAtMostOneDecimal, { message: 'latitude must be rounded to 0.1°' });
+const coarseLonSchema = z
+  .number()
+  .min(-180)
+  .max(180)
+  .refine(hasAtMostOneDecimal, { message: 'longitude must be rounded to 0.1°' });
+
+export const dealerLocationSchema = z.strictObject({
+  id: z.string().regex(/^[a-z0-9-]{1,60}$/),
+  /** The demo provider (Provider.id) this location belongs to. */
+  provider_id: z.string().min(1),
+  name: z.string().min(1).max(80),
+  /** City or area only: never a street address. */
+  area: z.string().min(1).max(60),
+  lat: coarseLatSchema,
+  lon: coarseLonSchema,
+});
+export type DealerLocation = z.infer<typeof dealerLocationSchema>;
+
+export const homeCitySchema = z.strictObject({
+  name: z.string().min(1).max(60),
+  lat: coarseLatSchema,
+  lon: coarseLonSchema,
+});
+export type HomeCity = z.infer<typeof homeCitySchema>;
+
+export const dealerLocationsFileSchema = z
+  .strictObject({
+    note: z.string(),
+    dealers: z.array(dealerLocationSchema).min(1),
+    cities: z.array(homeCitySchema).min(1),
+  })
+  .superRefine((file, ctx) => {
+    const unique = (values: string[], what: string) => {
+      if (new Set(values).size !== values.length)
+        ctx.addIssue({ code: 'custom', message: `${what} must be unique` });
+    };
+    unique(
+      file.dealers.map((d) => d.id),
+      'dealer ids'
+    );
+    unique(
+      file.cities.map((c) => c.name),
+      'city names'
+    );
+  });
+export type DealerLocationsFile = z.infer<typeof dealerLocationsFileSchema>;
