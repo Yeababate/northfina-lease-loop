@@ -466,5 +466,17 @@
   "invoices.download": "Ladda ner PDF",
   "invoices.showAll": "Visa alla fakturor",
   "invoices.summary": "{count} fakturor · nästa {date}, {amount}",
-  "invoices.summaryDone": "{count} fakturor · alla fakturadatum har passerat"
+  "invoices.summaryDone": "{count} fakturor · alla fakturadatum har passerat",
+  "reviews.leasedBy": "Uthyrare: {name}",
+  "reviews.noneYetShort": "Inga betyg ännu",
+  "reviews.average": "Snitt {average} av 5 stjärnor",
+  "reviews.count": "{count} betyg",
+  "reviews.countOne": "1 betyg",
+  "reviews.summary": "{average} från {count}",
+  "reviews.showAll": "Visa alla {count}",
+  "reviews.edited": "ändrat",
+  "reviews.aboutProvider": "Om uthyraren: {name}",
+  "reviews.providerNone": "Inga betyg ännu. Hyrestagare kan betygsätta uthyraren efter ett avslutat avtal.",
+  "reviews.mine": "Dina betyg som hyrestagare",
+  "reviews.mineNone": "Inga betyg ännu. Uthyrare kan betygsätta dig efter ett avslutat avtal."
 }

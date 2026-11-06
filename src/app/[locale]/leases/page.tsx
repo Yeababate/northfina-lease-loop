@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { LeasesImpactPanel } from '@/components/impact-panel';
 import { LeaseCard } from '@/components/lease-card';
+import { ReviewsCard } from '@/components/reviews';
 import { primaryButton } from '@/components/ui';
 import { loadVatRates } from '@/data/load';
 import { getT } from '@/i18n/get-t';
@@ -13,6 +14,7 @@ import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
 import { loadImpactInputs } from '@/server/impact';
 import { loadMyLeases } from '@/server/my-leases';
+import { renterReputation } from '@/server/reputation';
 import { todayIso } from '@/server/today';
 
 export default async function MyLeasesPage({ params }: PageProps<'/[locale]/leases'>) {
@@ -31,6 +33,7 @@ export default async function MyLeasesPage({ params }: PageProps<'/[locale]/leas
     vat,
     impactInputs
   );
+  const myRatings = await renterReputation(db, principal.id);
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6">
@@ -67,6 +70,15 @@ export default async function MyLeasesPage({ params }: PageProps<'/[locale]/leas
           ))}
         </section>
       ) : null}
+
+      <ReviewsCard
+        id="my-ratings"
+        title={t('reviews.mine')}
+        reputation={myRatings}
+        emptyText={t('reviews.mineNone')}
+        locale={locale}
+        t={t}
+      />
     </div>
   );
 }

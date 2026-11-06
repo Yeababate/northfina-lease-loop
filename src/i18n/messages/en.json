@@ -466,5 +466,17 @@
   "invoices.download": "Download PDF",
   "invoices.showAll": "Show all invoices",
   "invoices.summary": "{count} invoices · next {date}, {amount}",
-  "invoices.summaryDone": "{count} invoices · all invoice dates have passed"
+  "invoices.summaryDone": "{count} invoices · all invoice dates have passed",
+  "reviews.leasedBy": "Leased by {name}",
+  "reviews.noneYetShort": "No ratings yet",
+  "reviews.average": "Average {average} of 5 stars",
+  "reviews.count": "{count} ratings",
+  "reviews.countOne": "1 rating",
+  "reviews.summary": "{average} from {count}",
+  "reviews.showAll": "Show all {count}",
+  "reviews.edited": "edited",
+  "reviews.aboutProvider": "About the provider: {name}",
+  "reviews.providerNone": "No ratings yet. Renters can rate the provider after a completed lease.",
+  "reviews.mine": "Your ratings as a renter",
+  "reviews.mineNone": "No ratings yet. Providers can rate you after a lease is completed."
 }

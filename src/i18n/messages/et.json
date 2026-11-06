@@ -466,5 +466,17 @@
   "invoices.download": "Laadi alla PDF",
   "invoices.showAll": "Näita kõiki arveid",
   "invoices.summary": "{count} arvet · järgmine {date}, {amount}",
-  "invoices.summaryDone": "{count} arvet · kõik arvekuupäevad on möödas"
+  "invoices.summaryDone": "{count} arvet · kõik arvekuupäevad on möödas",
+  "reviews.leasedBy": "Rendileandja: {name}",
+  "reviews.noneYetShort": "Hinnanguid veel pole",
+  "reviews.average": "Keskmine {average} tärni 5-st",
+  "reviews.count": "{count} hinnangut",
+  "reviews.countOne": "1 hinnang",
+  "reviews.summary": "{average} · {count}",
+  "reviews.showAll": "Näita kõiki {count}",
+  "reviews.edited": "muudetud",
+  "reviews.aboutProvider": "Rendileandjast: {name}",
+  "reviews.providerNone": "Hinnanguid veel pole. Rentnikud saavad rendileandjat hinnata pärast lõppenud lepingut.",
+  "reviews.mine": "Sinu hinnangud rentnikuna",
+  "reviews.mineNone": "Hinnanguid veel pole. Rendileandjad saavad sind hinnata pärast lõppenud lepingut."
 }

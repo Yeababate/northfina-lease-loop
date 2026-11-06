@@ -466,5 +466,17 @@
   "invoices.download": "Lataa PDF",
   "invoices.showAll": "Näytä kaikki laskut",
   "invoices.summary": "{count} laskua · seuraava {date}, {amount}",
-  "invoices.summaryDone": "{count} laskua · kaikki laskupäivät ovat menneet"
+  "invoices.summaryDone": "{count} laskua · kaikki laskupäivät ovat menneet",
+  "reviews.leasedBy": "Vuokranantaja: {name}",
+  "reviews.noneYetShort": "Ei vielä arvioita",
+  "reviews.average": "Keskiarvo {average}/5 tähteä",
+  "reviews.count": "{count} arviota",
+  "reviews.countOne": "1 arvio",
+  "reviews.summary": "{average} · {count}",
+  "reviews.showAll": "Näytä kaikki {count}",
+  "reviews.edited": "muokattu",
+  "reviews.aboutProvider": "Vuokranantajasta: {name}",
+  "reviews.providerNone": "Ei vielä arvioita. Vuokraajat voivat arvioida vuokranantajan päättyneen sopimuksen jälkeen.",
+  "reviews.mine": "Arviosi vuokraajana",
+  "reviews.mineNone": "Ei vielä arvioita. Vuokranantajat voivat arvioida sinut päättyneen sopimuksen jälkeen."
 }

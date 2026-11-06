@@ -16,6 +16,7 @@ import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
 import { listAssets } from '@/server/assets';
+import { providerBadgesForAssets } from '@/server/reputation';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
 
@@ -45,6 +46,10 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     return { asset, listPriceCents: price.ok ? price.priceCents : null };
   });
   const shown = filterCatalogue(items, query);
+  const providers = await providerBadgesForAssets(
+    db,
+    shown.map((item) => item.asset.id)
+  );
   const leaseParams = new URLSearchParams({
     term: String(query.termMonths),
     start: query.startDate,
@@ -89,6 +94,7 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
                 <AssetCard
                   item={item}
                   href={`/${locale}/items/${item.asset.id}?${leaseParams}`}
+                  provider={providers.get(item.asset.id)}
                   locale={locale}
                   t={t}
                 />
