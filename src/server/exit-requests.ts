@@ -6,6 +6,7 @@ import {
 } from '@/domain/early-exit';
 import { ApiError } from './api-response';
 import { withAudit } from './audit';
+import { loadExitPricing } from './exit-pricing';
 import type { PrismaClient } from './prisma-client';
 import {
   assertOwnedAssets,
@@ -21,8 +22,9 @@ export async function readExitView(
   userId: string,
   today: string
 ) {
-  const { context, assetIds } = await loadExitContract(db, contractId);
+  const { contract, context, assetIds } = await loadExitContract(db, contractId);
   assertParticipant(context, userId);
+  const pricing = await loadExitPricing(db, contract, assetIds);
   const requests = await db.exitRequest.findMany({
     where: { contractId },
     orderBy: { requestedOn: 'desc' },
@@ -46,8 +48,8 @@ export async function readExitView(
     status: context.status,
     request: latest ? { ...latest, quote: storedQuote(latest.quoteJson) } : null,
     ordinaryRentAndTax: 'provider_review_required' as const,
-    returnQuote: previewEarlyExit(context, 'return', userId, today),
-    buyoutQuote: previewEarlyExit(context, 'buyout', userId, today),
+    returnQuote: previewEarlyExit(context, 'return', userId, today, pricing),
+    buyoutQuote: previewEarlyExit(context, 'buyout', userId, today, pricing),
   };
 }
 
@@ -88,8 +90,9 @@ export async function requestEarlyExit(
         details: { requestId: input.requestId, kind: input.kind, quote: input.expectedQuote },
       },
       async (tx) => {
-        const { context, assetIds } = await loadExitContract(tx, input.contractId);
-        const result = previewEarlyExit(context, input.kind, input.userId, today);
+        const { contract, context, assetIds } = await loadExitContract(tx, input.contractId);
+        const pricing = await loadExitPricing(tx, contract, assetIds);
+        const result = previewEarlyExit(context, input.kind, input.userId, today, pricing);
         if (!result.ok)
           throw new ApiError(
             422,

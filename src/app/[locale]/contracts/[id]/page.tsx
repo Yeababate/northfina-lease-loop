@@ -307,7 +307,7 @@ export default async function ContractPage({
                         status: exitView.request.status,
                         effectiveEndOn: exitView.request.effectiveEndOn,
                         revision: exitView.request.revision,
-                        amountNetCents: exitView.request.quote.amountNetCents,
+                        quote: exitView.request.quote,
                       }
                     : null
                 }

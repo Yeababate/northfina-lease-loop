@@ -5,20 +5,16 @@
 // them, asks for confirmation, and sends the exact quote back so a changed price is caught.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { ExitKind, ExitQuote } from '@/domain/early-exit';
+import type { ExitKind, ExitPreviewFailure, ExitQuote } from '@/domain/early-exit';
 import { formatEuro } from '@/domain/money';
 import { formatIsoDate } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { primaryButton, secondaryButton } from '../ui';
+import { ExitExplanation } from './exit-explanation';
 
 export type ExitQuoteResult =
-  | { ok: true; quote: ExitQuote }
-  | {
-      ok: false;
-      reason:
-        'not_renter' | 'not_active' | 'participants_missing' | 'not_started' | 'already_ended';
-    };
+  { ok: true; quote: ExitQuote } | { ok: false; reason: ExitPreviewFailure };
 
 export type ExitRequestView = {
   id: string;
@@ -26,7 +22,8 @@ export type ExitRequestView = {
   status: string;
   effectiveEndOn: string;
   revision: number;
-  amountNetCents: number;
+  /** The stored quote, explained with the method it was priced with. */
+  quote: ExitQuote;
 };
 
 type EarlyExitProps = {
@@ -99,9 +96,14 @@ export function EarlyExit({
           <p className="mt-0.5 text-sm">
             {t('exit.pending.detail', {
               date: date(request.effectiveEndOn),
-              amount: euro(request.amountNetCents),
+              amount: euro(request.quote.amountNetCents),
             })}
           </p>
+          <ExitExplanation
+            quote={request.quote}
+            endOfTermBuyoutCents={endOfTermBuyoutCents}
+            locale={locale}
+          />
         </div>
         {problemText}
         <button
@@ -139,6 +141,11 @@ export function EarlyExit({
             amount: euro(quote.amountNetCents),
           })}
         </p>
+        <ExitExplanation
+          quote={quote}
+          endOfTermBuyoutCents={endOfTermBuyoutCents}
+          locale={locale}
+        />
         <p className="text-sm text-stone-600 dark:text-stone-400">{t('exit.rentNote')}</p>
         {problemText}
         <div className="flex flex-wrap gap-3">
@@ -199,14 +206,12 @@ export function EarlyExit({
                 <p className="mt-2 text-sm">
                   {t('exit.endsOn', { date: date(result.quote.effectiveEndOn) })}
                 </p>
-                {/* How the amount is worked out (early-exit-price.ts), in one line. */}
-                <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">
-                  {t(`exit.${kind}.how`, {
-                    months: result.quote.remainingMonths,
-                    rent: euro(result.quote.monthlyRentCents),
-                    buyout: euro(endOfTermBuyoutCents),
-                  })}
-                </p>
+                {/* How the amount is worked out (fair-exit.ts), line by line. */}
+                <ExitExplanation
+                  quote={result.quote}
+                  endOfTermBuyoutCents={endOfTermBuyoutCents}
+                  locale={locale}
+                />
                 <div className="mt-auto pt-4">
                   <button
                     type="button"
