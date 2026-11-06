@@ -49,6 +49,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
               catalogueLabel={t('nav.catalogue')}
               leasesLabel={t('nav.myLeases')}
               dealsLabel={t('deals.nav')}
+              dealersLabel={t('dealers.nav')}
             />
             <div className="ml-auto flex items-center gap-6">
               <LanguageSwitcher current={locale} label={t('nav.language')} />
