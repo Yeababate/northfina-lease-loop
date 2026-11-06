@@ -17,7 +17,7 @@ export const CONDITION_ORDER: readonly AssetCondition[] = [
  * item directly with a waiting-list entry that accepts fair is not implemented, so fair
  * returns are never relisted silently.
  */
-export const LISTING_MIN_CONDITION: AssetCondition = 'good';
+export const LISTING_MIN_CONDITION = 'good';
 
 export function conditionRank(condition: AssetCondition): number {
   return CONDITION_ORDER.indexOf(condition);
@@ -98,7 +98,11 @@ export function upgradeActionId(from: AssetCondition, to: AssetCondition): strin
  * required step, only record that it was done. A rule on a different counter than the asset's
  * (for example km on a laptop) is reported as unsupported rather than guessed.
  */
-export function requiredWork(state: InspectedState, rules: RefurbishmentCosts): WorkRequirements {
+export function requiredWork(
+  state: InspectedState,
+  rules: RefurbishmentCosts,
+  minimum: AssetCondition = LISTING_MIN_CONDITION
+): WorkRequirements {
   const category = rules[state.category];
   const required: RequiredAction[] = [];
   const missing: 'hours_since_service'[] = [];
@@ -138,7 +142,7 @@ export function requiredWork(state: InspectedState, rules: RefurbishmentCosts): 
     }
   }
 
-  const path = upgradePath(state.condition, Object.keys(category.condition_upgrades));
+  const path = upgradePath(state.condition, Object.keys(category.condition_upgrades), minimum);
   if (path === null) unsupported.push('no_upgrade_path');
   else
     for (const step of path)
@@ -163,12 +167,16 @@ export function parseUpgradeKey(key: string): Step | null {
 }
 
 /**
- * Fewest supported steps from `from` to the listing minimum (breadth-first). Multi-step paths
+ * Fewest supported steps from `from` to the minimum condition (breadth-first). Multi-step paths
  * such as poor->fair->good are chained from the data; a direct step is used only if the
  * data names one. [] when already good enough, null when the data offers no way there.
  */
-export function upgradePath(from: AssetCondition, upgradeKeys: readonly string[]): Step[] | null {
-  if (meetsCondition(from, LISTING_MIN_CONDITION)) return [];
+export function upgradePath(
+  from: AssetCondition,
+  upgradeKeys: readonly string[],
+  minimum: AssetCondition = LISTING_MIN_CONDITION
+): Step[] | null {
+  if (meetsCondition(from, minimum)) return [];
   const steps = upgradeKeys.map(parseUpgradeKey).filter((step): step is Step => step !== null);
   const queue: { at: AssetCondition; path: Step[] }[] = [{ at: from, path: [] }];
   const seen = new Set<AssetCondition>([from]);
@@ -177,7 +185,7 @@ export function upgradePath(from: AssetCondition, upgradeKeys: readonly string[]
     for (const step of steps.filter((s) => s.from === at)) {
       if (seen.has(step.to)) continue;
       const next = [...path, step];
-      if (meetsCondition(step.to, LISTING_MIN_CONDITION)) return next;
+      if (meetsCondition(step.to, minimum)) return next;
       seen.add(step.to);
       queue.push({ at: step.to, path: next });
     }
