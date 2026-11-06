@@ -18,7 +18,7 @@ import {
   isLeaseDueToComplete,
 } from '@/domain/next-life';
 import { ApiError } from './api-response';
-import { toAsset } from './assets';
+import { hasWaitingListReservation, toAsset } from './assets';
 import { withAudit, type TransactionClient } from './audit';
 import { completeEndTermReturnInTx } from './end-of-term';
 import { loadIntake, sequencedId } from './next-life-reads';
@@ -354,6 +354,12 @@ export async function relist(
       const view = deriveNextLife(facts, rules);
       if (!view.canRelist)
         throw new ApiError(409, 'NOT_READY', 'This item cannot be relisted yet', view.blockers);
+      if (await hasWaitingListReservation(tx, asset.id, today))
+        throw new ApiError(
+          409,
+          'ASSET_ALREADY_OFFERED',
+          'This item is reserved for a waiting-list entry'
+        );
       const price = await priceNextLife(tx, toAsset(asset), today, { lists, curves, table });
       if (!price.ok)
         throw new ApiError(

@@ -213,6 +213,23 @@ model ReturnIntake {
   @@index([assetId])
 }
 
+model WaitingListEntry {
+  id                     String  @id
+  category               String
+  maxMonthlyNetRentCents Int
+  minCondition           String
+  preferredTermMonths    Int
+  neededBy               String
+  signedUpOn             String
+  who                    String
+  /// waiting | offered | matched | expired
+  status                 String  @default("waiting")
+  offeredAssetId         String? @unique
+  offeredIntakeId        String?
+  offeredOn              String?
+  offerJson              String?
+}
+
 model ReturnInspection {
   id                String       @id
   intakeId          String

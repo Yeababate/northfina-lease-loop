@@ -8,10 +8,12 @@ import { seedModerator } from '@/server/moderator-seed';
 import { seedDealerSide } from '@/server/providers';
 import { createPrismaClient } from '@/server/prisma-client';
 import { seedDemoParticipants } from '@/server/demo-participants';
+import { seedWaitingList } from '@/server/waiting-list';
 
 const db = createPrismaClient();
 try {
   await seedModerator(db);
+  await seedWaitingList(db);
   const assets = await loadAssets();
   const { created, skipped } = await seedAssets(db, assets);
   console.log(`🌱 Seeded ${created} new assets (${skipped} were already there).`);
