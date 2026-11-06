@@ -5,8 +5,11 @@ import type { PrismaClient } from '../prisma-client';
 
 const runReminderPass = vi.fn(async () => ({ processed: 0 }));
 vi.mock('./processor', () => ({ runReminderPass }));
+const runWaitingListFollowUp = vi.fn(async () => ({ asked: 0, expired: 0, failed: 0 }));
+vi.mock('../waiting-list-follow-up', () => ({ runWaitingListFollowUp }));
 
-const { WORKER_INTERVAL_MS, reminderJob, startAppWorker, startWorker } = await import('./worker');
+const { WORKER_INTERVAL_MS, reminderJob, startAppWorker, startWorker, waitingListFollowUpJob } =
+  await import('./worker');
 
 const db = {} as PrismaClient;
 const state = globalThis as typeof globalThis & { leaseLoopWorker?: unknown };
@@ -32,6 +35,7 @@ function captureSignals(listeners: number) {
 
 beforeEach(() => {
   runReminderPass.mockClear();
+  runWaitingListFollowUp.mockClear();
 });
 afterEach(async () => {
   const worker = state.leaseLoopWorker as { stop: () => Promise<void> } | undefined;
@@ -49,6 +53,31 @@ describe('reminderJob', () => {
     await job.run(now);
     expect(job.name).toBe('lease-end-reminders');
     expect(runReminderPass).toHaveBeenCalledWith(db, now, { contacts });
+  });
+});
+
+describe('waitingListFollowUpJob', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('runs the follow-up with the Helsinki date of the pass time', async () => {
+    vi.stubEnv('LEASE_LOOP_TODAY', '');
+    const contacts = vi.fn(async () => ({ email: null }));
+    const job = waitingListFollowUpJob(db, contacts);
+    const now = new Date('2026-11-30T22:30:00.000Z'); // already 1 Dec in Helsinki
+    await job.run(now);
+    expect(job.name).toBe('waiting-list-follow-up');
+    expect(runWaitingListFollowUp).toHaveBeenCalledWith(db, '2026-12-01', now, { contacts });
+  });
+
+  it('follows the demo date when LEASE_LOOP_TODAY is set', async () => {
+    vi.stubEnv('LEASE_LOOP_TODAY', '2027-01-15');
+    const now = new Date('2026-11-05T07:00:00.000Z');
+    await waitingListFollowUpJob(db).run(now);
+    expect(runWaitingListFollowUp).toHaveBeenCalledWith(db, '2027-01-15', now, {
+      contacts: expect.any(Function),
+    });
   });
 });
 
@@ -88,6 +117,7 @@ describe('startAppWorker', () => {
     expect(startAppWorker(db)).toBe(worker);
     expect([...handlers.keys()].sort()).toEqual(['SIGINT', 'SIGTERM']);
     await vi.waitFor(() => expect(runReminderPass).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(runWaitingListFollowUp).toHaveBeenCalledTimes(1));
 
     const stop = vi.spyOn(worker, 'stop');
     handlers.get('SIGTERM')?.('SIGTERM');

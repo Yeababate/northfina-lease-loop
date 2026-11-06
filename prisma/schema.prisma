@@ -273,8 +273,17 @@ model WaitingListEntry {
   offerJson              String?
   /// The signed-in customer who joined from the app; null for the data pack's entries.
   participantId          String?
+  /// The language the customer joined in, for the "Do you still want this?" message.
+  locale                 String  @default("en")
+  /// The day "Do you still want this?" was sent after needed-by passed; null when not asked
+  /// (or answered "yes" with a new date). See src/domain/waiting-list-follow-up.ts.
+  stillWantedAskedOn     String?
+  /// The day the entry expired, and why: declined | no_reply. Null while open.
+  expiredOn              String?
+  expiredReason          String?
 
   @@index([participantId])
+  @@index([status])
 }
 
 model ReturnInspection {
@@ -514,14 +523,18 @@ model ReminderOccurrence {
   @@index([contractId, recipientId])
 }
 
-// A generated reminder in one recipient's inbox. timingJson is the time left when it was
-// generated; the inbox re-words the time left at viewing time from deadlineAt.
+// A generated reminder or waiting-list message in one recipient's inbox. timingJson is the time
+// left when it was generated; the inbox re-words the time left at viewing time from deadlineAt.
 model Notification {
   id                 String                 @id
   recipientId        String
-  contractId         String
+  /// The lease a lease_end_reminder is about; null for a waiting-list message.
+  contractId         String?
+  /// The waiting-list entry a waiting_list_still_wanted message is about; null otherwise.
+  waitingListEntryId String?
   eventVersion       String
-  kind               String // lease_end_reminder
+  kind               String // lease_end_reminder | waiting_list_still_wanted
+  /// lease_end_reminder: the lease's exclusive end. waiting_list_still_wanted: the passed needed-by.
   endOn              String
   deadlineAt         DateTime
   originalDueAt      DateTime

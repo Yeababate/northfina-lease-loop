@@ -1,9 +1,11 @@
 // POST /api/waiting-list — the signed-in customer joins the second-life waiting list.
-// Body: { category, maxMonthlyNetRentCents, minCondition, preferredTermMonths, neededBy }.
+// Body: { category, maxMonthlyNetRentCents, minCondition, preferredTermMonths, neededBy,
+// locale? }. The locale is the language later messages about the request are written in.
 import { z } from 'zod';
 import { loadCoefficientTable } from '@/data/load';
 import { assetCategorySchema, assetConditionSchema, isoDateSchema } from '@/data/schemas';
 import { availableTerms } from '@/domain/pricing';
+import { locales } from '@/i18n/locales';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { db } from '@/server/db';
 import { requirePrincipal } from '@/server/mock-users';
@@ -16,6 +18,7 @@ const schema = z.strictObject({
   minCondition: assetConditionSchema,
   preferredTermMonths: z.number().int(),
   neededBy: isoDateSchema,
+  locale: z.enum(locales).optional(),
 });
 
 export const POST = handleRoute(async (request) => {
