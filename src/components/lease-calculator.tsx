@@ -22,6 +22,7 @@ import { formatIsoDate, formatNumber } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { PriceExplainer, TermComparison, type VatChange } from './price-explainer';
+import { LiveReadiness } from './live-readiness';
 import { StartApplicationButton } from './start-application-button';
 import type { PriceSource } from '@/domain/price-list';
 
@@ -48,6 +49,10 @@ type LeaseCalculatorProps = {
   summary: ReactNode;
   /** Rendered on the server and shown under the apply button (the CO2 "Your impact" panel). */
   afterApply?: ReactNode;
+  /** Signed in: show the readiness badge, following the sliders (#52). */
+  liveReadiness?: boolean;
+  /** Signed out: the hint shown in the badge's place instead. */
+  readinessHint?: ReactNode;
 };
 
 /** The down payment slider moves in whole euros. */
@@ -96,6 +101,16 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
     <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
       <div>
         {props.summary}
+        {props.liveReadiness && result.ok ? (
+          <LiveReadiness
+            assetId={props.assetId}
+            termMonths={termMonths}
+            downPaymentCents={downPaymentCents}
+            locale={locale}
+          />
+        ) : (
+          props.readinessHint
+        )}
         {result.ok ? (
           <>
             <StartApplicationButton

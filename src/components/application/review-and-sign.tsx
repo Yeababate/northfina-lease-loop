@@ -14,8 +14,11 @@ import type { Deal } from '@/domain/question-flow';
 import { formatIsoDate } from '@/i18n/format';
 import { getT, type MessageKey } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
+import type { RememberedSetView } from '@/domain/remembered-answers';
 import { Badge, InfoBox, primaryButton, secondaryButton } from '../ui';
+import { RememberAnswers } from './remember-answers';
 import { clearAnswers, useCanReadAnswers, useSavedAnswers } from './saved-answers';
+import { useRememberedAnswers } from './use-remembered-answers';
 
 export type LeaseSummary = {
   assetId: string;
@@ -52,6 +55,8 @@ type ReviewAndSignProps = {
   explanations: ReactNode;
   applyHref: string;
   quoteId?: string;
+  /** The user's remembered answer sets (#52); null when signed out. */
+  remembered: readonly RememberedSetView[] | null;
 };
 
 const SIGN_ERRORS = [
@@ -72,6 +77,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
   const agreeId = useId();
   const canRead = useCanReadAnswers();
   const answers = useSavedAnswers(props.storageKey);
+  const store = useRememberedAnswers(props.remembered);
   // Consent belongs to the exact displayed offer, including buyout and VAT preview.
   const offerKey = signingOfferKey({
     ...lease,
@@ -259,6 +265,17 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
             </div>
           )}
         </section>
+        {canRead && Object.keys(answers).length > 0 ? (
+          <div className="mt-6">
+            <RememberAnswers
+              questions={props.questions}
+              answers={answers}
+              store={store}
+              locale={locale}
+              t={t}
+            />
+          </div>
+        ) : null}
       </aside>
     </div>
   );

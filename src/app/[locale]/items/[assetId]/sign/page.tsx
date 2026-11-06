@@ -24,6 +24,7 @@ import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
+import { rememberedSetsFor } from '@/server/catalogue-readiness';
 
 export default async function SignPage({
   params,
@@ -268,6 +269,12 @@ export default async function SignPage({
           explanations={explanations}
           applyHref={applyHref}
           quoteId={savedQuote?.id}
+          remembered={await rememberedSetsFor(
+            db,
+            principal?.id ?? null,
+            questionsFile.questions,
+            today
+          )}
         />
       </div>
     </div>
