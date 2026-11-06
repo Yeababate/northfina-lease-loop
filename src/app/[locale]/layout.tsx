@@ -78,7 +78,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
           </div>
         </header>
 
-        <main id="main" className="flex-1">
+        {/* tabIndex -1 lets the skip link move keyboard focus into the page, not just scroll. */}
+        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
           {children}
         </main>
 
