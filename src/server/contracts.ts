@@ -116,6 +116,11 @@ export async function signContract(
     discountBps: result.price.discountBps,
     generatedAt: new Date().toISOString(),
   });
+  const signingDetails: Record<string, unknown> = {
+    ...result.price,
+    ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
+    ...(passOnId && { passOnContractId: passOnId }),
+  };
   return withAudit(
     db,
     {
@@ -123,15 +128,15 @@ export async function signContract(
       action: 'contract.signed',
       entityType: 'contract',
       entityId: id,
-      details: {
-        ...result.price,
-        ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
-        ...(passOnId && { passOnContractId: passOnId }),
-      },
+      details: signingDetails,
     },
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
       if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      signingDetails.assetAtSigning = {
+        condition: asset.condition,
+        usage: { unit: asset.usage_unit, value: asset.usage_value },
+      };
       const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
       if (
         input.participants &&
