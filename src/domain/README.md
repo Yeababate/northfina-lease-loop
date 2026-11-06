@@ -120,7 +120,7 @@ start bills on 28 February 2026, 31 March 2026 and 29 February 2028. The final
 invoice precedes the exclusive contract end date.
 
 Every net amount is the saved contract's locked monthly net rent, already rounded
-at signing. The net rental total is exactly rent × term. Down payment and optional
+at signing. The invoice net total is exactly rent × term. Down payment and optional
 buyout are separate, excluded from rental invoices. VAT is selected using each
 invoice date and rounded once per invoice to whole cents, half up; gross totals
 sum those individual net and tax lines, never an independently rounded total.
@@ -134,6 +134,28 @@ starter's audit convention; it is not an authentication mechanism.
 Generation uses one audited transaction and a database unique key on contract and
 period. Retries return the same invoices; the audit records each successful
 generation request, including retries. Missing VAT fails the whole generation.
+
+## Rounding and total cost
+
+Money is integer cents. Monthly rent is financed cents multiplied by the factor
+represented in millionths, rounded once to the nearest cent with half cents up. A
+dealer discount is rounded half up once against that rounded monthly net rent and
+subtracted before VAT. VAT uses the invoice-date rate and is rounded half up once
+per invoice; an invoice's gross is exactly `netCents + vatCents`. Never calculate tax
+from an aggregate net total, because that can produce a different number of cents
+than summing the individually rounded invoice taxes.
+
+For a returned lease, the monthly rental totals are `Σ invoice.netCents`,
+`Σ invoice.vatCents`, and `Σ invoice.grossCents`. Net rent totals exactly
+`monthlyNetCents × termMonths`. Group the net, VAT and gross sums by each invoice's
+`vatPercent` to show the VAT change without changing the locked rent. The quoted net
+lease amount is `downPaymentCents + Σ invoice.netCents`; `quote.totalNetCents` uses
+that definition and excludes VAT and buyout. The recorded cash total for the lease
+is `downPaymentCents + Σ invoice.grossCents`, plus the buyout payment only if the
+customer buys the item. Keep the down payment and buyout as separate lines. If a
+buyout transaction is later implemented, it must add its own VAT at the purchase
+date; it must not be counted as another monthly invoice. Do not add invoice gross
+and then add those same invoices' net and VAT again.
 
 See [Money Core verification and legacy recovery](../../docs/money-core-integration.md)
 for start-date evidence, migration failure reproduction and the tested side-by-side

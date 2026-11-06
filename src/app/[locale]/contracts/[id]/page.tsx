@@ -9,6 +9,7 @@ import { EarlyExit } from '@/components/contract/early-exit';
 import { RateLease } from '@/components/contract/rate-lease';
 import { ReminderSettings } from '@/components/contract/reminder-settings';
 import { InvoicesPanel } from '@/components/contract/invoices-panel';
+import { LeaseActivity } from '@/components/contract/lease-activity';
 import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { Badge, textLink } from '@/components/ui';
 import { isoDateSchema } from '@/data/schemas';
@@ -27,6 +28,7 @@ import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
 import { readExitView } from '@/server/exit-requests';
 import { getParticipantContract } from '@/server/profile';
+import { loadLeaseActivity } from '@/server/lease-activity';
 import { ownContractRating } from '@/server/ratings';
 import { getReminderSettings } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
@@ -57,20 +59,22 @@ export default async function ContractPage({
 
   const assetIds =
     contract.lines.length > 0 ? contract.lines.map((line) => line.assetId) : [contract.assetId];
-  const [assets, document, invoices, vat, exitView, rating, reminders] = await Promise.all([
-    Promise.all(assetIds.map((assetId) => getAsset(db, assetId))),
-    db.contractDocument.findUnique({ where: { contractId: id }, select: { locale: true } }),
-    db.invoice.findMany({ where: { contractId: id }, orderBy: { period: 'asc' } }),
-    loadVatRates(),
-    isRenter ? readExitView(db, id, principal.id, today) : null,
-    ownContractRating(db, id, principal.id),
-    isRenter
-      ? getReminderSettings(db, id, principal.id).catch((error: unknown) => {
-          if (error instanceof ApiError && error.status === 404) return null;
-          throw error;
-        })
-      : null,
-  ]);
+  const [assets, document, invoices, vat, exitView, rating, reminders, activity] =
+    await Promise.all([
+      Promise.all(assetIds.map((assetId) => getAsset(db, assetId))),
+      db.contractDocument.findUnique({ where: { contractId: id }, select: { locale: true } }),
+      db.invoice.findMany({ where: { contractId: id }, orderBy: { period: 'asc' } }),
+      loadVatRates(),
+      isRenter ? readExitView(db, id, principal.id, today) : null,
+      ownContractRating(db, id, principal.id),
+      isRenter
+        ? getReminderSettings(db, id, principal.id).catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 404) return null;
+            throw error;
+          })
+        : null,
+      loadLeaseActivity(db, id, { id: principal.id, displayName: principal.displayName }),
+    ]);
   const name = assets
     .map((asset, index) => (asset ? `${asset.make} ${asset.model}` : assetIds[index]))
     .join(' + ');
@@ -265,6 +269,10 @@ export default async function ContractPage({
               <p className="text-sm">{t('rating.notYet')}</p>
             </Section>
           ) : null}
+
+          <Section id="activity" title={t('activity.title')} intro={t('activity.intro')}>
+            <LeaseActivity items={activity} locale={locale} t={t} />
+          </Section>
         </div>
       </div>
     </div>
