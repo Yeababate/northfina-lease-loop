@@ -340,6 +340,7 @@ export const secondLifeRequestSchema = z.strictObject({
   min_condition: assetConditionSchema,
   preferred_term_months: z.number().int().positive(),
   needed_by: isoDateSchema,
+  signed_up_on: isoDateSchema,
   who: z.string(),
 });
 export type SecondLifeRequest = z.infer<typeof secondLifeRequestSchema>;

@@ -44,6 +44,12 @@ Relisting uses the asset's market value with no markup. Age is counted in full m
 
 The valuation applies the interpolated residual curve, condition after refurbishment, and the capped usage adjustment to the starting price. It rounds half up once, to cents. An amount below the smallest finance band cannot be relisted. Signing records the second-life price as its source and locks the amounts in the contract.
 
+## Waiting-list offers
+
+Eligible offers meet the category, condition, monthly net rent budget, and deadline. The matcher compares each leaseable refurbishment option that adds at least as much market value as it costs and offers the least costly option that qualifies. It ranks by earliest deadline, then lower refurbishment cost, then `signed_up_on`, then entry ID. The data pack has no work durations, so the planned ready date is today or the current lease's end, whichever is later.
+
+An active offer holds the asset for that entry through `needed_by`. The item stays in the returns workflow so its work can be recorded. Public relisting is blocked during the hold.
+
 ## Rules for `ask_when` in questions.json
 
 `ask_when` is a list of conditions, and **all** must be true for the question to be asked. An empty list means "always ask".
