@@ -10,13 +10,16 @@ export async function register() {
   if (process.env.NEXT_PHASE === 'phase-production-build') return;
   if (process.env.NODE_ENV === 'test') return;
 
-  const { registerLifecycleWorker } = await import('./server/lifecycle-startup');
+  const [{ db }, { restoreParticipantsFromSigningRecords }, { registerLifecycleWorker }] =
+    await Promise.all([
+      import('./server/db'),
+      import('./server/legacy-contracts'),
+      import('./server/lifecycle-startup'),
+    ]);
+  await restoreParticipantsFromSigningRecords(db);
   registerLifecycleWorker();
 
   if (process.env.LEASE_LOOP_WORKER === 'off') return;
-  const [{ db }, { startAppWorker }] = await Promise.all([
-    import('./server/db'),
-    import('./server/reminders/worker'),
-  ]);
+  const { startAppWorker } = await import('./server/reminders/worker');
   startAppWorker(db);
 }

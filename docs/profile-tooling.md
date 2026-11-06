@@ -85,6 +85,12 @@ requires known distinct IDs and refuses to overwrite a mapping. Line backfill co
 saved amounts without consulting current price lists. Neither helper invents an original
 PDF or backdates one. Ambiguous legacy ownership and missing originals remain explicit.
 
+For the historical discount-migration table rebuild that removed nullable participant
+columns, server startup restores a missing pair only when a stable renter ID appears in a
+`contract.signed` audit entry and the immutable `ContractProvider` link points to an existing
+provider and participant. The update and recovery audit commit together. Human names and
+ambiguous records are left unmapped for explicit operator review.
+
 Future notification preferences/inbox tooling belongs to #10 and can attach to these
 contract/principal IDs. Return/refurbishment management belongs to #12. No messaging,
 reminder worker, rating form or polished dashboard is implemented by this issue.

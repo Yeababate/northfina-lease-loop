@@ -9,6 +9,8 @@ import { inspectContractStartMigration, START_MIGRATION } from './inspect-contra
 import { planLegacyContractStart } from '../src/domain/legacy-contract-start';
 
 import { restoreLegacyMoneySnapshot } from '../src/server/legacy-money-recovery';
+import { restoreParticipantsFromSigningRecords } from '../src/server/legacy-contracts';
+import { createPrismaClient } from '../src/server/prisma-client';
 import { createTestDb } from '../tests/helpers/test-db';
 
 const require = createRequire(import.meta.url);
@@ -277,7 +279,24 @@ it('preserves populated contracts and invoices through discount and schema recon
   insert('Contract', legacy);
   insert('Invoice', snapshot.invoices[0]);
   insert('AuditLog', snapshot.audits[0]);
+  insert('AuditLog', {
+    actor: 'cust-aino',
+    action: 'contract.signed',
+    entity_type: 'contract',
+    entity_id: legacy.id,
+    details_json: JSON.stringify(legacy),
+  });
   insert('Provider', { id: 'legacy-provider', displayName: 'Legacy dealer' });
+  insert('DemoUser', {
+    id: 'cust-aino',
+    canonicalUsername: 'aino',
+    displayName: 'Aino Virtanen',
+  });
+  insert('DemoUser', {
+    id: 'legacy-provider',
+    canonicalUsername: 'legacy-provider',
+    displayName: 'Legacy dealer',
+  });
   insert('AssetOwnership', {
     assetId: legacy.assetId,
     providerId: 'legacy-provider',
@@ -323,5 +342,24 @@ it('preserves populated contracts and invoices through discount and schema recon
     ).not.toBeNull();
   } finally {
     upgraded.close();
+  }
+  const recoveredDb = createPrismaClient(`file:${targetFile}`);
+  try {
+    expect(await restoreParticipantsFromSigningRecords(recoveredDb)).toBe(1);
+    expect(
+      await recoveredDb.contract.findUniqueOrThrow({ where: { id: legacy.id } })
+    ).toMatchObject({
+      renterId: 'cust-aino',
+      providerId: 'legacy-provider',
+      monthlyNetCents: legacy.monthlyNetCents,
+      buyoutNetCents: legacy.buyoutNetCents,
+    });
+    expect(await recoveredDb.invoice.findMany()).toEqual(snapshot.invoices);
+    expect(
+      await recoveredDb.auditLog.count({ where: { action: 'contract.participants_recovered' } })
+    ).toBe(1);
+    expect(await restoreParticipantsFromSigningRecords(recoveredDb)).toBe(0);
+  } finally {
+    await recoveredDb.$disconnect();
   }
 }, 30000);
