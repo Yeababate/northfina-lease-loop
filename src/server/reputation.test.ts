@@ -139,3 +139,31 @@ describe('providerBadgesForAssets', () => {
     expect(badges.has('no-such-item')).toBe(false);
   });
 });
+
+describe('reputation without a known owner', () => {
+  it('is null for an item without an owner, and that item gets no badge', async () => {
+    await db.asset.update({ where: { id: 'ebike-003' }, data: { ownerId: null } });
+    expect(await providerReputationForAsset(db, 'ebike-003')).toBeNull();
+    const badges = await providerBadgesForAssets(db, ['ebike-003', 'ebike-004']);
+    expect(badges.has('ebike-003')).toBe(false);
+    expect(badges.get('ebike-004')?.name).toBe('Kettu Mobility Oy');
+  });
+
+  it('falls back to the owner id when the owner has no participant record', async () => {
+    await db.asset.update({ where: { id: 'ebike-003' }, data: { ownerId: 'provider-gone' } });
+    expect(await providerReputationForAsset(db, 'ebike-003')).toMatchObject({
+      providerId: 'provider-gone',
+      name: 'provider-gone',
+      summary: { count: 0, averageTenths: null },
+    });
+    expect((await providerBadgesForAssets(db, ['ebike-003'])).get('ebike-003')).toEqual({
+      name: 'provider-gone',
+      count: 0,
+      averageTenths: null,
+    });
+  });
+
+  it('gives no badges for no items', async () => {
+    expect((await providerBadgesForAssets(db, [])).size).toBe(0);
+  });
+});

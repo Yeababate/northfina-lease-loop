@@ -248,3 +248,62 @@ describe('bundle API routes', () => {
     expect(bad.status).toBe(400);
   });
 });
+
+describe('bundle edge cases', () => {
+  it('finds no bundle for an unknown id, or for another provider viewing a draft', async () => {
+    expect(await getBundleOffer(db, 'nope', { providerId: KETTU })).toBeNull();
+    await createBundleOffer(db, { ...input, published: false }, { ...options, id: 'draft' });
+    expect(await getBundleOffer(db, 'draft', { providerId: 'provider-pelto' })).toBeNull();
+    expect(await getBundleOffer(db, 'draft', { providerId: null })).toBeNull();
+    expect((await getBundleOffer(db, 'draft', { providerId: KETTU }))?.id).toBe('draft');
+  });
+
+  it('blocks a bundle once one of its items has no owner on record', async () => {
+    await createBundleOffer(db, input, { ...options, id: 'kit' });
+    await db.assetOwnership.delete({ where: { assetId: 'laptop-001' } });
+    const [kit] = await listBundleOffers(db, { kind: 'provider', providerId: KETTU });
+    expect(kit?.availability.bookable).toBe(false);
+    expect(await listBundleOffers(db, { kind: 'public' })).toEqual([]);
+  });
+
+  it('skips a seed whose items belong to different providers', async () => {
+    const mixed = {
+      id: 'mixed-kit',
+      name: 'Mixed',
+      description: '',
+      asset_ids: ['ebike-002', 'farm-001'],
+      terms: [36],
+      published: true,
+    };
+    expect(await seedBundleOffers(db, [mixed], terms)).toEqual({
+      created: 0,
+      skipped: 0,
+      unowned: 1,
+      reowned: 0,
+    });
+    expect(await db.bundleOffer.count()).toBe(0);
+  });
+
+  it('leaves a placeholder-provider bundle alone when its items have no single owner', async () => {
+    await db.bundleOffer.create({
+      data: {
+        id: 'old-mixed',
+        providerId: LEGACY_FLEET_PROVIDER_ID,
+        name: 'Old mixed',
+        description: '',
+        terms_json: '[36]',
+        published: true,
+        items: {
+          create: [
+            { assetId: 'ebike-002', position: 0 },
+            { assetId: 'farm-001', position: 1 },
+          ],
+        },
+      },
+    });
+    expect((await seedBundleOffers(db, [], terms)).reowned).toBe(0);
+    const offer = await db.bundleOffer.findUnique({ where: { id: 'old-mixed' } });
+    expect(offer?.providerId).toBe(LEGACY_FLEET_PROVIDER_ID);
+    expect(await db.auditLog.count()).toBe(0);
+  });
+});

@@ -181,3 +181,10 @@ describe('conditionHolds', () => {
     expect(conditionHolds(big, ebikeDeal, { q_can_sign: 'no' })).toBe(false);
   });
 });
+
+describe('conditionHolds: unknown fields', () => {
+  it('never matches a field the engine does not know, so the question waits', () => {
+    const unknown = { field: 'colour', op: 'in', value: ['red'] } as unknown as AskWhenCondition;
+    expect(conditionHolds(unknown, ebikeDeal, { colour: 'red' })).toBe(false);
+  });
+});

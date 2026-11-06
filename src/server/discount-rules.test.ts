@@ -210,3 +210,13 @@ it('rolls back dealer edits if audit persistence fails', async () => {
   ).rejects.toThrow('audit unavailable');
   expect(await db.discountRule.count()).toBe(0);
 });
+
+it('refuses a rule for a provider that does not exist, without an audit row', async () => {
+  await db.auditLog.deleteMany();
+  await expect(saveDiscountRule(db, 'provider-gone', ruleInput)).rejects.toMatchObject({
+    status: 401,
+    code: 'PROVIDER_REQUIRED',
+  });
+  expect(await db.discountRule.count({ where: { providerId: 'provider-gone' } })).toBe(0);
+  expect(await db.auditLog.count()).toBe(0);
+});

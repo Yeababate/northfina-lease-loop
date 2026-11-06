@@ -236,3 +236,20 @@ describe('badges and leasability', () => {
     expect(blocked).toEqual(expect.arrayContaining(['ebike-009', 'ebike-007', 'laptop-006']));
   });
 });
+
+describe('filterCatalogue: items without a price', () => {
+  it('puts unpriced items last in both price orders, by name among themselves', () => {
+    const [a, b, c] = items.filter((item) => item.listPriceCents !== null);
+    if (!a || !b || !c) throw new Error('need three priced items');
+    const unpriced = [
+      { ...b, listPriceCents: null },
+      { ...a, listPriceCents: null },
+    ];
+    const mixed = [...unpriced, c];
+    for (const sort of ['price_asc', 'price_desc'] as const) {
+      const sorted = filterCatalogue(mixed, query({ sort }));
+      expect(sorted[0]?.asset.id).toBe(c.asset.id);
+      expect(ids(sorted.slice(1))).toEqual(ids(filterCatalogue(unpriced, query({ sort: 'name' }))));
+    }
+  });
+});

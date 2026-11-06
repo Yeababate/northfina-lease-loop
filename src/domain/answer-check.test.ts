@@ -82,3 +82,15 @@ describe('checkAnswer', () => {
     expect(checkAnswer(owners, 'Jussi')).toEqual({ ok: false, problem: 'bad_list' });
   });
 });
+
+describe('checkAnswer: wrong value types', () => {
+  const question = (type: Question['type']): Question =>
+    ({ id: 'q_x', type, text: 'x', ask_when: [] }) as unknown as Question;
+
+  it('treats a number or a list as no answer for email and date questions', () => {
+    expect(checkAnswer(question('email'), 5)).toEqual({ ok: false, problem: 'empty' });
+    expect(checkAnswer(question('email'), ['a@b.fi'])).toEqual({ ok: false, problem: 'empty' });
+    expect(checkAnswer(question('date'), 20260101)).toEqual({ ok: false, problem: 'empty' });
+    expect(checkAnswer(question('date'), '')).toEqual({ ok: false, problem: 'empty' });
+  });
+});

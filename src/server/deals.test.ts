@@ -90,3 +90,25 @@ describe('providerOffer', () => {
     expect(await providerOffer(db, 'provider-gone')).toBeNull();
   });
 });
+
+describe('deal edge cases', () => {
+  it('leaves out a provider whose rules fit no lease term we offer', async () => {
+    await addRule('provider-kettu', 60, 72, 2000);
+    expect(await loadDeals(db, terms)).toEqual([]);
+    expect((await dealBadgesForAssets(db, ['ebike-003'], terms)).size).toBe(0);
+  });
+
+  it('orders providers with the same top discount by name', async () => {
+    await addRule('provider-pelto', 36, 48, 1000);
+    await addRule('provider-kettu', 36, 48, 1000);
+    const deals = await loadDeals(db, terms);
+    expect(deals.map((deal) => deal.name)).toEqual(['Kettu Mobility Oy', 'Pelto Agri Rental Oy']);
+  });
+
+  it('works out a provider’s best deal once for all of its items', async () => {
+    await addRule('provider-kettu', 36, 48, 1000);
+    const badges = await dealBadgesForAssets(db, ['ebike-003', 'ebike-004', 'laptop-001'], terms);
+    expect([...badges.keys()].sort()).toEqual(['ebike-003', 'ebike-004', 'laptop-001']);
+    expect(new Set([...badges.values()].map((deal) => deal.discountBps))).toEqual(new Set([1000]));
+  });
+});
