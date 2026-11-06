@@ -957,5 +957,9 @@
   "returns.reject.condition_too_low": "the condition is below what they accept",
   "returns.reject.refurbishment_not_worth_it": "refurbishing for them is not worth it",
   "returns.reject.unfinanceable": "the rent cannot be priced for their term",
-  "returns.reject.over_budget": "the rent is over their budget"
+  "returns.reject.over_budget": "the rent is over their budget",
+  "returns.placement.offer": "Offer {entry} is held for its waiting-list customer.",
+  "returns.placement.customer": "Customer accepting this offer",
+  "returns.placement.chooseCustomer": "Choose the customer",
+  "returns.placement.prepare": "Prepare this customer’s offer"
 }

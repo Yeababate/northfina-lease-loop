@@ -957,5 +957,9 @@
   "returns.reject.condition_too_low": "kunto on heikompi kuin he hyväksyvät",
   "returns.reject.refurbishment_not_worth_it": "kunnostus heille ei kannata",
   "returns.reject.unfinanceable": "vuokraa ei voi hinnoitella heidän kaudelleen",
-  "returns.reject.over_budget": "vuokra ylittää budjetin"
+  "returns.reject.over_budget": "vuokra ylittää budjetin",
+  "returns.placement.offer": "Tarjous {entry} on varattu jonossa olevalle asiakkaalle.",
+  "returns.placement.customer": "Tarjouksen hyväksyvä asiakas",
+  "returns.placement.chooseCustomer": "Valitse asiakas",
+  "returns.placement.prepare": "Valmistele asiakkaan tarjous"
 }

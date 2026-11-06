@@ -14,6 +14,7 @@ import { returnCheckFocus } from '@/domain/application-terms';
 import { ApiError } from './api-response';
 import type { TransactionClient } from './audit';
 import type { PrismaClient } from './prisma-client';
+import { activePlacement } from './waiting-list-placement';
 
 type Reader = PrismaClient | TransactionClient;
 
@@ -104,7 +105,7 @@ function summary(bundle: IntakeBundle, view: ReturnType<typeof deriveNextLife>) 
 }
 
 /** The provider's returned stock that has not been relisted yet, oldest receipt first. */
-export async function listReturns(db: PrismaClient, providerId: string) {
+export async function listReturns(db: PrismaClient, providerId: string, today?: string) {
   const rules = await loadRefurbishmentCosts();
   const intakes = await db.returnIntake.findMany({
     where: { providerId, relistedOn: null },
@@ -115,7 +116,7 @@ export async function listReturns(db: PrismaClient, providerId: string) {
   for (const { id } of intakes) {
     try {
       const bundle = await loadIntake(db, providerId, id);
-      rows.push(summary(bundle, deriveNextLife(bundle.facts, rules)));
+      rows.push(await returnSummary(db, bundle, rules, today));
     } catch (error) {
       // Items sold to someone else since receipt are no longer this provider's stock.
       if (!(error instanceof ApiError && error.status === 404)) throw error;
@@ -125,7 +126,12 @@ export async function listReturns(db: PrismaClient, providerId: string) {
 }
 
 /** One intake with its inspection/work history and nonpersonal lifecycle events. */
-export async function getReturn(db: PrismaClient, providerId: string, intakeId: string) {
+export async function getReturn(
+  db: PrismaClient,
+  providerId: string,
+  intakeId: string,
+  today?: string
+) {
   const [bundle, rules] = await Promise.all([
     loadIntake(db, providerId, intakeId),
     loadRefurbishmentCosts(),
@@ -135,7 +141,7 @@ export async function getReturn(db: PrismaClient, providerId: string, intakeId: 
     orderBy: { id: 'asc' },
   });
   return {
-    ...summary(bundle, deriveNextLife(bundle.facts, rules)),
+    ...(await returnSummary(db, bundle, rules, today)),
     inspections: bundle.inspections.map(({ intakeId: _i, createdAt: _c, ...row }) => row),
     work: bundle.work.map(({ intakeId: _i, createdAt: _c, ...row }) => row),
     history: events.map((e) => ({
@@ -144,5 +150,26 @@ export async function getReturn(db: PrismaClient, providerId: string, intakeId: 
       intakeId: e.intakeId,
       details: e.detailsJson === null ? null : JSON.parse(e.detailsJson),
     })),
+  };
+}
+
+async function returnSummary(
+  db: PrismaClient,
+  bundle: IntakeBundle,
+  rules: Awaited<ReturnType<typeof loadRefurbishmentCosts>>,
+  today?: string
+) {
+  const offer = today ? await activePlacement(db, bundle.asset.id, today) : null;
+  const placement =
+    offer?.offeredIntakeId === bundle.intake.id
+      ? {
+          id: offer.id,
+          participantId: offer.participantId,
+          minimum: assetConditionSchema.parse(offer.minCondition),
+        }
+      : null;
+  return {
+    ...summary(bundle, deriveNextLife(bundle.facts, rules, placement?.minimum)),
+    placement,
   };
 }

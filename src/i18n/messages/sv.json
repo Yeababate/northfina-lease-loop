@@ -957,5 +957,9 @@
   "returns.reject.condition_too_low": "skicket är sämre än de godtar",
   "returns.reject.refurbishment_not_worth_it": "renovering för dem lönar sig inte",
   "returns.reject.unfinanceable": "hyran kan inte prissättas för deras period",
-  "returns.reject.over_budget": "hyran överstiger budgeten"
+  "returns.reject.over_budget": "hyran överstiger budgeten",
+  "returns.placement.offer": "Erbjudande {entry} är reserverat för kunden i kön.",
+  "returns.placement.customer": "Kunden som accepterar erbjudandet",
+  "returns.placement.chooseCustomer": "Välj kund",
+  "returns.placement.prepare": "Förbered kundens erbjudande"
 }

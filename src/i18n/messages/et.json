@@ -957,5 +957,9 @@
   "returns.reject.condition_too_low": "seisukord on halvem, kui nad aktsepteerivad",
   "returns.reject.refurbishment_not_worth_it": "nende jaoks taastamine ei tasu end ära",
   "returns.reject.unfinanceable": "üüri ei saa nende perioodiks hinnastada",
-  "returns.reject.over_budget": "üür ületab eelarve"
+  "returns.reject.over_budget": "üür ületab eelarve",
+  "returns.placement.offer": "Pakkumine {entry} on reserveeritud ootenimekirja kliendile.",
+  "returns.placement.customer": "Pakkumise vastu võttev klient",
+  "returns.placement.chooseCustomer": "Vali klient",
+  "returns.placement.prepare": "Valmista kliendi pakkumine ette"
 }

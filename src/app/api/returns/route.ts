@@ -12,5 +12,5 @@ export const GET = handleRoute(async (request) => {
   const provider = await requireProvider(db, request);
   await expireWaitingPlacements(db, todayIso());
   await finalizeDueReturns(db, todayIso());
-  return ok(await listReturns(db, provider.id));
+  return ok(await listReturns(db, provider.id, todayIso()));
 });
