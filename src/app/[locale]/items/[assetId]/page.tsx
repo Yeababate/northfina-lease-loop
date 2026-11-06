@@ -146,6 +146,7 @@ export default async function ItemPage({
                 <JoinWaitingList
                   locale={locale}
                   category={asset.category}
+                  itemCondition={asset.condition}
                   terms={availableTerms(table)}
                   today={today}
                   defaultNeededBy={contractEndOn(today, 1)}

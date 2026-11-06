@@ -6,15 +6,16 @@
 import Link from 'next/link';
 import { useId, useState, type FormEvent } from 'react';
 import type { AssetCategory, AssetCondition } from '@/data/schemas';
+import { conditionsUpTo } from '@/domain/waiting-list-request';
 import { getT } from '@/i18n/get-t';
 import type { Locale } from '@/i18n/locales';
 import { primaryButton, secondaryButton, textLink } from './ui';
 
-const CONDITIONS: AssetCondition[] = ['fair', 'good', 'like_new', 'new'];
-
 type JoinWaitingListProps = {
   locale: Locale;
   category: AssetCategory;
+  /** The item's condition: the best condition offered, and the default. */
+  itemCondition: AssetCondition;
   terms: readonly number[];
   today: string;
   /** A month from today, as a sensible default. */
@@ -125,8 +126,8 @@ export function JoinWaitingList(props: JoinWaitingListProps) {
           </label>
           <label className="flex flex-col">
             {t('waitlist.condition')}
-            <select name="condition" defaultValue="good" className={field}>
-              {CONDITIONS.map((condition) => (
+            <select name="condition" defaultValue={props.itemCondition} className={field}>
+              {conditionsUpTo(props.itemCondition).map((condition) => (
                 <option key={condition} value={condition}>
                   {t(`condition.${condition}`)}
                 </option>

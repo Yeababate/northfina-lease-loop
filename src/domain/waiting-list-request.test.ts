@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { checkWaitingListRequest, MAX_WAITING_BUDGET_CENTS } from './waiting-list-request';
+import {
+  checkWaitingListRequest,
+  conditionsUpTo,
+  MAX_WAITING_BUDGET_CENTS,
+} from './waiting-list-request';
 
 const context = { today: '2026-11-06', terms: [12, 24, 36, 48] };
 const request = {
@@ -31,5 +35,14 @@ describe('checkWaitingListRequest', () => {
       expect(
         checkWaitingListRequest({ ...request, maxMonthlyNetRentCents: cents }, context)
       ).toEqual({ ok: false, problems: ['budget'] });
+  });
+});
+
+describe('conditionsUpTo', () => {
+  it("offers the item's own condition and anything worse, best first", () => {
+    expect(conditionsUpTo('good')).toEqual(['good', 'fair', 'poor']);
+    expect(conditionsUpTo('fair')).toEqual(['fair', 'poor']);
+    expect(conditionsUpTo('new')).toEqual(['new', 'like_new', 'good', 'fair', 'poor']);
+    expect(conditionsUpTo('poor')).toEqual(['poor']);
   });
 });

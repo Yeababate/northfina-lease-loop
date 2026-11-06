@@ -3,6 +3,7 @@
 // it must make sense for that: a budget, the worst condition accepted, an offered lease
 // length, and a date that is not in the past.
 import type { AssetCondition } from '@/data/schemas';
+import { CONDITION_ORDER } from './refurbishment-rules';
 
 /** €10,000 a month: anything above is a typo, not a budget. */
 export const MAX_WAITING_BUDGET_CENTS = 1_000_000;
@@ -31,4 +32,14 @@ export function checkWaitingListRequest(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.neededBy) || input.neededBy < context.today)
     problems.push('needed_by');
   return problems.length === 0 ? { ok: true } : { ok: false, problems };
+}
+
+/**
+ * The conditions someone joining from an item may ask for: that item's own condition and
+ * anything worse, best first. A "good" item will not become "like new" without refurbishment,
+ * so asking for better from its page would promise something it is not.
+ */
+export function conditionsUpTo(itemCondition: AssetCondition): AssetCondition[] {
+  const rank = CONDITION_ORDER.indexOf(itemCondition);
+  return CONDITION_ORDER.slice(0, rank + 1).toReversed();
 }
