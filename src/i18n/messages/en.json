@@ -639,5 +639,11 @@
   "lease.quantity": "How many?",
   "lease.quantityLess": "One fewer",
   "lease.quantityMore": "One more",
-  "lease.quantityNote": "{count} leased together as one lease: {total} list price in total. A bigger lease can get a lower monthly factor."
+  "lease.quantityNote": "{count} leased together as one lease: {total} list price in total. A bigger lease can get a lower monthly factor.",
+  "impact.savingMany": "About {kg} of CO₂ saved by leasing these {count} items instead of buying them new. This is an estimate.",
+  "impact.noSavingMany": "By our estimate, reusing these {count} items saves about as much CO₂ as getting them ready for their next life costs, so the net saving is about zero.",
+  "impact.additionalMany": "By our estimate, getting these {count} items ready for their next life adds about {kg} of CO₂ more than reusing them saves.",
+  "impact.row.newMany": "Making {count} new ones",
+  "impact.row.creditedMany": "Credited for reusing these",
+  "impact.row.refurbishmentMany": "Refurbishing them for their next life"
 }

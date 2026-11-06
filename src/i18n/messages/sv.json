@@ -639,5 +639,11 @@
   "lease.quantity": "Hur många?",
   "lease.quantityLess": "En färre",
   "lease.quantityMore": "En till",
-  "lease.quantityNote": "{count} st på ett avtal: listpris totalt {total}. Ett större avtal kan få en lägre månadsfaktor."
+  "lease.quantityNote": "{count} st på ett avtal: listpris totalt {total}. Ett större avtal kan få en lägre månadsfaktor.",
+  "impact.savingMany": "Cirka {kg} CO₂ sparat genom att leasa de här {count} produkterna i stället för att köpa nya. Det här är en uppskattning.",
+  "impact.noSavingMany": "Enligt vår uppskattning sparar återanvändningen av de här {count} produkterna ungefär lika mycket CO₂ som renoveringen kostar, så nettobesparingen är ungefär noll.",
+  "impact.additionalMany": "Enligt vår uppskattning ger renoveringen av de här {count} produkterna cirka {kg} mer CO₂ än återanvändningen sparar.",
+  "impact.row.newMany": "Tillverka {count} nya",
+  "impact.row.creditedMany": "Kredit för att återanvända dessa",
+  "impact.row.refurbishmentMany": "Renovering inför nästa användare"
 }

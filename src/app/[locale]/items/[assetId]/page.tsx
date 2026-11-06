@@ -83,7 +83,10 @@ export default async function ItemPage({
   // is rendered once here rather than following the term slider.
   // Under the apply button in the left column: the CO2 panel, then related items, so the
   // suggestions are visible without scrolling to the bottom of the page.
-  const leftExtras = (
+  // The left column under "Apply to lease". The CO2 panel sits between the two halves; on a
+  // leasable item the calculator renders it, so it follows the "How many?" quantity.
+  const impact = impactInputs ? estimateForAsset(asset, termMonths, impactInputs) : null;
+  const beforeImpact = (
     <div className="space-y-6">
       {nextLife ? (
         <SecondLifePanel
@@ -107,18 +110,22 @@ export default async function ItemPage({
           t={t}
         />
       ) : null}
-      <ItemImpactPanel
-        result={impactInputs ? estimateForAsset(asset, termMonths, impactInputs) : null}
-        locale={locale}
-        t={t}
-      />
-      <RelatedItems
-        items={related.status === 'ok' ? related.items : []}
-        bundles={bundles}
-        termMonths={termMonths}
-        locale={locale}
-        t={t}
-      />
+    </div>
+  );
+  const afterImpact = (
+    <RelatedItems
+      items={related.status === 'ok' ? related.items : []}
+      bundles={bundles}
+      termMonths={termMonths}
+      locale={locale}
+      t={t}
+    />
+  );
+  const leftExtras = (
+    <div className="space-y-6">
+      {beforeImpact}
+      <ItemImpactPanel result={impact} locale={locale} t={t} />
+      {afterImpact}
     </div>
   );
 
@@ -162,7 +169,9 @@ export default async function ItemPage({
             quotedOn={today}
             applyPath={`/${locale}/items/${asset.id}/apply`}
             summary={summary}
-            afterApply={leftExtras}
+            afterApply={beforeImpact}
+            impact={impact}
+            afterImpact={afterImpact}
           />
         )}
       </div>

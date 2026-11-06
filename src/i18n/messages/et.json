@@ -639,5 +639,11 @@
   "lease.quantity": "Mitu tükki?",
   "lease.quantityLess": "Ühe võrra vähem",
   "lease.quantityMore": "Ühe võrra rohkem",
-  "lease.quantityNote": "{count} tk ühe lepinguga: hinnakirja hind kokku {total}. Suurem leping võib saada väiksema kuuteguri."
+  "lease.quantityNote": "{count} tk ühe lepinguga: hinnakirja hind kokku {total}. Suurem leping võib saada väiksema kuuteguri.",
+  "impact.savingMany": "Umbes {kg} CO₂ säästetud, kui liisid need {count} toodet uute ostmise asemel. See on hinnang.",
+  "impact.noSavingMany": "Meie hinnangul säästab nende {count} toote taaskasutus umbes sama palju CO₂, kui kulub nende korrastamisele, seega netosääst on umbes null.",
+  "impact.additionalMany": "Meie hinnangul tekitab nende {count} toote korrastamine umbes {kg} rohkem CO₂, kui taaskasutus säästab.",
+  "impact.row.newMany": "{count} uue tootmine",
+  "impact.row.creditedMany": "Arvestus nende taaskasutuse eest",
+  "impact.row.refurbishmentMany": "Nende korrastamine järgmiseks kasutajaks"
 }

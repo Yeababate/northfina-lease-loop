@@ -639,5 +639,11 @@
   "lease.quantity": "Kuinka monta?",
   "lease.quantityLess": "Yksi vähemmän",
   "lease.quantityMore": "Yksi lisää",
-  "lease.quantityNote": "{count} kpl yhdellä sopimuksella: listahinta yhteensä {total}. Isompi sopimus voi saada pienemmän kuukausikertoimen."
+  "lease.quantityNote": "{count} kpl yhdellä sopimuksella: listahinta yhteensä {total}. Isompi sopimus voi saada pienemmän kuukausikertoimen.",
+  "impact.savingMany": "Noin {kg} CO₂-päästöjä säästetty, kun leasingvuokraat nämä {count} tuotetta uusien ostamisen sijaan. Tämä on arvio.",
+  "impact.noSavingMany": "Arviomme mukaan näiden {count} tuotteen uudelleenkäyttö säästää suunnilleen yhtä paljon CO₂-päästöjä kuin niiden kunnostus aiheuttaa, joten nettosäästö on noin nolla.",
+  "impact.additionalMany": "Arviomme mukaan näiden {count} tuotteen kunnostus aiheuttaa noin {kg} enemmän CO₂-päästöjä kuin uudelleenkäyttö säästää.",
+  "impact.row.newMany": "{count} uuden valmistus",
+  "impact.row.creditedMany": "Hyvitys näiden uudelleenkäytöstä",
+  "impact.row.refurbishmentMany": "Niiden kunnostus seuraavaa käyttäjää varten"
 }

@@ -23,6 +23,8 @@ import {
 import { formatIsoDate, formatNumber } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
+import type { ImpactEstimateResult } from '@/domain/co2-impact';
+import { ItemImpactPanel } from './impact-panel';
 import { PriceExplainer, TermComparison, type VatChange } from './price-explainer';
 import { primaryButton } from './ui';
 
@@ -44,8 +46,15 @@ type LeaseCalculatorProps = {
   applyPath: string;
   /** Photo, facts and list price: rendered on the server, shown above the apply button. */
   summary: ReactNode;
-  /** Rendered on the server and shown under the apply button (the CO2 "Your impact" panel). */
+  /** Rendered on the server and shown under the apply button. */
   afterApply?: ReactNode;
+  /**
+   * One unit's CO2 estimate. The calculator shows it after `afterApply`, multiplied by the
+   * "How many?" quantity, so the panel always matches what is being leased.
+   */
+  impact?: ImpactEstimateResult | null;
+  /** Shown after the CO2 panel (related items). */
+  afterImpact?: ReactNode;
 };
 
 /** The down payment slider moves in whole euros. */
@@ -116,6 +125,12 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
           </>
         ) : null}
         {props.afterApply ? <div className="mt-6">{props.afterApply}</div> : null}
+        {props.impact !== undefined ? (
+          <div className="mt-6">
+            <ItemImpactPanel result={props.impact} quantity={quantity} locale={locale} t={t} />
+          </div>
+        ) : null}
+        {props.afterImpact ? <div className="mt-6">{props.afterImpact}</div> : null}
       </div>
 
       <section

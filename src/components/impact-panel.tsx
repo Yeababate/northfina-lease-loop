@@ -1,6 +1,7 @@
 // "Your impact": the illustrative CO2 estimate (src/domain/co2-impact.ts) in plain words.
 // Two forms: one item on its price page, with the full breakdown, and the total of all your
-// leases on "My leases". Server components: no client JavaScript; <details> opens natively.
+// leases on "My leases". No hooks or server-only code, so the price calculator can render the
+// item panel too and keep it in step with "How many?". <details> opens natively.
 import type { CombinedEstimate, ImpactEstimateResult } from '@/domain/co2-impact';
 import { wholeKilograms } from '@/domain/lease-overview';
 import { formatNumber } from '@/i18n/format';
@@ -16,11 +17,18 @@ type Common = { locale: Locale; t: Translate };
 /** One item's estimate, with what it is made of and what it assumes. */
 export function ItemImpactPanel({
   result,
+  quantity = 1,
   locale,
   t,
-}: Common & { result: ImpactEstimateResult | null }) {
+}: Common & {
+  result: ImpactEstimateResult | null;
+  /** Units leased together: every figure is for all of them (each unit has the same estimate). */
+  quantity?: number;
+}) {
+  const many = quantity > 1;
+  // Whole grams × a whole quantity stays exact; kilograms are rounded once, for display.
   const kg = (grams: number) =>
-    t('impact.kg', { kg: formatNumber(Math.abs(wholeKilograms(grams)), locale) });
+    t('impact.kg', { kg: formatNumber(Math.abs(wholeKilograms(grams * quantity)), locale) });
 
   if (!result?.ok) {
     return (
@@ -36,15 +44,27 @@ export function ItemImpactPanel({
   const { estimate } = result;
   const headline =
     estimate.outcome === 'saving'
-      ? t('impact.saving', { kg: kg(estimate.estimatedSavingGrams) })
+      ? t(many ? 'impact.savingMany' : 'impact.saving', {
+          kg: kg(estimate.estimatedSavingGrams),
+          count: quantity,
+        })
       : estimate.outcome === 'no_saving'
-        ? t('impact.noSaving')
-        : t('impact.additional', { kg: kg(estimate.estimatedSavingGrams) });
+        ? t(many ? 'impact.noSavingMany' : 'impact.noSaving', { count: quantity })
+        : t(many ? 'impact.additionalMany' : 'impact.additional', {
+            kg: kg(estimate.estimatedSavingGrams),
+            count: quantity,
+          });
   const rows = [
-    { label: t('impact.row.new'), value: kg(estimate.manufacturingBaselineGrams) },
-    { label: t('impact.row.credited'), value: kg(estimate.creditedManufacturingGrams) },
     {
-      label: t('impact.row.refurbishment'),
+      label: t(many ? 'impact.row.newMany' : 'impact.row.new', { count: quantity }),
+      value: kg(estimate.manufacturingBaselineGrams),
+    },
+    {
+      label: t(many ? 'impact.row.creditedMany' : 'impact.row.credited'),
+      value: kg(estimate.creditedManufacturingGrams),
+    },
+    {
+      label: t(many ? 'impact.row.refurbishmentMany' : 'impact.row.refurbishment'),
       value: `−${kg(estimate.refurbishmentAllowanceGrams)}`,
     },
   ];
