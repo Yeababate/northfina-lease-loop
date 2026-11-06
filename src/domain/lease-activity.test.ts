@@ -102,3 +102,21 @@ describe('leaseActivity', () => {
     expect(items.map((item) => item.event.type)).toEqual(['rating_edited', 'rated']);
   });
 });
+
+describe('leaseActivity: exits', () => {
+  it('shows a withdrawn exit, and an exit request whose quote lacks an end date', () => {
+    const items = leaseActivity(
+      [
+        row('exit.requested', 'user-liv', { kind: 'return', quote: { amountNetCents: 500 } }),
+        row('exit.withdrawn', 'user-liv'),
+        row('exit.requested', 'user-liv', { kind: 'lease_swap' }),
+      ],
+      viewer,
+      names
+    );
+    expect(items.map((item) => item.event)).toEqual([
+      { type: 'exit_withdrawn' },
+      { type: 'exit_requested', kind: 'return', amountNetCents: 500, effectiveEndOn: null },
+    ]);
+  });
+});

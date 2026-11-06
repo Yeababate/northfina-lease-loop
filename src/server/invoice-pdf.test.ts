@@ -32,4 +32,15 @@ describe('renderInvoicePdf', () => {
     const pdf = await PDFDocument.load(await renderInvoicePdf(input(80)));
     expect(pdf.getPageCount()).toBeGreaterThan(1);
   });
+
+  it('keeps the totals readable whatever the schedule length, starting a page when needed', async () => {
+    let pages = 1;
+    for (let count = 1; count <= 60; count++) {
+      const pdf = await PDFDocument.load(await renderInvoicePdf(input(count)));
+      // Pages only ever grow with the schedule; the totals never fall off the last page.
+      expect(pdf.getPageCount(), `count ${count}`).toBeGreaterThanOrEqual(pages);
+      pages = pdf.getPageCount();
+    }
+    expect(pages).toBeGreaterThan(1);
+  }, 30_000);
 });

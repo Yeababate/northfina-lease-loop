@@ -188,3 +188,14 @@ it('rolls back setting changes when the audit cannot be saved', async () => {
   ).rejects.toThrow('audit unavailable');
   expect(await db.discountRule.count()).toBe(0);
 });
+
+it('refuses a provider that does not exist, an unsupported term, and writes nothing', async () => {
+  await expect(
+    saveDealerDiscount(db, 'provider-gone', input, [12, 24, 36, 48])
+  ).rejects.toMatchObject({ status: 401, code: 'PROVIDER_REQUIRED' });
+  await expect(
+    saveDealerDiscount(db, OWNER, { ...input, minTermMonths: 30 }, [12, 24, 36, 48])
+  ).rejects.toMatchObject({ status: 422, code: 'INVALID_TERM' });
+  expect(await db.discountRule.count()).toBe(0);
+  expect(await db.auditLog.count()).toBe(0);
+});
