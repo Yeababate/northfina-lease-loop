@@ -136,3 +136,70 @@ it('joins a recorded return, itemised work, and a later signing in chronological
     start: { condition: 'good', usage: { value: 0 } },
   });
 });
+
+it('returns no passport for an unknown asset', async () => {
+  expect(await loadPassport(db, 'missing')).toBeNull();
+});
+
+it('uses locked scalar prices for legacy lives and ignores audits without a valid matching reading', async () => {
+  const signed = await sign('ebike-002', '2026-11-05');
+  await db.contractLine.deleteMany({ where: { contractId: signed.id } });
+  await db.contractLifecycle.delete({ where: { contractId: signed.id } });
+  await db.auditLog.deleteMany({ where: { entity_id: signed.id } });
+  for (const details_json of [
+    null,
+    '{}',
+    JSON.stringify({
+      assetId: 'another-bike',
+      assetAtSigning: { condition: 'good', usage: { unit: 'km', value: 0 } },
+    }),
+  ]) {
+    await db.auditLog.create({
+      data: {
+        actor: 'Private identity',
+        action: 'contract.signed',
+        entity_type: 'contract',
+        entity_id: signed.id,
+        details_json,
+      },
+    });
+  }
+  expect(await loadPassport(db, 'ebike-002')).toMatchObject({
+    lives: [
+      {
+        ending: 'active',
+        start: null,
+        monthlyNetCents: signed.monthlyNetCents,
+        estimatedCo2SavingGrams: null,
+      },
+    ],
+  });
+  await db.assetLifeCompletion.create({
+    data: {
+      id: 'legacy-life',
+      contractId: signed.id,
+      assetId: 'ebike-002',
+      kind: 'pass_on',
+      completedOn: '2027-01-01',
+    },
+  });
+  expect((await loadPassport(db, 'ebike-002'))?.lives[0]?.ending).toBe('passed_on');
+  await db.assetLifeCompletion.update({ where: { id: 'legacy-life' }, data: { kind: 'buyout' } });
+  expect((await loadPassport(db, 'ebike-002'))?.lives[0]?.ending).toBe('bought_out');
+  await db.assetLifeCompletion.delete({ where: { id: 'legacy-life' } });
+  for (const [status, actualEndOn, ending] of [
+    ['passed_on', '2027-01-01', 'passed_on'],
+    ['completed_buyout', '2027-01-01', 'bought_out'],
+    ['completed_return', '2027-01-01', 'exited_early'],
+    ['completed_return', signed.endOn, 'returned'],
+  ]) {
+    await db.contractLifecycle.upsert({
+      where: { contractId: signed.id },
+      create: { contractId: signed.id, status: status!, actualEndOn },
+      update: { status, actualEndOn },
+    });
+    const passport = await loadPassport(db, 'ebike-002');
+    expect(passport?.lives[0]).toMatchObject({ ending, endOn: actualEndOn });
+    expect(JSON.stringify(passport)).not.toContain('Private identity');
+  }
+});

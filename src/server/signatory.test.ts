@@ -12,6 +12,7 @@ import { demoNameCookieHeader } from './demo-cookie';
 import { seedDemoParticipants } from './demo-participants';
 import type { PrismaClient } from './prisma-client';
 import { seedDealerSide } from './providers';
+import { contractForSignatory, signAsSignatory } from './signatory';
 
 vi.mock('@/server/db', () => ({
   get db() {
@@ -85,6 +86,31 @@ async function norviApplies() {
 }
 
 describe('scenario 6: waiting for the company signatory', () => {
+  it('hides missing contracts and treats a legacy lease without lifecycle as already active', async () => {
+    const signer = { id: 'signer', canonicalUsername: SIGNATORY };
+    expect(await contractForSignatory(db, signer, 'missing')).toBeNull();
+    const { body } = await norviApplies();
+    const id = body.data.id as string;
+    await db.contractLifecycle.delete({ where: { contractId: id } });
+    await expect(signAsSignatory(db, signer, id, '2026-11-05')).rejects.toMatchObject({
+      code: 'NOT_WAITING_FOR_SIGNATURE',
+    });
+  });
+
+  it('does not record a signature or audit when a concurrent activation wins', async () => {
+    const { body } = await norviApplies();
+    const id = body.data.id as string;
+    const racing = db.$extends({
+      query: { contractLifecycle: { updateMany: async () => ({ count: 0 }) } },
+    }) as unknown as PrismaClient;
+    await expect(
+      signAsSignatory(racing, { id: 'signer', canonicalUsername: SIGNATORY }, id, '2026-11-05')
+    ).rejects.toMatchObject({ code: 'NOT_WAITING_FOR_SIGNATURE' });
+    expect(await db.contract.findUnique({ where: { id } })).toMatchObject({
+      signatorySignedOn: null,
+    });
+    expect(await db.auditLog.count({ where: { action: 'contract.signatory_signed' } })).toBe(0);
+  });
   it('saves the contract waiting for the signatory: reserved, not active, nothing billed', async () => {
     const { status, body } = await norviApplies();
     expect(status).toBe(201);

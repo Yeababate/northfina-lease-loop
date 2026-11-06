@@ -114,4 +114,9 @@ describe('listAuditLog', () => {
     await withAudit(db, entry, reserve);
     expect(await listAuditLog(db, 1)).toHaveLength(1);
   });
+
+  it('reads an entry without details as null', async () => {
+    await withAudit(db, { ...entry, details: undefined }, reserve);
+    expect((await listAuditLog(db))[0]?.details).toBeNull();
+  });
 });

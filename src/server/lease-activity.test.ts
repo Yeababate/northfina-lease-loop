@@ -4,6 +4,7 @@ import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
 import { signContract } from './contracts';
 import { seedDemoParticipants } from './demo-participants';
+import { seedDealerSide } from './providers';
 import { loadLeaseActivity } from './lease-activity';
 import type { PrismaClient } from './prisma-client';
 
@@ -87,6 +88,7 @@ describe('loadLeaseActivity', () => {
   });
 
   it('names the other participant', async () => {
+    await seedDealerSide(db, await loadAssets());
     const mine = await signContract(db, signing, '2026-11-05', lists, table);
     const exit = await db.exitRequest.create({
       data: {
