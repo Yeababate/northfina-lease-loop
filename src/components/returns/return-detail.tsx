@@ -16,12 +16,17 @@ import { ReturnMatches } from './return-matches';
 import type { MatchesView, ReturnView } from './types';
 import { useReturnAction } from './use-return-action';
 
-type ReturnDetailProps = { locale: Locale; detail: ReturnView; matches: MatchesView | null };
+type ReturnDetailProps = {
+  locale: Locale;
+  detail: ReturnView;
+  matches: MatchesView | null;
+  recipients?: readonly { id: string; displayName: string }[];
+};
 
 const inputClass =
   'mt-1 rounded-lg border border-stone-400 bg-white px-2 py-1.5 dark:border-stone-600 dark:bg-stone-900';
 
-export function ReturnDetail({ locale, detail, matches }: ReturnDetailProps) {
+export function ReturnDetail({ locale, detail, matches, recipients = [] }: ReturnDetailProps) {
   const t = getT(locale);
   const action = useReturnAction(detail.id);
   const date = (iso: string | null) => (iso ? formatIsoDate(iso, locale) : '—');
@@ -29,6 +34,10 @@ export function ReturnDetail({ locale, detail, matches }: ReturnDetailProps) {
     t(`usage.${detail.asset.usage.unit}` as MessageKey, { value: formatNumber(value, locale) });
   const relisted = detail.stage === 'relisted';
   const revision = { expectedRevision: detail.revision };
+  const recipientId = useId();
+  const [renterId, setRenterId] = useState('');
+  const placement = detail.placement;
+  const hasRecipient = !placement || placement.participantId !== null || renterId !== '';
 
   return (
     <div className="space-y-6">
@@ -67,6 +76,9 @@ export function ReturnDetail({ locale, detail, matches }: ReturnDetailProps) {
             <Fact label={t('returns.relistedOn')}>{date(detail.relistedOn)}</Fact>
           ) : null}
         </dl>
+        {detail.lease?.inspectionFocus === 'delivery_wear' ? (
+          <p className="mt-4 text-sm">{t('applicationTerms.deliveryCheck')}</p>
+        ) : null}
         <h3 className="mt-5 font-semibold">{t('returns.blockers')}</h3>
         {detail.blockers.length === 0 ? (
           <p className="mt-1 text-sm">
@@ -93,6 +105,8 @@ export function ReturnDetail({ locale, detail, matches }: ReturnDetailProps) {
               locale={locale}
               unit={detail.asset.usage.unit}
               busy={action.busy}
+              initialCondition={detail.current?.condition ?? detail.asset.condition}
+              initialUsage={detail.current?.usageValue ?? detail.asset.usage.value}
               onSubmit={(body) => action.send('inspection', { ...revision, ...body })}
             />
             <ProblemMessage locale={locale} problem={action.problem} steps={['inspection']} />
@@ -133,14 +147,48 @@ export function ReturnDetail({ locale, detail, matches }: ReturnDetailProps) {
           </Panel>
 
           <Panel title={t('returns.step.relist')}>
+            {placement ? (
+              <p className="mb-3 text-sm">
+                {t('returns.placement.offer', { entry: placement.id })}
+              </p>
+            ) : null}
+            {placement && !placement.participantId ? (
+              <label htmlFor={recipientId} className="mb-3 block text-sm">
+                {t('returns.placement.customer')}
+                <select
+                  id={recipientId}
+                  value={renterId}
+                  onChange={(event) => setRenterId(event.target.value)}
+                  className={`${inputClass} block`}
+                  required
+                >
+                  <option value="">{t('returns.placement.chooseCustomer')}</option>
+                  {recipients.map((recipient) => (
+                    <option key={recipient.id} value={recipient.id}>
+                      {recipient.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <button
               type="button"
               className={primaryButton}
-              disabled={action.busy || !detail.canRelist}
+              disabled={action.busy || !detail.canRelist || !hasRecipient}
               aria-describedby={detail.canRelist ? undefined : `relist-${detail.id}-why`}
-              onClick={() => void action.send('relist', revision)}
+              onClick={() =>
+                void action.send('relist', {
+                  ...revision,
+                  ...(placement
+                    ? {
+                        waitingListEntryId: placement.id,
+                        ...(!placement.participantId ? { renterId } : {}),
+                      }
+                    : {}),
+                })
+              }
             >
-              {t('returns.relist')}
+              {t(placement ? 'returns.placement.prepare' : 'returns.relist')}
             </button>
             {detail.canRelist ? null : (
               <p
@@ -199,12 +247,14 @@ function InspectionForm(props: {
   locale: Locale;
   unit: string;
   busy: boolean;
+  initialCondition: string;
+  initialUsage: number;
   onSubmit: (body: InspectionBody) => Promise<boolean>;
 }) {
   const t = getT(props.locale);
   const id = useId();
-  const [condition, setCondition] = useState('fair');
-  const [usageValue, setUsage] = useState('');
+  const [condition, setCondition] = useState(props.initialCondition);
+  const [usageValue, setUsage] = useState(String(props.initialUsage));
   const [hours, setHours] = useState('');
   const usageNumber = Number(usageValue);
   const usageValid = usageValue.trim() !== '' && Number.isInteger(usageNumber) && usageNumber >= 0;

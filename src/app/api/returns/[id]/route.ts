@@ -12,5 +12,5 @@ export const GET = handleRoute(async (request, { params }: RouteContext<'/api/re
   const provider = await requireProvider(db, request);
   await expireWaitingPlacements(db, todayIso());
   await finalizeDueReturns(db, todayIso());
-  return ok(await getReturn(db, provider.id, id));
+  return ok(await getReturn(db, provider.id, id, todayIso()));
 });
