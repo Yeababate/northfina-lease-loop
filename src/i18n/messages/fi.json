@@ -645,5 +645,8 @@
   "impact.additionalMany": "Arviomme mukaan näiden {count} tuotteen kunnostus aiheuttaa noin {kg} enemmän CO₂-päästöjä kuin uudelleenkäyttö säästää.",
   "impact.row.newMany": "{count} uuden valmistus",
   "impact.row.creditedMany": "Hyvitys näiden uudelleenkäytöstä",
-  "impact.row.refurbishmentMany": "Niiden kunnostus seuraavaa käyttäjää varten"
+  "impact.row.refurbishmentMany": "Niiden kunnostus seuraavaa käyttäjää varten",
+  "lease.fleetSupply": "1 varastossa nyt · {provider} toimittaa {more} lisää ennen sopimuksen alkua.",
+  "lease.theProvider": "vuokranantaja",
+  "sign.supply": "Toimitus"
 }

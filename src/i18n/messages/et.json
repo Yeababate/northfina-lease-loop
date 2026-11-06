@@ -645,5 +645,8 @@
   "impact.additionalMany": "Meie hinnangul tekitab nende {count} toote korrastamine umbes {kg} rohkem CO₂, kui taaskasutus säästab.",
   "impact.row.newMany": "{count} uue tootmine",
   "impact.row.creditedMany": "Arvestus nende taaskasutuse eest",
-  "impact.row.refurbishmentMany": "Nende korrastamine järgmiseks kasutajaks"
+  "impact.row.refurbishmentMany": "Nende korrastamine järgmiseks kasutajaks",
+  "lease.fleetSupply": "1 laos praegu · {provider} tarnib veel {more} enne lepingu algust.",
+  "lease.theProvider": "rendileandja",
+  "sign.supply": "Tarne"
 }

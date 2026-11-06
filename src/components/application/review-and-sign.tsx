@@ -21,6 +21,8 @@ export type LeaseSummary = {
   itemName: string;
   /** Units leased together; every amount is for all of them. */
   quantity: number;
+  /** Supplies the units beyond the one in stock (a fleet order). */
+  providerName: string | null;
   termMonths: number;
   downPaymentCents: number;
   startOn: string;
@@ -126,7 +128,16 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
   const rows: { label: string; value: string; strong?: boolean }[] = [
     ...(check.ok ? [{ label: t('sign.leasedBy'), value: check.signerName }] : []),
     ...(lease.quantity > 1
-      ? [{ label: t('sign.quantity'), value: t('sign.quantityValue', { count: lease.quantity }) }]
+      ? [
+          { label: t('sign.quantity'), value: t('sign.quantityValue', { count: lease.quantity }) },
+          {
+            label: t('sign.supply'),
+            value: t('lease.fleetSupply', {
+              more: lease.quantity - 1,
+              provider: lease.providerName ?? t('lease.theProvider'),
+            }),
+          },
+        ]
       : []),
     { label: t('sign.term'), value: t('term.months', { months: lease.termMonths }) },
     { label: t('sign.down'), value: euro(lease.downPaymentCents) },

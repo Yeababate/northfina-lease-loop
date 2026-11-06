@@ -645,5 +645,8 @@
   "impact.additionalMany": "By our estimate, getting these {count} items ready for their next life adds about {kg} of CO₂ more than reusing them saves.",
   "impact.row.newMany": "Making {count} new ones",
   "impact.row.creditedMany": "Credited for reusing these",
-  "impact.row.refurbishmentMany": "Refurbishing them for their next life"
+  "impact.row.refurbishmentMany": "Refurbishing them for their next life",
+  "lease.fleetSupply": "1 in stock now · {more} more supplied by {provider} before your lease starts.",
+  "lease.theProvider": "the provider",
+  "sign.supply": "Supply"
 }

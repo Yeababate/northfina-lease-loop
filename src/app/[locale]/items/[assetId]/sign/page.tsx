@@ -58,6 +58,14 @@ export default async function SignPage({
   const quotedText = typeof query.quoted === 'string' ? query.quoted : '';
   const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
   const quantity = parseQuantity(query.qty);
+  // Who supplies the extra units of a fleet order: the item's provider.
+  const ownerId = (
+    await db.asset.findUnique({ where: { id: asset.id }, select: { ownerId: true } })
+  )?.ownerId;
+  const providerName = ownerId
+    ? (await db.demoUser.findUnique({ where: { id: ownerId }, select: { displayName: true } }))
+        ?.displayName
+    : undefined;
   const itemName =
     quantity > 1 ? `${quantity} × ${asset.make} ${asset.model}` : `${asset.make} ${asset.model}`;
 
@@ -165,6 +173,7 @@ export default async function SignPage({
             assetId: asset.id,
             itemName,
             quantity,
+            providerName: providerName ?? null,
             termMonths,
             downPaymentCents,
             startOn: startDate,

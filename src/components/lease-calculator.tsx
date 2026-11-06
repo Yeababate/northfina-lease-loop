@@ -55,6 +55,8 @@ type LeaseCalculatorProps = {
   impact?: ImpactEstimateResult | null;
   /** Shown after the CO2 panel (related items). */
   afterImpact?: ReactNode;
+  /** Who supplies the extra units of a fleet order (the item's provider). */
+  providerName?: string;
 };
 
 /** The down payment slider moves in whole euros. */
@@ -179,9 +181,21 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
                 </div>
               </div>
               {quantity > 1 ? (
-                <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">
-                  {t('lease.quantityNote', { count: quantity, total: euro(listPriceCents) })}
-                </p>
+                <>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">
+                    {t('lease.quantityNote', { count: quantity, total: euro(listPriceCents) })}
+                  </p>
+                  {/* Each listing is one item in stock; the rest is a fleet order. */}
+                  <p className="mt-2 flex gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-950/60">
+                    <span aria-hidden="true">ⓘ</span>
+                    <span>
+                      {t('lease.fleetSupply', {
+                        more: quantity - 1,
+                        provider: props.providerName ?? t('lease.theProvider'),
+                      })}
+                    </span>
+                  </p>
+                </>
               ) : null}
             </div>
 

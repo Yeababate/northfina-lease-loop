@@ -645,5 +645,8 @@
   "impact.additionalMany": "Enligt vår uppskattning ger renoveringen av de här {count} produkterna cirka {kg} mer CO₂ än återanvändningen sparar.",
   "impact.row.newMany": "Tillverka {count} nya",
   "impact.row.creditedMany": "Kredit för att återanvända dessa",
-  "impact.row.refurbishmentMany": "Renovering inför nästa användare"
+  "impact.row.refurbishmentMany": "Renovering inför nästa användare",
+  "lease.fleetSupply": "1 i lager nu · {provider} levererar {more} till innan avtalet börjar.",
+  "lease.theProvider": "uthyraren",
+  "sign.supply": "Leverans"
 }

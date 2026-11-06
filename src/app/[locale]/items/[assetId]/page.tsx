@@ -171,6 +171,7 @@ export default async function ItemPage({
             summary={summary}
             afterApply={beforeImpact}
             impact={impact}
+            providerName={provider?.name}
             afterImpact={afterImpact}
           />
         )}
