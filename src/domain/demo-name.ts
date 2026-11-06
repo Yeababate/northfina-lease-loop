@@ -38,11 +38,14 @@ export function safeNextPath(next: string | null | undefined, fallback: string):
 }
 
 /**
- * Pages that need a name: applying for a lease and signing it. Browsing the catalogue and
- * pricing an item stay open, so nobody has to sign in just to look around.
+ * Pages that need a name: applying for a lease, signing it, and your own leases and
+ * contracts. Browsing the catalogue and pricing an item stay open, so nobody has to sign
+ * in just to look around.
  */
 export function pageNeedsName(pathname: string): boolean {
-  const [, , section, , step] = pathname.split('/');
+  const [, , section, id, step] = pathname.split('/');
+  if (section === 'leases') return true;
+  if (section === 'contracts') return Boolean(id);
   return section === 'items' && (step === 'apply' || step === 'sign');
 }
 

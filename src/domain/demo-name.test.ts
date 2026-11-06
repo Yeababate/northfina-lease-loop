@@ -82,7 +82,12 @@ describe('pageNeedsName', () => {
     expect(pageNeedsName('/en')).toBe(false);
     expect(pageNeedsName('/en/items/ebike-003')).toBe(false);
     expect(pageNeedsName('/en/sign-in')).toBe(false);
-    expect(pageNeedsName('/en/contracts/abc')).toBe(false);
+  });
+
+  it('asks for a name on your own leases and contracts', () => {
+    expect(pageNeedsName('/en/leases')).toBe(true);
+    expect(pageNeedsName('/sv/contracts/abc')).toBe(true);
+    expect(pageNeedsName('/en/contracts')).toBe(false);
   });
 });
 
