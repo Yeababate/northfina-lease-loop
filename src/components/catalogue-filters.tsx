@@ -7,9 +7,13 @@ import Link from 'next/link';
 import type { FormEvent } from 'react';
 import type { AssetCategory, AssetCondition } from '@/data/schemas';
 import type { CatalogueQuery, CatalogueSort, PriceSlider } from '@/domain/catalogue';
+import type { AttributeOptions, AttributeQuery } from '@/domain/catalogue-attributes';
+import { availabilityFilters, type AvailabilityFilter } from '@/domain/catalogue-availability';
 import type { MessageKey } from '@/i18n/get-t';
 import { getT } from '@/i18n/get-t';
 import type { Locale } from '@/i18n/locales';
+import { CatalogueAttributeFilters } from './catalogue-attribute-filters';
+import { CheckboxGroup, fieldClass, RadioGroup } from './catalogue-filter-fields';
 import { PriceRangeSlider } from './price-range-slider';
 import { secondaryButton, textLink } from './ui';
 
@@ -26,10 +30,12 @@ type CatalogueFiltersProps = {
   provider?: string;
   /** The price slider's range for the chosen categories. */
   slider: PriceSlider;
+  /** When the item can be leased (#72); null = any time. */
+  availability: AvailabilityFilter | null;
+  /** Category sub-filters (#72) and the choices they offer. */
+  attributes: AttributeQuery;
+  attributeOptions: AttributeOptions;
 };
-
-const fieldClass =
-  'w-full rounded-lg border border-stone-400 bg-white px-3 py-2 text-stone-900 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100';
 
 export function CatalogueFilters(props: CatalogueFiltersProps) {
   const { locale, query, categories, conditions, terms, today, slider } = props;
@@ -71,6 +77,24 @@ export function CatalogueFilters(props: CatalogueFiltersProps) {
         name="category"
         options={categories.map((c) => ({ value: c, label: t(`category.${c}`) }))}
         checked={query.categories}
+      />
+      <CatalogueAttributeFilters
+        query={props.attributes}
+        categories={query.categories}
+        options={props.attributeOptions}
+        t={t}
+      />
+      <RadioGroup
+        legend={t('filters.availability')}
+        name="avail"
+        options={[
+          { value: '', label: t('filters.availAny') },
+          ...availabilityFilters.map((value) => ({
+            value,
+            label: t(`filters.avail.${value}`),
+          })),
+        ]}
+        checked={props.availability ?? ''}
       />
       <CheckboxGroup
         legend={t('condition.label')}
@@ -165,34 +189,5 @@ export function SortSelect(props: {
         ))}
       </select>
     </div>
-  );
-}
-
-function CheckboxGroup(props: {
-  legend: string;
-  name: string;
-  options: { value: string; label: string }[];
-  checked: readonly string[];
-}) {
-  return (
-    <fieldset>
-      <legend className="font-semibold">{props.legend}</legend>
-      <ul className="mt-2 space-y-1.5">
-        {props.options.map((option) => (
-          <li key={option.value}>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                name={props.name}
-                value={option.value}
-                defaultChecked={props.checked.includes(option.value)}
-                className="size-4 accent-blue-600"
-              />
-              {option.label}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </fieldset>
   );
 }

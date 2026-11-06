@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
+  loadAssetAttributes,
   loadAssets,
   loadBundleOffers,
   loadCo2Factors,
@@ -15,7 +16,7 @@ import {
   loadSecondLifeDemand,
   loadVatRates,
 } from './load';
-import { coefficientTableSchema, priceListsFileSchema } from './schemas';
+import { assetAttributesFileSchema, coefficientTableSchema, priceListsFileSchema } from './schemas';
 
 describe('data pack', () => {
   it('every file in data/ parses against its schema', async () => {
@@ -97,5 +98,18 @@ describe('data pack rules enforced by the schemas', () => {
       bands: [first, { ...second, min_financed_cents: second.min_financed_cents + 1 }, ...rest],
     };
     expect(coefficientTableSchema.safeParse(withGap).success).toBe(false);
+  });
+
+  it('asset attributes cover every asset once, in its own category', async () => {
+    const [assets, attributes] = await Promise.all([loadAssets(), loadAssetAttributes()]);
+    const byId = new Map(attributes.map((row) => [row.asset_id, row]));
+    expect(attributes).toHaveLength(assets.length);
+    for (const asset of assets) expect(byId.get(asset.id)?.category).toBe(asset.category);
+  });
+
+  it('rejects asset attributes listed twice', async () => {
+    const attributes = await loadAssetAttributes();
+    const twice = [...attributes, attributes[0]];
+    expect(assetAttributesFileSchema.safeParse(twice).success).toBe(false);
   });
 });

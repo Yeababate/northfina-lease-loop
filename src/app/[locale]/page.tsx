@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { AssetCard } from '@/components/asset-card';
 import { CatalogueFilters, SortSelect } from '@/components/catalogue-filters';
-import { loadCoefficientTable, loadPriceLists } from '@/data/load';
+import { loadAssetAttributes, loadCoefficientTable, loadPriceLists } from '@/data/load';
 import { assetCategorySchema, assetConditionSchema } from '@/data/schemas';
 import {
   catalogueSorts,
@@ -13,6 +13,12 @@ import {
   parseCatalogueQuery,
   type CatalogueItem,
 } from '@/domain/catalogue';
+import {
+  attributeOptions,
+  matchesAttributes,
+  parseAttributeQuery,
+} from '@/domain/catalogue-attributes';
+import { matchesAvailability, parseAvailabilityFilter } from '@/domain/catalogue-availability';
 import { listPriceOn } from '@/domain/price-list';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
 import { getT } from '@/i18n/get-t';
@@ -22,6 +28,7 @@ import { providerBadgesForAssets } from '@/server/reputation';
 import { dealBadgesForAssets, providerOffer } from '@/server/deals';
 import { textLink } from '@/components/ui';
 import { ReadinessBadge, ReadinessHint } from '@/components/readiness-badge';
+import { availabilityForAssets } from '@/server/catalogue-availability';
 import { catalogueReadiness } from '@/server/catalogue-readiness';
 import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
@@ -36,10 +43,11 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
 
   const t = getT(locale);
   const today = todayIso(); // the page decides what "today" is; domain code never reads the clock
-  const [assetRows, priceLists, table] = await Promise.all([
+  const [assetRows, priceLists, table, attributeRows] = await Promise.all([
     db.asset.findMany({ orderBy: { id: 'asc' } }),
     loadPriceLists(),
     loadCoefficientTable(),
+    loadAssetAttributes(),
   ]);
   const terms = availableTerms(table);
   const rawQuery = await searchParams;
@@ -64,9 +72,22 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     ...parsed,
     ...normalisePriceRange(parsed.minPriceEuros, parsed.maxPriceEuros, slider.topEuros),
   };
+  // #72: when each item can be leased, and the per-category sub-filters.
+  const availabilityFilter = parseAvailabilityFilter(rawQuery);
+  const attributeQuery = parseAttributeQuery(rawQuery);
+  const attributesById = new Map(attributeRows.map((row) => [row.asset_id, row]));
+  const availability = await availabilityForAssets(
+    db,
+    items.map((item) => item.asset),
+    today
+  );
   const shown = filterCatalogue(
     offer ? items.filter((item) => offer.assetIds.has(item.asset.id)) : items,
     query
+  ).filter(
+    ({ asset }) =>
+      matchesAttributes(asset, attributesById.get(asset.id), attributeQuery, query.categories) &&
+      matchesAvailability(availability.get(asset.id) ?? { kind: 'unknown' }, availabilityFilter)
   );
   const shownIds = shown.map((item) => item.asset.id);
   const principal = await currentPrincipal();
@@ -93,6 +114,9 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
           today={today}
           slider={slider}
           provider={offer ? (providerParam ?? undefined) : undefined}
+          availability={availabilityFilter}
+          attributes={attributeQuery}
+          attributeOptions={attributeOptions(attributeRows)}
         />
       </aside>
 
@@ -139,6 +163,7 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
                   href={`/${locale}/items/${item.asset.id}?${leaseParams}`}
                   provider={providers.get(item.asset.id)}
                   deal={deals.get(item.asset.id)}
+                  availability={availability.get(item.asset.id)}
                   readiness={
                     readiness ? (
                       <ReadinessBadge
