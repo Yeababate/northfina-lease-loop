@@ -19,7 +19,7 @@ import { nextVatChangeAfter, vatCents, vatRateOn } from '@/domain/vat';
 import { formatIsoDate, formatNumber } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
-import { getAsset } from '@/server/assets';
+import { assetPriceOverride, toAsset } from '@/server/assets';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
@@ -33,14 +33,15 @@ export default async function SignPage({
   if (!isLocale(locale)) notFound();
   await connection();
 
-  const [asset, lists, table, vatRates, questionsFile] = await Promise.all([
-    getAsset(db, assetId),
+  const [assetRow, lists, table, vatRates, questionsFile] = await Promise.all([
+    db.asset.findUnique({ where: { id: assetId } }),
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
   ]);
-  if (!asset) notFound();
+  if (!assetRow) notFound();
+  const asset = toAsset(assetRow);
   const discountRules = await rulesForAsset(db, assetId);
 
   const t = getT(locale);
@@ -68,7 +69,8 @@ export default async function SignPage({
 
   // Today's price is the one that locks; the quote is only compared with it.
   const pricing = { assetId: asset.id, termMonths, downPaymentCents, startOn: startDate };
-  const locked = priceContract(lists, table, pricing, today, discountRules);
+  const override = assetPriceOverride(assetRow);
+  const locked = priceContract(lists, table, pricing, today, discountRules, override);
   const startVat = vatRateOn(vatRates.rates, startDate);
   if (!isLeasable(asset) || !locked.ok || !startVat.ok) {
     return (
@@ -88,7 +90,7 @@ export default async function SignPage({
   }
 
   const price = locked.price;
-  const quoted = priceContract(lists, table, pricing, quotedOn, discountRules);
+  const quoted = priceContract(lists, table, pricing, quotedOn, discountRules, override);
   const note = quoted.ok ? priceLockNote(quoted.price, price) : null;
   const listDate = lists.find((list) => list.version === price.priceListVersion)?.valid_from;
   const nowVat = vatRateOn(vatRates.rates, today);
@@ -99,12 +101,14 @@ export default async function SignPage({
     <>
       <InfoBox title={t('sign.whyPrice')}>
         <p>
-          {t('sign.lockedFrom', {
-            amount: euro(price.monthlyNetCents),
-            date: listDate ? formatIsoDate(listDate, locale) : '–',
-          })}
+          {price.priceSource === 'next_life'
+            ? t('sign.lockedNextLife', { amount: euro(price.monthlyNetCents) })
+            : t('sign.lockedFrom', {
+                amount: euro(price.monthlyNetCents),
+                date: listDate ? formatIsoDate(listDate, locale) : '–',
+              })}
         </p>
-        {note?.listChanged ? (
+        {note?.listChanged && price.priceSource === 'price_list' ? (
           <p className="mt-1">
             {t(
               note.direction === 'lower'
@@ -150,6 +154,8 @@ export default async function SignPage({
             price.monthlyNetCents,
             price.buyoutNetCents,
             price.priceListVersion,
+            price.priceSource,
+            price.listPriceCents,
             price.discountRuleId,
             price.discountRuleRevision,
             startVat.rate.rate_percent,
@@ -169,6 +175,8 @@ export default async function SignPage({
             discountRuleRevision: price.discountRuleRevision,
             buyoutCents: price.buyoutNetCents,
             priceListVersion: price.priceListVersion,
+            priceSource: price.priceSource,
+            listPriceCents: price.listPriceCents,
           }}
           storageKey={applicationStorageKey(
             asset.id,

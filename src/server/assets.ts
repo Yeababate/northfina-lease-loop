@@ -2,6 +2,7 @@
 // shape as data/assets.json, so the UI and domain code see one type everywhere.
 import type { Asset as AssetRow, PrismaClient } from '@/generated/prisma/client';
 import { assetSchema, type Asset, type AssetCategory, type AssetStatus } from '@/data/schemas';
+import type { PriceOverride } from '@/domain/price-list';
 import { withAudit } from './audit';
 
 /** Database row → data-pack shape. Validates, so a bad value edited in by hand is caught. */
@@ -52,6 +53,14 @@ export async function listAssets(
 export async function getAsset(db: PrismaClient, id: string): Promise<Asset | null> {
   const row = await db.asset.findUnique({ where: { id } });
   return row ? toAsset(row) : null;
+}
+
+export function assetPriceOverride(
+  row: Pick<AssetRow, 'nextLifePriceCents' | 'nextLifePricedOn'>
+): PriceOverride | undefined {
+  return row.nextLifePriceCents !== null && row.nextLifePricedOn !== null
+    ? { priceCents: row.nextLifePriceCents, pricedOn: row.nextLifePricedOn }
+    : undefined;
 }
 
 export type ChangeAssetStatusResult =

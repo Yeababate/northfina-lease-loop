@@ -3,9 +3,10 @@ import type { CoefficientTable, PriceList, Question, VatRates } from '@/data/sch
 import type { Answers } from '@/domain/answer-check';
 import { checkApplicationForSigning } from '@/domain/application-signing';
 import { priceContract, type PricingInput } from '@/domain/contract-pricing';
+import type { PriceSource } from '@/domain/price-list';
 import { vatCents, vatRateOn } from '@/domain/vat';
 import { ApiError } from './api-response';
-import { getAsset } from './assets';
+import { assetPriceOverride, toAsset } from './assets';
 import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
@@ -35,6 +36,8 @@ export async function signContract(
     expectedMonthlyNetCents: number;
     expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
+    expectedPriceSource?: PriceSource;
+    expectedListPriceCents?: number;
     expectedDiscountRuleId?: string | null;
     expectedDiscountRuleRevision?: number | null;
     participants?: SigningParticipants;
@@ -50,12 +53,18 @@ export async function signContract(
     downPaymentCents: input.downPaymentCents,
     startOn: input.startOn,
   };
+  const [assetSnapshot, discountRules] = await Promise.all([
+    db.asset.findUnique({ where: { id: input.assetId } }),
+    rulesForAsset(db, input.assetId),
+  ]);
+  if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   const result = priceContract(
     lists,
     table,
     pricingInput,
     signedOn,
-    await rulesForAsset(db, input.assetId)
+    discountRules,
+    assetPriceOverride(assetSnapshot)
   );
   if (!result.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
@@ -63,6 +72,9 @@ export async function signContract(
     result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
     result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
     result.price.priceListVersion !== input.expectedPriceListVersion ||
+    result.price.priceSource !== (input.expectedPriceSource ?? 'price_list') ||
+    (input.expectedListPriceCents !== undefined &&
+      result.price.listPriceCents !== input.expectedListPriceCents) ||
     result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
     result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
   )
@@ -79,8 +91,6 @@ export async function signContract(
   };
   const reminderSetup =
     reminders && event ? validateReminderSetup(event, reminders.preferences, reminders.now) : null;
-  const assetSnapshot = await db.asset.findUnique({ where: { id: input.assetId } });
-  if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   const document = await renderContractPdf({
     ...result.price,
     id,
@@ -120,7 +130,8 @@ export async function signContract(
         table,
         pricingInput,
         signedOn,
-        await rulesForAsset(tx, input.assetId)
+        await rulesForAsset(tx, input.assetId),
+        assetPriceOverride(asset)
       );
       if (!currentPrice.ok)
         throw new ApiError(
@@ -133,6 +144,7 @@ export async function signContract(
         currentPrice.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
         currentPrice.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
         currentPrice.price.priceListVersion !== input.expectedPriceListVersion ||
+        currentPrice.price.priceSource !== result.price.priceSource ||
         currentPrice.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
         currentPrice.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null) ||
         currentPrice.price.originalMonthlyNetCents !== result.price.originalMonthlyNetCents ||
@@ -171,6 +183,7 @@ export async function signContract(
               monthlyNetCents: linePrice.monthlyNetCents,
               buyoutNetCents: linePrice.buyoutNetCents,
               priceListVersion: linePrice.priceListVersion,
+              priceSource: linePrice.priceSource,
               coefficientVersion: linePrice.coefficientVersion,
               coefficientId: linePrice.coefficientId,
               band: linePrice.band,
@@ -210,6 +223,8 @@ export type SignApplicationInput = {
   expectedMonthlyNetCents: number;
   expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
+  expectedPriceSource?: PriceSource;
+  expectedListPriceCents?: number;
   expectedDiscountRuleId?: string | null;
   expectedDiscountRuleRevision?: number | null;
   locale?: Locale;
@@ -235,15 +250,20 @@ export async function signApplication(
   principalId?: string,
   reminders?: SigningReminders
 ) {
-  const asset = await getAsset(db, input.assetId);
-  if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  const [assetRow, discountRules] = await Promise.all([
+    db.asset.findUnique({ where: { id: input.assetId } }),
+    rulesForAsset(db, input.assetId),
+  ]);
+  if (!assetRow) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  const asset = toAsset(assetRow);
 
   const priced = priceContract(
     data.lists,
     data.table,
     input,
     signedOn,
-    await rulesForAsset(db, input.assetId)
+    discountRules,
+    assetPriceOverride(assetRow)
   );
   if (!priced.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', priced.reason);

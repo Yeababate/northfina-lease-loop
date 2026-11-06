@@ -130,6 +130,7 @@ export async function backfillLegacyLines(db: PrismaClient, actor: string) {
             monthlyNetCents: contract.monthlyNetCents,
             buyoutNetCents: contract.buyoutNetCents,
             priceListVersion: contract.priceListVersion,
+            priceSource: contract.priceSource,
             coefficientVersion: contract.coefficientVersion,
             coefficientId: contract.coefficientId,
             band: contract.band,

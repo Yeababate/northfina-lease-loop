@@ -189,11 +189,16 @@ it('recovers to a separately migrated empty database, preserving money, ids, ass
       await restoreLegacyMoneySnapshot(target.db, exported, ['legacy-1'], 'recovery-test')
     ).toEqual({ contracts: 1, invoices: 1 });
     expect(await target.db.contract.findMany()).toMatchObject([
-      { ...snapshot.contracts[0], startOn: '2026-01-31' },
+      { ...snapshot.contracts[0], startOn: '2026-01-31', priceSource: 'price_list' },
     ]);
     expect(await target.db.invoice.findMany()).toEqual(snapshot.invoices);
     expect(await target.db.asset.findMany()).toEqual(
-      exported.assets.map((asset) => ({ ...asset, ownerId: null }))
+      exported.assets.map((asset) => ({
+        ...asset,
+        ownerId: null,
+        nextLifePriceCents: null,
+        nextLifePricedOn: null,
+      }))
     );
     expect(await target.db.auditLog.findUnique({ where: { id: exported.audits[0].id } })).toEqual(
       exported.audits[0]
@@ -328,12 +333,18 @@ it('preserves populated contracts and invoices through discount and schema recon
         discountBps: 0,
         discountRuleId: null,
         discountRuleRevision: null,
+        priceSource: 'price_list',
         providerId: null,
         renterId: null,
       },
     ]);
-    for (const [table, rows] of Object.entries(preserved))
-      expect(upgraded.prepare(`SELECT * FROM "${table}"`).all()).toEqual(rows);
+    for (const [table, rows] of Object.entries(preserved)) {
+      const expected =
+        table === 'Asset'
+          ? rows.map((asset) => ({ ...asset, nextLifePriceCents: null, nextLifePricedOn: null }))
+          : rows;
+      expect(upgraded.prepare(`SELECT * FROM "${table}"`).all()).toEqual(expected);
+    }
     expect(upgraded.pragma('foreign_key_check')).toEqual([]);
     expect(
       upgraded

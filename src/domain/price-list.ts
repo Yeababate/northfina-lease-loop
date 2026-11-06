@@ -2,8 +2,11 @@
 import type { PriceList } from '@/data/schemas';
 
 export type ListPriceResult =
-  | { ok: true; priceCents: number; priceListVersion: number }
+  | { ok: true; priceCents: number; priceListVersion: number; priceSource?: 'next_life' }
   | { ok: false; reason: 'unknown_asset' | 'no_price_list_on_date' };
+
+export type PriceSource = 'price_list' | 'next_life';
+export type PriceOverride = { priceCents: number; pricedOn: string };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -18,17 +21,28 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 export function listPriceOn(
   priceLists: readonly PriceList[],
   assetId: string,
-  isoDate: string
+  isoDate: string,
+  override?: PriceOverride
 ): ListPriceResult {
   if (!ISO_DATE.test(isoDate)) {
     throw new RangeError(`isoDate must look like YYYY-MM-DD, got "${isoDate}"`);
   }
 
   // ISO dates sort the same way as the days they name, so plain string comparison works.
+  const effectiveOverride = override && override.pricedOn <= isoDate ? override : undefined;
+  const listDate = effectiveOverride?.pricedOn ?? isoDate;
   const priceList = priceLists.find(
-    (list) => list.valid_from <= isoDate && (list.valid_to === null || isoDate <= list.valid_to)
+    (list) => list.valid_from <= listDate && (list.valid_to === null || listDate <= list.valid_to)
   );
   if (!priceList) return { ok: false, reason: 'no_price_list_on_date' };
+
+  if (effectiveOverride)
+    return {
+      ok: true,
+      priceCents: effectiveOverride.priceCents,
+      priceListVersion: priceList.version,
+      priceSource: 'next_life',
+    };
 
   const priceCents = priceList.prices[assetId];
   if (priceCents === undefined) return { ok: false, reason: 'unknown_asset' };

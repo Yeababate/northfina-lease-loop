@@ -9,7 +9,7 @@ import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load'
 import { listPriceOn } from '@/domain/price-list';
 import { compareOptions, MAX_COMPARE_OPTIONS, MIN_COMPARE_OPTIONS } from '@/domain/price-breakdown';
 import { fail, handleRoute, ok } from '@/server/api-response';
-import { getAsset } from '@/server/assets';
+import { assetPriceOverride } from '@/server/assets';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
@@ -38,7 +38,7 @@ export const GET = handleRoute(
     const startOn = query.start ?? today;
     if (startOn < today) return fail(400, 'START_IN_PAST', 'The lease cannot start in the past');
 
-    const asset = await getAsset(db, id);
+    const asset = await db.asset.findUnique({ where: { id } });
     if (!asset) return fail(404, 'ASSET_NOT_FOUND', 'Asset not found');
     const [lists, table, vat, discountRules] = await Promise.all([
       loadPriceLists(),
@@ -46,7 +46,7 @@ export const GET = handleRoute(
       loadVatRates(),
       rulesForAsset(db, id),
     ]);
-    const price = listPriceOn(lists, id, today);
+    const price = listPriceOn(lists, id, today, assetPriceOverride(asset));
     if (!price.ok) return fail(409, 'NO_PRICE', 'This item has no price today');
 
     return ok({

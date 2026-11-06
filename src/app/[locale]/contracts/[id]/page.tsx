@@ -151,7 +151,10 @@ export default async function ContractPage({
             />
             <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">
               {t('contract.rule')}{' '}
-              {t('asset.priceListVersion', { version: contract.priceListVersion })}.
+              {contract.priceSource === 'next_life'
+                ? t('asset.nextLifePrice')
+                : t('asset.priceListVersion', { version: contract.priceListVersion })}
+              .
             </p>
             <p className="mt-3 text-sm">
               {document ? (

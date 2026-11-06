@@ -38,6 +38,12 @@ Typed loaders and Zod schemas for every file live in `src/data/`. Read those for
 
 The factor already includes interest and the buyout at the end. You don't need to derive it, but the band's `annual_interest_percent` is there if you want to discount money over time (for example, for a fair early exit).
 
+## Second-life prices
+
+Relisting uses the asset's market value with no markup. Age is counted in full months from the first recorded lease start, or from 1 July of the model year for an imported return. The starting price is the first lease's locked net list price. For an imported return, use the list valid on the age reference date or the earliest recorded list price if there is no price on that date.
+
+The valuation applies the interpolated residual curve, condition after refurbishment, and the capped usage adjustment to the starting price. It rounds half up once, to cents. An amount below the smallest finance band cannot be relisted. Signing records the second-life price as its source and locks the amounts in the contract.
+
 ## Rules for `ask_when` in questions.json
 
 `ask_when` is a list of conditions, and **all** must be true for the question to be asked. An empty list means "always ask".

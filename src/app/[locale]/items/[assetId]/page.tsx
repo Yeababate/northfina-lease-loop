@@ -24,7 +24,7 @@ import { nextVatChangeAfter, vatRateOn } from '@/domain/vat';
 import { formatNumber } from '@/i18n/format';
 import { getT, type Translate } from '@/i18n/get-t';
 import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
-import { getAsset } from '@/server/assets';
+import { assetPriceOverride, toAsset } from '@/server/assets';
 import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
@@ -41,15 +41,16 @@ export default async function ItemPage({
   if (!isLocale(locale)) notFound();
   await connection();
 
-  const [asset, priceLists, table, vatRates, relatedRules, impactInputs] = await Promise.all([
-    getAsset(db, assetId),
+  const [assetRow, priceLists, table, vatRates, relatedRules, impactInputs] = await Promise.all([
+    db.asset.findUnique({ where: { id: assetId } }),
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadRelatedItemRules(),
     loadImpactInputs(),
   ]);
-  if (!asset) notFound();
+  if (!assetRow) notFound();
+  const asset = toAsset(assetRow);
   const discountRules = await rulesForAsset(db, assetId);
 
   const t = getT(locale);
@@ -60,7 +61,7 @@ export default async function ItemPage({
     terms: availableTerms(table),
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
-  const price = listPriceOn(priceLists, asset.id, today);
+  const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
   const [related, bundles, provider] = await Promise.all([
@@ -107,6 +108,7 @@ export default async function ItemPage({
     <AssetSummary
       asset={asset}
       listPriceCents={price.ok ? price.priceCents : null}
+      isSecondLifePrice={price.ok && price.priceSource === 'next_life'}
       provider={provider}
       locale={locale}
       t={t}
@@ -154,11 +156,12 @@ export default async function ItemPage({
 function AssetSummary(props: {
   asset: Asset;
   listPriceCents: number | null;
+  isSecondLifePrice: boolean;
   provider: ProviderReputation | null;
   locale: Locale;
   t: Translate;
 }) {
-  const { asset, listPriceCents, provider, locale, t } = props;
+  const { asset, listPriceCents, isSecondLifePrice, provider, locale, t } = props;
   const facts = [
     { label: t('condition.label'), value: t(`condition.${asset.condition}`) },
     { label: t('asset.modelYear'), value: String(asset.model_year) },
@@ -184,7 +187,9 @@ function AssetSummary(props: {
         ))}
       </dl>
       <div className="mt-5 flex items-baseline justify-between gap-4 border-t border-stone-200 pt-4 dark:border-stone-800">
-        <p className="text-stone-700 dark:text-stone-300">{t('item.listPriceToday')}</p>
+        <p className="text-stone-700 dark:text-stone-300">
+          {t(isSecondLifePrice ? 'asset.nextLifePrice' : 'item.listPriceToday')}
+        </p>
         <p className="text-2xl font-semibold tabular-nums">
           {listPriceCents === null
             ? t('asset.noPrice')

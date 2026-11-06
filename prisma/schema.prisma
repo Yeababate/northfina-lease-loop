@@ -15,20 +15,22 @@ datasource db {
 // One physical item that can be leased, returned, refurbished and leased again.
 // Mirrors data/assets.json; `usage` is stored as two columns.
 model Asset {
-  id             String   @id
-  category       String // e_bike | laptop | farm_machine
-  make           String
-  model          String
-  model_year     Int
-  serial_number  String   @unique
-  condition      String // new | like_new | good | fair | poor
-  usage_unit     String // km | battery_cycles | engine_hours
-  usage_value    Int
-  previous_lives Int
-  status         String // available | reserved | returned
-  ownerId        String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id                 String   @id
+  category           String // e_bike | laptop | farm_machine
+  make               String
+  model              String
+  model_year         Int
+  serial_number      String   @unique
+  condition          String // new | like_new | good | fair | poor
+  usage_unit         String // km | battery_cycles | engine_hours
+  usage_value        Int
+  previous_lives     Int
+  status             String // available | reserved | returned
+  ownerId            String?
+  nextLifePriceCents Int?
+  nextLifePricedOn   String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
   @@index([category])
 }
@@ -64,6 +66,7 @@ model Contract {
   downPaymentCents        Int
   listPriceCents          Int
   priceListVersion        Int
+  priceSource             String                @default("price_list")
   coefficientVersion      Int
   coefficientId           String
   band                    String
@@ -108,6 +111,7 @@ model ContractLine {
   monthlyNetCents    Int
   buyoutNetCents     Int
   priceListVersion   Int
+  priceSource        String   @default("price_list")
   coefficientVersion Int
   coefficientId      String
   band               String

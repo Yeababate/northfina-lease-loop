@@ -1,6 +1,6 @@
 // POST /api/returns/:id/relist — body: { expectedRevision }
-// Makes a ready item available again at its existing catalogue price. Refused with
-// NOT_READY (details = blocker codes) while anything is outstanding.
+// Makes a ready item available at its second-life price. Refused with NOT_READY while work
+// is outstanding, or INVALID_NEXT_LIFE_PRICE when the asset cannot be priced for a new lease.
 import { z } from 'zod';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { db } from '@/server/db';

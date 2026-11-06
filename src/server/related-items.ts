@@ -2,7 +2,7 @@
 // pure rankRelatedItems in src/domain/related-items.ts; nothing is scored here.
 import type { CoefficientTable, PriceList, RelatedItemRules } from '@/data/schemas';
 import { monthlyRentBasis, rankRelatedItems, type RelatedItem } from '@/domain/related-items';
-import { getAsset, listAssets } from './assets';
+import { assetPriceOverride, toAsset } from './assets';
 import type { PrismaClient } from './prisma-client';
 
 export type RelatedItemsQuery = {
@@ -30,17 +30,25 @@ export async function relatedItemsFor(
   query: RelatedItemsQuery,
   data: RelatedItemsData
 ): Promise<RelatedItemsResult> {
-  const viewed = await getAsset(db, query.assetId);
-  if (!viewed) return { status: 'not_found' };
-  const basis = (assetId: string) =>
-    monthlyRentBasis(data.lists, data.table, assetId, query.termMonths, query.onDate);
-  const monthlyNetCents = basis(viewed.id);
+  const viewedRow = await db.asset.findUnique({ where: { id: query.assetId } });
+  if (!viewedRow) return { status: 'not_found' };
+  const viewed = toAsset(viewedRow);
+  const basis = (row: typeof viewedRow) =>
+    monthlyRentBasis(
+      data.lists,
+      data.table,
+      row.id,
+      query.termMonths,
+      query.onDate,
+      assetPriceOverride(row)
+    );
+  const monthlyNetCents = basis(viewedRow);
   if (monthlyNetCents === null) return { status: 'cannot_be_priced', items: [] };
 
   // Every asset is a candidate; the ruleset's hard checks drop what cannot be offered.
-  const candidates = (await listAssets(db)).map((asset) => ({
-    asset,
-    monthlyNetCents: asset.status === 'available' ? basis(asset.id) : null,
+  const candidates = (await db.asset.findMany()).map((row) => ({
+    asset: toAsset(row),
+    monthlyNetCents: row.status === 'available' ? basis(row) : null,
   }));
   const ranked = rankRelatedItems(
     { asset: viewed, monthlyNetCents, budgetMonthlyNetCents: query.budgetMonthlyNetCents },
