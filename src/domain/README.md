@@ -53,6 +53,7 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `reminder-timing.ts`      | "N days left" / "ended" worded from a given moment.                              |
 | `related-items.ts`        | Ranks related items with the adjustable rules in `data/related-item-rules.json`. |
 | `bundle.ts`               | Validates provider bundle groupings and whether every component is bookable.     |
+| `contrast-ratio.ts`       | WCAG 2.2 contrast ratio of two hex colours; checks the design tokens.            |
 
 ### How the question flow works
 
