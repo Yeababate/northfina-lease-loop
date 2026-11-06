@@ -83,6 +83,18 @@ const DEAL_FIELDS = new Set(['category', 'financed_amount_cents', 'term_months']
 /** A placeholder deal: only used for conditions on answers, never on deal fields. */
 const NO_DEAL: Deal = { category: 'e_bike', financedAmountCents: 0, termMonths: 0, startDate: '' };
 
+/**
+ * True when `question` could be asked of this profile for some item: its conditions on the
+ * customer type and on earlier answers hold for `known`, and conditions on the item, amount
+ * or term are treated as possible (`q_pep` is asked only from €10,000, but some items cost
+ * that much). `known` must include the answers the profile key implies.
+ */
+export function couldApplyToProfile(question: Question, known: Answers): boolean {
+  return question.ask_when.every(
+    (condition) => DEAL_FIELDS.has(condition.field) || conditionHolds(condition, NO_DEAL, known)
+  );
+}
+
 export type PrunedProfile = {
   /** The remembered answers that still count, without the implied ones. */
   answers: Record<string, AnswerValue>;
@@ -114,10 +126,11 @@ export function pruneProfileAnswers(
     if (implied[question.id] !== undefined) continue;
     const value = saved[question.id];
     if (value === undefined) continue;
-    const applies = question.ask_when.every(
-      (condition) => DEAL_FIELDS.has(condition.field) || conditionHolds(condition, NO_DEAL, known)
-    );
-    if (!applies || !isRememberable(question.id) || !checkAnswer(question, value).ok) {
+    if (
+      !couldApplyToProfile(question, known) ||
+      !isRememberable(question.id) ||
+      !checkAnswer(question, value).ok
+    ) {
       removed.push(question.id);
       continue;
     }
