@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { loadRefurbishmentCosts } from '@/data/load';
 import { assetConditionSchema, usageUnitSchema, type Asset } from '@/data/schemas';
-import { buildPassport, passportWorkCost, type PassportEnding } from '@/domain/passport';
+import {
+  buildPassport,
+  isLeaseLife,
+  passportWorkCost,
+  type PassportEnding,
+} from '@/domain/passport';
 import { toAsset } from './assets';
 import { loadImpactInputs, type ImpactInputs } from './impact';
 import type { PrismaClient } from './prisma-client';
@@ -21,7 +26,7 @@ export async function loadPassport(
   const row = existing ? null : await db.asset.findUnique({ where: { id: assetId } });
   const asset = existing?.asset ?? (row && toAsset(row));
   if (!asset) return null;
-  const [contracts, intakes, costs, impact] = await Promise.all([
+  const [allContracts, intakes, costs, impact] = await Promise.all([
     db.contract.findMany({
       where: { OR: [{ assetId }, { lines: { some: { assetId } } }] },
       include: {
@@ -42,6 +47,8 @@ export async function loadPassport(
     loadRefurbishmentCosts(),
     existing ? existing.impact : loadImpactInputs(),
   ]);
+  // A company application waiting for its signatory is not a life until it is signed.
+  const contracts = allContracts.filter((contract) => isLeaseLife(contract.lifecycle?.status));
   const audits = await db.auditLog.findMany({
     where: {
       entity_type: 'contract',
