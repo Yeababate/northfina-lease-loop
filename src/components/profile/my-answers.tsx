@@ -59,7 +59,7 @@ export function MyAnswers({ locale, questions, initialSets }: MyAnswersProps) {
   // "forget everything" below it) next to the questions in a two-column grid of cards.
   // DOM order stays choice → questions → forget all, so focus order matches reading order.
   return (
-    <div className="mt-6 grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-0">
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-0">
       <div className="lg:col-start-1 lg:row-start-1">
         <CustomerTypePicker
           types={TYPES}
