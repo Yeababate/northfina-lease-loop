@@ -629,5 +629,8 @@
   "passport.inspected": "Kontrollerad: {condition}",
   "passport.inspectedPlain": "Kontrollerad",
   "passport.relisted": "Erbjuds igen för {price}",
-  "passport.relistedPlain": "Erbjuds igen"
+  "passport.relistedPlain": "Erbjuds igen",
+  "exit.return.how": "Hälften av de {months} återstående månadshyrorna: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "De {months} återstående hyrorna ({months} × {rent}) plus inlösenpriset {buyout} vid avtalets slut. Vid avtalets slut återstår bara inlösenpriset.",
+  "footer.demoDate": "Demodatum: {date}"
 }

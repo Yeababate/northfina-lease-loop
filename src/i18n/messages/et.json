@@ -629,5 +629,8 @@
   "passport.inspected": "Kontrollitud: {condition}",
   "passport.inspectedPlain": "Kontrollitud",
   "passport.relisted": "Taas pakkumisel hinnaga {price}",
-  "passport.relistedPlain": "Taas pakkumisel"
+  "passport.relistedPlain": "Taas pakkumisel",
+  "exit.return.how": "Pool järelejäänud {months} kuumaksest: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "Järelejäänud {months} makset ({months} × {rent}) pluss {buyout} väljaostuhind lepingu lõpus. Lepingu lõpus jääb alles ainult väljaostuhind.",
+  "footer.demoDate": "Demokuupäev: {date}"
 }

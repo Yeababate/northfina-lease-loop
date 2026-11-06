@@ -232,6 +232,7 @@ export default async function ContractPage({
                 locale={locale}
                 returnQuote={exitView.returnQuote}
                 buyoutQuote={exitView.buyoutQuote}
+                endOfTermBuyoutCents={contract.buyoutNetCents}
                 request={
                   exitView.request
                     ? {

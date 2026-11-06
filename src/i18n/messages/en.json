@@ -629,5 +629,8 @@
   "passport.inspected": "Checked: {condition}",
   "passport.inspectedPlain": "Checked",
   "passport.relisted": "Back on offer at {price}",
-  "passport.relistedPlain": "Back on offer"
+  "passport.relistedPlain": "Back on offer",
+  "exit.return.how": "Half of the {months} remaining monthly rents: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "The {months} remaining rents ({months} × {rent}) plus the {buyout} end-of-term buyout. At the end of the lease, this leaves just the buyout.",
+  "footer.demoDate": "Demo date: {date}"
 }

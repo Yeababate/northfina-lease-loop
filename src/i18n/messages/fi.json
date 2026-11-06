@@ -629,5 +629,8 @@
   "passport.inspected": "Tarkastettu: {condition}",
   "passport.inspectedPlain": "Tarkastettu",
   "passport.relisted": "Taas tarjolla hintaan {price}",
-  "passport.relistedPlain": "Taas tarjolla"
+  "passport.relistedPlain": "Taas tarjolla",
+  "exit.return.how": "Puolet jäljellä olevista {months} kuukausivuokrasta: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "Jäljellä olevat {months} vuokraa ({months} × {rent}) sekä {buyout} lunastushinta sopimuksen lopussa. Sopimuksen lopussa jää vain lunastushinta.",
+  "footer.demoDate": "Demopäivä: {date}"
 }
