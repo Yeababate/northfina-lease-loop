@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { EarlyExit } from '@/components/contract/early-exit';
 import { RateLease } from '@/components/contract/rate-lease';
 import { ReminderSettings } from '@/components/contract/reminder-settings';
+import { AwaitingSignature } from '@/components/contract/awaiting-signature';
 import { InvoicesPanel } from '@/components/contract/invoices-panel';
 import { LeaseActivity } from '@/components/contract/lease-activity';
 import { DiscountBreakdown } from '@/components/discount-breakdown';
@@ -26,6 +27,8 @@ import { ApiError } from '@/server/api-response';
 import { getAsset } from '@/server/assets';
 import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
+import { contractForSignatory } from '@/server/signatory';
+import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { readExitView } from '@/server/exit-requests';
 import { getParticipantContract } from '@/server/profile';
 import { loadLeaseActivity } from '@/server/lease-activity';
@@ -44,10 +47,17 @@ export default async function ContractPage({
   if (!principal) {
     redirect(`/${locale}/sign-in?next=${encodeURIComponent(`/${locale}/contracts/${id}`)}`);
   }
-  const contract = await getParticipantContract(db, principal.id, id).catch((error: unknown) => {
-    if (error instanceof ApiError && error.status === 404) notFound();
-    throw error;
-  });
+  // The renter and provider see their contract; a company's named signatory (card 6) sees
+  // the one waiting for their signature.
+  const participantContract = await getParticipantContract(db, principal.id, id).catch(
+    (error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  );
+  const contract = participantContract ?? (await contractForSignatory(db, principal, id));
+  if (!contract) notFound();
+  const viewerIsSignatory = participantContract === null;
 
   const t = getT(locale);
   const today = todayIso();
@@ -55,6 +65,7 @@ export default async function ContractPage({
   const date = (iso: string) => formatIsoDate(iso, locale);
   const isRenter = contract.renterId === principal.id;
   const status = contract.lifecycle?.status ?? 'active';
+  const awaiting = status === AWAITING_SIGNATURE;
   const phase = leasePhase(contract, today);
 
   const assetIds =
@@ -65,9 +76,9 @@ export default async function ContractPage({
       db.contractDocument.findUnique({ where: { contractId: id }, select: { locale: true } }),
       db.invoice.findMany({ where: { contractId: id }, orderBy: { period: 'asc' } }),
       loadVatRates(),
-      isRenter ? readExitView(db, id, principal.id, today) : null,
-      ownContractRating(db, id, principal.id),
-      isRenter
+      isRenter && !awaiting ? readExitView(db, id, principal.id, today) : null,
+      viewerIsSignatory ? null : ownContractRating(db, id, principal.id),
+      isRenter && !awaiting
         ? getReminderSettings(db, id, principal.id).catch((error: unknown) => {
             if (error instanceof ApiError && error.status === 404) return null;
             throw error;
@@ -84,8 +95,9 @@ export default async function ContractPage({
   const vatCheck = vatDate.success ? invoicePrice(contract, vat, vatDate.data) : null;
   const canRate = ratingEligibility({ ...contract, status }, principal.id).ok;
   const pendingExit = exitView?.request?.status === 'pending';
-  const badge =
-    phase === 'ended'
+  const badge = awaiting
+    ? ({ tone: 'orange', text: t('leases.status.awaiting_signature') } as const)
+    : phase === 'ended'
       ? ({ tone: 'neutral', text: t('leases.status.ended') } as const)
       : pendingExit
         ? ({ tone: 'orange', text: t('leases.status.ending_early') } as const)
@@ -167,7 +179,7 @@ export default async function ContractPage({
             </p>
           </section>
 
-          {isRenter && phase !== 'ended' ? (
+          {isRenter && phase !== 'ended' && !awaiting ? (
             <Section id="reminders" title={t('reminders.title')} intro={t('reminders.intro')}>
               {reminders ? (
                 <ReminderSettings
@@ -188,45 +200,57 @@ export default async function ContractPage({
         </aside>
 
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
-          <InvoicesPanel
-            contractId={id}
-            actor={contract.actor}
-            invoices={invoices}
-            today={today}
-            locale={locale}
-            t={t}
-          >
-            <details className="mt-4 text-sm">
-              <summary className={`${textLink} cursor-pointer`}>
-                {t('contractPage.vatCheck')}
-              </summary>
-              <p className="mt-2">{t('contract.tax')}</p>
-              <form className="mt-2 flex flex-wrap items-end gap-2">
-                <label className="flex flex-col">
-                  {t('contract.invoiceDate')}
-                  <input
-                    className="mt-1 rounded-lg border border-stone-400 bg-white px-2 py-1.5 dark:border-stone-600 dark:bg-stone-900"
-                    name="invoiceDate"
-                    type="date"
-                    defaultValue={vatDate.success ? vatDate.data : today}
-                    required
-                  />
-                </label>
-                <button className="rounded-lg border border-stone-400 px-3 py-1.5 font-medium dark:border-stone-600">
-                  {t('contract.calculate')}
-                </button>
-              </form>
-              <p className="mt-2">
-                {vatCheck?.ok
-                  ? t('contract.invoice', {
-                      rate: vatCheck.vatPercent,
-                      tax: euro(vatCheck.vatCents),
-                      total: euro(vatCheck.totalCents),
-                    })
-                  : t('contract.unavailable')}
-              </p>
-            </details>
-          </InvoicesPanel>
+          {awaiting && contract.signatoryEmail ? (
+            <AwaitingSignature
+              contractId={id}
+              locale={locale}
+              signatoryEmail={contract.signatoryEmail}
+              companyName={contract.actor}
+              sentOn={contract.signedOn}
+              viewer={viewerIsSignatory ? 'signatory' : 'applicant'}
+            />
+          ) : null}
+          {awaiting ? null : (
+            <InvoicesPanel
+              contractId={id}
+              actor={contract.actor}
+              invoices={invoices}
+              today={today}
+              locale={locale}
+              t={t}
+            >
+              <details className="mt-4 text-sm">
+                <summary className={`${textLink} cursor-pointer`}>
+                  {t('contractPage.vatCheck')}
+                </summary>
+                <p className="mt-2">{t('contract.tax')}</p>
+                <form className="mt-2 flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col">
+                    {t('contract.invoiceDate')}
+                    <input
+                      className="mt-1 rounded-lg border border-stone-400 bg-white px-2 py-1.5 dark:border-stone-600 dark:bg-stone-900"
+                      name="invoiceDate"
+                      type="date"
+                      defaultValue={vatDate.success ? vatDate.data : today}
+                      required
+                    />
+                  </label>
+                  <button className="rounded-lg border border-stone-400 px-3 py-1.5 font-medium dark:border-stone-600">
+                    {t('contract.calculate')}
+                  </button>
+                </form>
+                <p className="mt-2">
+                  {vatCheck?.ok
+                    ? t('contract.invoice', {
+                        rate: vatCheck.vatPercent,
+                        tax: euro(vatCheck.vatCents),
+                        total: euro(vatCheck.totalCents),
+                      })
+                    : t('contract.unavailable')}
+                </p>
+              </details>
+            </InvoicesPanel>
+          )}
 
           {exitView && phase !== 'ended' ? (
             <Section id="end-early" title={t('exit.title')} intro={t('exit.intro')}>
@@ -235,6 +259,7 @@ export default async function ContractPage({
                 locale={locale}
                 returnQuote={exitView.returnQuote}
                 buyoutQuote={exitView.buyoutQuote}
+                endOfTermBuyoutCents={contract.buyoutNetCents}
                 request={
                   exitView.request
                     ? {
@@ -268,7 +293,7 @@ export default async function ContractPage({
                 }
               />
             </Section>
-          ) : isRenter && !isCompletedLease(contract) ? (
+          ) : isRenter && !awaiting && !isCompletedLease(contract) ? (
             <Section id="rate" title={t('rating.title')}>
               <p className="text-sm">{t('rating.notYet')}</p>
             </Section>

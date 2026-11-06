@@ -58,8 +58,12 @@ export function LeaseActivity({ items, locale, t }: Common & { items: ActivityIt
   );
 }
 
-const titles: Record<Exclude<ActivityEvent['type'], 'reminders' | 'exit_requested'>, MessageKey> = {
+const titles: Record<
+  Exclude<ActivityEvent['type'], 'reminders' | 'exit_requested' | 'sent_to_signatory'>,
+  MessageKey
+> = {
   signed: 'activity.event.signed',
+  signatory_signed: 'activity.event.signatorySigned',
   invoices_issued: 'activity.event.invoices',
   exit_withdrawn: 'activity.event.exitWithdrawn',
   return_received: 'activity.event.returnReceived',
@@ -72,6 +76,8 @@ const titles: Record<Exclude<ActivityEvent['type'], 'reminders' | 'exit_requeste
 function title(event: ActivityEvent, t: Translate): string {
   if (event.type === 'reminders')
     return t(event.enabled ? 'activity.event.remindersOn' : 'activity.event.remindersOff');
+  if (event.type === 'sent_to_signatory')
+    return t('activity.event.sentToSignatory', { email: event.email });
   if (event.type === 'exit_requested')
     return t(event.kind === 'buyout' ? 'activity.event.exitBuyout' : 'activity.event.exitReturn');
   return t(titles[event.type]);

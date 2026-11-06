@@ -8,8 +8,9 @@ import { intlLocale, type Locale } from '@/i18n/locales';
 import type { LeaseCardView } from '@/server/my-leases';
 import { Badge, PhotoPlaceholder, textLink, type BadgeTone } from './ui';
 
-type Status = 'active' | 'upcoming' | 'ended' | 'ending_early';
+type Status = 'active' | 'upcoming' | 'ended' | 'ending_early' | 'awaiting_signature';
 const statusTone: Record<Status, BadgeTone> = {
+  awaiting_signature: 'orange',
   active: 'green',
   upcoming: 'blue',
   ending_early: 'orange',
@@ -28,8 +29,13 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
   const date = (iso: string) => formatIsoDate(iso, locale);
-  const status: Status =
-    lease.phase === 'ended' ? 'ended' : lease.endingEarly ? 'ending_early' : lease.phase;
+  const status: Status = lease.awaitingSignatory
+    ? 'awaiting_signature'
+    : lease.phase === 'ended'
+      ? 'ended'
+      : lease.endingEarly
+        ? 'ending_early'
+        : lease.phase;
   const name = lease.items
     .map((item) => (item.make && item.model ? `${item.make} ${item.model}` : item.id))
     .join(' + ');
@@ -39,8 +45,9 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
   const facts = [
     {
       label: t('leases.progress'),
-      value:
-        lease.phase === 'upcoming'
+      value: lease.awaitingSignatory
+        ? t('leases.waitingFor', { email: lease.awaitingSignatory })
+        : lease.phase === 'upcoming'
           ? t('leases.startsOn', { date: date(lease.startOn) })
           : t('leases.month', { n: lease.month, total: lease.termMonths }),
     },
@@ -102,12 +109,14 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
               </a>
             </li>
           ) : null}
-          <li>
-            <Link href={`${contractHref}#invoices`} className={textLink}>
-              {t('leases.invoices')}
-            </Link>
-          </li>
-          {lease.phase === 'active' ? (
+          {lease.awaitingSignatory ? null : (
+            <li>
+              <Link href={`${contractHref}#invoices`} className={textLink}>
+                {t('leases.invoices')}
+              </Link>
+            </li>
+          )}
+          {lease.phase === 'active' && !lease.awaitingSignatory ? (
             <li>
               <Link href={`${contractHref}#end-early`} className={textLink}>
                 {lease.endingEarly ? t('leases.endingEarlyLink') : t('leases.endEarly')}

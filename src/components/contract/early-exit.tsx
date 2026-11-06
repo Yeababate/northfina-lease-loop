@@ -34,6 +34,8 @@ type EarlyExitProps = {
   locale: Locale;
   returnQuote: ExitQuoteResult;
   buyoutQuote: ExitQuoteResult;
+  /** The signed end-of-term buyout, to show how the early buyout is built from it. */
+  endOfTermBuyoutCents: number;
   /** The latest request, if any (pending, withdrawn or completed). */
   request: ExitRequestView | null;
 };
@@ -45,6 +47,7 @@ export function EarlyExit({
   locale,
   returnQuote,
   buyoutQuote,
+  endOfTermBuyoutCents,
   request,
 }: EarlyExitProps) {
   const t = getT(locale);
@@ -195,6 +198,14 @@ export function EarlyExit({
                 </p>
                 <p className="mt-2 text-sm">
                   {t('exit.endsOn', { date: date(result.quote.effectiveEndOn) })}
+                </p>
+                {/* How the amount is worked out (early-exit-price.ts), in one line. */}
+                <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">
+                  {t(`exit.${kind}.how`, {
+                    months: result.quote.remainingMonths,
+                    rent: euro(result.quote.monthlyRentCents),
+                    buyout: euro(endOfTermBuyoutCents),
+                  })}
                 </p>
                 <div className="mt-auto pt-4">
                   <button

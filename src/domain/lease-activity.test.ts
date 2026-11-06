@@ -120,3 +120,20 @@ describe('leaseActivity: exits', () => {
     ]);
   });
 });
+
+describe('card 6 events', () => {
+  it('shows a contract sent to the signatory, then signed by them', () => {
+    const items = leaseActivity(
+      [
+        row('contract.signed', 'user-liv', { awaitingSignatory: 'signatory@norvi.example.com' }),
+        row('contract.signatory_signed', 'someone-else', null),
+      ],
+      viewer,
+      names
+    );
+    expect(items.map((item) => item.event)).toEqual([
+      { type: 'signatory_signed' },
+      { type: 'sent_to_signatory', email: 'signatory@norvi.example.com' },
+    ]);
+  });
+});

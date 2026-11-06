@@ -9,6 +9,8 @@ import { SignInLink } from '@/components/sign-in-link';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
 import { readDemoName } from '@/server/demo-session';
+import { demoToday } from '@/server/today';
+import { formatIsoDate } from '@/i18n/format';
 import { signOut } from './sign-in/actions';
 import '../globals.css';
 
@@ -80,6 +82,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
         {/* Dealer tools stay reachable for the demo, but out of the customer's main menu. */}
         <footer className="border-t border-stone-200 dark:border-stone-800">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 text-sm text-stone-600 sm:px-6 dark:text-stone-400">
+            {demoToday() ? (
+              <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-900 dark:bg-orange-950 dark:text-orange-200">
+                {t('footer.demoDate', { date: formatIsoDate(demoToday() ?? '', locale) })}
+              </span>
+            ) : null}
             <span>{t('footer.forDealers')}</span>
             <Link
               href={`/${locale}/discounts`}
