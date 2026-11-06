@@ -11,6 +11,7 @@ type NavLinksProps = {
   catalogueLabel: string;
   leasesLabel: string;
   dealsLabel: string;
+  dealersLabel: string;
 };
 
 export function NavLinks({
@@ -19,6 +20,7 @@ export function NavLinks({
   catalogueLabel,
   leasesLabel,
   dealsLabel,
+  dealersLabel,
 }: NavLinksProps) {
   const pathname = usePathname();
   const section = pathname.split('/')[2] ?? '';
@@ -27,6 +29,7 @@ export function NavLinks({
     { href: `/${locale}`, text: catalogueLabel, active: section === '' || section === 'items' },
     { href: `/${locale}/leases`, text: leasesLabel, active: section === 'leases' },
     { href: `/${locale}/deals`, text: dealsLabel, active: section === 'deals' },
+    { href: `/${locale}/dealers`, text: dealersLabel, active: section === 'dealers' },
   ];
 
   return (
