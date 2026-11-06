@@ -8,9 +8,11 @@ import {
   type CatalogueItem,
 } from '@/domain/catalogue';
 import { formatEuro } from '@/domain/money';
+import type { Availability } from '@/domain/catalogue-availability';
 import type { BestDeal } from '@/domain/deals';
 import { percentText } from '@/domain/deals';
 import { averageText } from '@/domain/rating-display';
+import { formatIsoDate } from '@/i18n/format';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import type { ProviderBadge } from '@/server/reputation';
@@ -33,11 +35,14 @@ type AssetCardProps = {
   deal?: BestDeal;
   /** Can the signed-in user lease it straight away (#52)? Rendered by the page. */
   readiness?: ReactNode;
+  /** When it can be leased (#72); shown only while it cannot be leased yet. */
+  availability?: Availability;
   locale: Locale;
   t: Translate;
 };
 
-export function AssetCard({ item, href, provider, deal, readiness, locale, t }: AssetCardProps) {
+export function AssetCard(props: AssetCardProps) {
+  const { item, href, provider, deal, readiness, availability, locale, t } = props;
   const { asset, listPriceCents } = item;
   const headingId = `asset-${asset.id}`;
   const badge = catalogueBadge(asset);
@@ -67,6 +72,7 @@ export function AssetCard({ item, href, provider, deal, readiness, locale, t }: 
       </div>
       {provider ? <ProviderLine provider={provider} locale={locale} t={t} /> : null}
       <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">{facts.join(' · ')}</p>
+      {availability ? <AvailabilityLine availability={availability} locale={locale} t={t} /> : null}
       {readiness ? <div className="mt-2">{readiness}</div> : null}
       {deal && isLeasable(asset) ? (
         <p className="mt-2">
@@ -116,6 +122,21 @@ export function AssetCard({ item, href, provider, deal, readiness, locale, t }: 
       </div>
     </article>
   );
+}
+
+/** "Available in 5 days", "Available from 1 Feb 2027"; nothing for leasable or undated items. */
+function AvailabilityLine(props: { availability: Availability; locale: Locale; t: Translate }) {
+  const { availability: a, locale, t } = props;
+  if (a.kind === 'now' || a.kind === 'unknown') return null;
+  const text =
+    a.kind === 'later'
+      ? t('asset.availableFrom', { date: formatIsoDate(a.readyOn, locale) })
+      : a.days === 0
+        ? t('asset.availableToday')
+        : a.days === 1
+          ? t('asset.availableInOne')
+          : t('asset.availableInDays', { days: a.days });
+  return <p className="mt-2 text-sm font-medium text-orange-800 dark:text-orange-300">{text}</p>;
 }
 
 /** "Pelto Agri Rental Oy · ★ 5.0 (1)": just the name while the provider has no ratings. */

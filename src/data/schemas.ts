@@ -58,6 +58,68 @@ export type Asset = z.infer<typeof assetSchema>;
 export const assetsFileSchema = z.array(assetSchema);
 
 // ---------------------------------------------------------------------------
+// data/asset-attributes.json: fictional technical details per asset, for the catalogue's
+// category filters (#72). Kept apart from assets.json so that file and its rows stay as they are.
+// ---------------------------------------------------------------------------
+
+export const ebikeMotorSchema = z.enum(['hub', 'mid_drive']);
+export type EbikeMotor = z.infer<typeof ebikeMotorSchema>;
+export const laptopGpuSchema = z.enum(['integrated', 'discrete']);
+export type LaptopGpu = z.infer<typeof laptopGpuSchema>;
+export const farmMachineTypeSchema = z.enum([
+  'tractor',
+  'combine',
+  'seed_drill',
+  'mower',
+  'bale_wrapper',
+  'milking_robot',
+]);
+export type FarmMachineType = z.infer<typeof farmMachineTypeSchema>;
+
+const positiveInt = z.number().int().positive();
+
+export const assetAttributesSchema = z.discriminatedUnion('category', [
+  z.strictObject({
+    asset_id: z.string().min(1),
+    category: z.literal('e_bike'),
+    motor: ebikeMotorSchema,
+    motor_watts: positiveInt,
+    battery_wh: positiveInt,
+    /** Typical range on one charge, in km. */
+    range_km: positiveInt,
+    wheel_inches: positiveInt,
+  }),
+  z.strictObject({
+    asset_id: z.string().min(1),
+    category: z.literal('laptop'),
+    gpu: laptopGpuSchema,
+    gpu_model: z.string().min(1),
+  }),
+  z.strictObject({
+    asset_id: z.string().min(1),
+    category: z.literal('farm_machine'),
+    machine_type: farmMachineTypeSchema,
+    /** Engine power; null for machines without their own engine. */
+    power_kw: positiveInt.nullable(),
+    /** Working width in metres; null when the machine has none. */
+    working_width_m: z.number().positive().nullable(),
+  }),
+]);
+export type AssetAttributes = z.infer<typeof assetAttributesSchema>;
+export const assetAttributesFileSchema = z.array(assetAttributesSchema).superRefine((rows, ctx) => {
+  const seen = new Set<string>();
+  for (const [index, row] of rows.entries()) {
+    if (seen.has(row.asset_id))
+      ctx.addIssue({
+        code: 'custom',
+        path: [index, 'asset_id'],
+        message: `duplicate asset_id ${row.asset_id}`,
+      });
+    seen.add(row.asset_id);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // data/price-lists.json: dated versions of the net list price of each asset.
 // ---------------------------------------------------------------------------
 

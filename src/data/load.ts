@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import {
+  assetAttributesFileSchema,
   assetsFileSchema,
   bundleOffersFileSchema,
   co2FactorsSchema,
@@ -39,6 +40,8 @@ export async function loadDataFile<S extends z.ZodType>(
 }
 
 export const loadAssets = () => loadDataFile('assets.json', assetsFileSchema);
+export const loadAssetAttributes = () =>
+  loadDataFile('asset-attributes.json', assetAttributesFileSchema);
 export const loadPriceLists = () => loadDataFile('price-lists.json', priceListsFileSchema);
 export const loadCoefficientTable = () =>
   loadDataFile('coefficient-table.json', coefficientTableSchema);
