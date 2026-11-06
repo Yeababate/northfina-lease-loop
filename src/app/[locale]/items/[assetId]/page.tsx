@@ -18,6 +18,7 @@ import { getT, type Translate } from '@/i18n/get-t';
 import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 
 export default async function ItemPage({
@@ -35,6 +36,11 @@ export default async function ItemPage({
     loadVatRates(),
   ]);
   if (!asset) notFound();
+  const discountRules = await rulesForAsset(db, assetId);
+  const ownership = await db.assetOwnership.findUnique({ where: { assetId } });
+  const provider = ownership
+    ? await db.provider.findUnique({ where: { id: ownership.providerId } })
+    : null;
 
   const t = getT(locale);
   const today = todayIso();
@@ -71,6 +77,8 @@ export default async function ItemPage({
           <LeaseCalculator
             locale={locale}
             table={table}
+            discountRules={discountRules}
+            providerName={provider?.displayName}
             listPriceCents={price.priceCents}
             vatRatePercent={vat.rate.rate_percent}
             nextVatChange={

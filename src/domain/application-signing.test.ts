@@ -166,6 +166,8 @@ it('requires new consent for every change to the displayed lease offer', () => {
     { buyoutCents: 58351 },
     { priceListVersion: 2 },
     { monthlyGrossCents: 13520 },
+    { discountRuleId: 'new-rule' },
+    { discountRuleRevision: 2 },
   ])
     expect(signingOfferKey({ ...offer, ...patch })).not.toBe(accepted);
 });

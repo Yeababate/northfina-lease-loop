@@ -197,3 +197,13 @@ unknown or foreign assets, unsupported terms). `bundleAvailability` derives book
 from every component's current state: one reserved or returned component blocks the whole
 bundle. Edits carry a revision (`nextBundleRevision`) so a stale edit is a conflict.
 Bundles carry no prices yet, and signing a bundle as one lease is not implemented.
+
+## Long-term discounts
+
+`discounts.ts` validates dealer rule inputs and selects the greatest eligible
+percentage (ties use the smallest rule ID; rules never stack). The shared
+`quoteLease()` calculates original rent, discount and final rent in integer cents.
+Only monthly net rent is discounted; down payment, financed amount and buyout are
+unchanged. VAT is calculated after the discounted net rent. Signing snapshots the
+applied rule revision and values; invoices use the saved net rent and never read
+mutable discount rules. See [policy, rounding and verification](../../docs/long-term-discounts.md).

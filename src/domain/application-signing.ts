@@ -15,6 +15,8 @@ export type SigningOffer = {
   buyoutCents: number;
   priceListVersion: number;
   monthlyGrossCents: number;
+  discountRuleId?: string | null;
+  discountRuleRevision?: number | null;
 };
 
 /** A consent checkbox belongs only to this exact displayed offer. */
@@ -28,6 +30,8 @@ export function signingOfferKey(offer: SigningOffer): string {
     offer.buyoutCents,
     offer.priceListVersion,
     offer.monthlyGrossCents,
+    offer.discountRuleId ?? null,
+    offer.discountRuleRevision ?? null,
   ]);
 }
 

@@ -8,6 +8,7 @@
 // Each line is rounded once, half up (see ./rounding.ts). Totals are sums of already-rounded
 // lines, so every number the customer sees adds up exactly.
 import type { CoefficientBand, CoefficientTable } from '@/data/schemas';
+import { monthlyDiscount, type RentalDiscountRule } from './discounts';
 import { monthlyFactorFor } from './coefficient';
 import { divideRoundHalfUp, toScaledInteger } from './rounding';
 import { vatCents } from './vat';
@@ -20,7 +21,7 @@ export type LeaseQuoteInput = {
   vatRatePercent: number;
 };
 
-export type LeaseQuote = {
+export type LeaseQuote = ReturnType<typeof monthlyDiscount> & {
   listPriceCents: number;
   downPaymentCents: number;
   financedCents: number;
@@ -56,7 +57,11 @@ export const DEFAULT_TERM_MONTHS = 36;
 const FACTOR_SCALE = 1_000_000;
 
 /** Prices one lease. Returns a reason instead of throwing when the deal is not possible. */
-export function quoteLease(table: CoefficientTable, input: LeaseQuoteInput): LeaseQuoteResult {
+export function quoteLease(
+  table: CoefficientTable,
+  input: LeaseQuoteInput,
+  discountRules: readonly RentalDiscountRule[] = []
+): LeaseQuoteResult {
   const { listPriceCents, downPaymentCents, termMonths, vatRatePercent } = input;
   if (!Number.isInteger(listPriceCents) || !Number.isInteger(downPaymentCents)) {
     throw new RangeError('list price and down payment must be whole cents');
@@ -69,10 +74,12 @@ export function quoteLease(table: CoefficientTable, input: LeaseQuoteInput): Lea
   if (!factorResult.ok) return factorResult;
 
   const { band, factor } = factorResult;
-  const monthlyNetCents = divideRoundHalfUp(
+  const originalMonthlyNetCents = divideRoundHalfUp(
     financedCents * toScaledInteger(factor, FACTOR_SCALE),
     FACTOR_SCALE
   );
+  const discount = monthlyDiscount(originalMonthlyNetCents, termMonths, discountRules);
+  const { monthlyNetCents } = discount;
   const monthlyVatCents = vatCents(monthlyNetCents, vatRatePercent);
 
   return {
@@ -84,7 +91,7 @@ export function quoteLease(table: CoefficientTable, input: LeaseQuoteInput): Lea
       termMonths,
       band,
       factor,
-      monthlyNetCents,
+      ...discount,
       vatRatePercent,
       monthlyVatCents,
       monthlyGrossCents: monthlyNetCents + monthlyVatCents,

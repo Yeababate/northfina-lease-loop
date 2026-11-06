@@ -11,6 +11,7 @@ import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
 import { getParticipantContract } from '@/server/profile';
 import { ApiError } from '@/server/api-response';
+import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { InvoiceList } from '@/components/invoice-list';
 
 export default async function ContractPage({
@@ -80,6 +81,13 @@ export default async function ContractPage({
             })
           : t('contract.unavailable')}
       </p>
+      <DiscountBreakdown
+        price={{
+          ...contract,
+          originalMonthlyNetCents: contract.originalMonthlyNetCents ?? contract.monthlyNetCents,
+        }}
+        locale={locale}
+      />
       <InvoiceList invoices={invoices} contractId={id} actor={contract.actor} locale={locale} />
     </div>
   );

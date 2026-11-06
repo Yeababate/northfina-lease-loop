@@ -9,6 +9,8 @@ import { inspectContractStartMigration, START_MIGRATION } from './inspect-contra
 import { planLegacyContractStart } from '../src/domain/legacy-contract-start';
 
 import { restoreLegacyMoneySnapshot } from '../src/server/legacy-money-recovery';
+import { restoreParticipantsFromSigningRecords } from '../src/server/legacy-contracts';
+import { createPrismaClient } from '../src/server/prisma-client';
 import { createTestDb } from '../tests/helpers/test-db';
 
 const require = createRequire(import.meta.url);
@@ -19,10 +21,10 @@ let config;
 let snapshot;
 let failure;
 
-function deploy() {
+function deploy(configFile = config, databaseFile = filename) {
   try {
-    execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--config', config], {
-      env: { ...process.env, DATABASE_URL: `file:${filename}` },
+    execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--config', configFile], {
+      env: { ...process.env, DATABASE_URL: `file:${databaseFile}` },
       stdio: 'pipe',
     });
     return '';
@@ -39,7 +41,7 @@ beforeAll(async () => {
   await mkdir(migrations);
   const source = path.resolve('prisma/migrations');
   for (const entry of await readdir(source)) {
-    if (entry !== START_MIGRATION)
+    if (entry === 'migration_lock.toml' || entry < START_MIGRATION)
       await cp(path.join(source, entry), path.join(migrations, entry), { recursive: true });
   }
   await writeFile(
@@ -186,11 +188,13 @@ it('recovers to a separately migrated empty database, preserving money, ids, ass
     expect(
       await restoreLegacyMoneySnapshot(target.db, exported, ['legacy-1'], 'recovery-test')
     ).toEqual({ contracts: 1, invoices: 1 });
-    expect(await target.db.contract.findMany()).toEqual([
+    expect(await target.db.contract.findMany()).toMatchObject([
       { ...snapshot.contracts[0], startOn: '2026-01-31' },
     ]);
     expect(await target.db.invoice.findMany()).toEqual(snapshot.invoices);
-    expect(await target.db.asset.findMany()).toEqual(exported.assets);
+    expect(await target.db.asset.findMany()).toEqual(
+      exported.assets.map((asset) => ({ ...asset, ownerId: null }))
+    );
     expect(await target.db.auditLog.findUnique({ where: { id: exported.audits[0].id } })).toEqual(
       exported.audits[0]
     );
@@ -240,3 +244,122 @@ it('refuses unknown legacy starts and rolls back the import if its audit cannot 
     await target.cleanup();
   }
 });
+
+it('preserves populated contracts and invoices through discount and schema reconciliation migrations', async () => {
+  const migrations = path.join(directory, 'discount-upgrade-migrations');
+  await mkdir(migrations);
+  const migration = '20261105204134_long_term_discounts';
+  const source = path.resolve('prisma/migrations');
+  for (const entry of await readdir(source)) {
+    if (entry === 'migration_lock.toml' || entry < migration)
+      await cp(path.join(source, entry), path.join(migrations, entry), { recursive: true });
+  }
+  const targetFile = path.join(directory, 'discount-upgrade.db');
+  const targetConfig = path.join(directory, 'discount-upgrade.config.ts');
+  await writeFile(
+    targetConfig,
+    `export default ${JSON.stringify({
+      schema: path.resolve('prisma/schema.prisma'),
+      migrations: { path: migrations },
+      datasource: { url: `file:${targetFile}` },
+    })};`
+  );
+  expect(deploy(targetConfig, targetFile)).toBe('');
+  const sourceDb = new Database(targetFile);
+  function insert(table, row) {
+    const columns = Object.keys(row);
+    sourceDb
+      .prepare(
+        `INSERT INTO "${table}" (${columns.map((key) => '"' + key + '"').join(',')}) VALUES (${columns.map(() => '?').join(',')})`
+      )
+      .run(...Object.values(row));
+  }
+  insert('Asset', snapshot.assets[0]);
+  const legacy = { ...snapshot.contracts[0], startOn: snapshot.contracts[0].signedOn };
+  insert('Contract', legacy);
+  insert('Invoice', snapshot.invoices[0]);
+  insert('AuditLog', snapshot.audits[0]);
+  insert('AuditLog', {
+    actor: 'cust-aino',
+    action: 'contract.signed',
+    entity_type: 'contract',
+    entity_id: legacy.id,
+    details_json: JSON.stringify(legacy),
+  });
+  insert('Provider', { id: 'legacy-provider', displayName: 'Legacy dealer' });
+  insert('DemoUser', {
+    id: 'cust-aino',
+    canonicalUsername: 'aino',
+    displayName: 'Aino Virtanen',
+  });
+  insert('DemoUser', {
+    id: 'legacy-provider',
+    canonicalUsername: 'legacy-provider',
+    displayName: 'Legacy dealer',
+  });
+  insert('AssetOwnership', {
+    assetId: legacy.assetId,
+    providerId: 'legacy-provider',
+    source: 'seed',
+  });
+  insert('ContractProvider', {
+    contractId: legacy.id,
+    assetId: legacy.assetId,
+    providerId: 'legacy-provider',
+  });
+  const preserved = Object.fromEntries(
+    ['Asset', 'Invoice', 'AuditLog', 'Provider', 'AssetOwnership', 'ContractProvider'].map(
+      (table) => [table, sourceDb.prepare(`SELECT * FROM "${table}"`).all()]
+    )
+  );
+  sourceDb.close();
+  for (const entry of await readdir(source)) {
+    if (entry !== 'migration_lock.toml' && entry >= migration)
+      await cp(path.join(source, entry), path.join(migrations, entry), { recursive: true });
+  }
+  expect(deploy(targetConfig, targetFile)).toBe('');
+  const upgraded = new Database(targetFile, { readonly: true });
+  try {
+    expect(upgraded.prepare('SELECT * FROM Contract').all()).toEqual([
+      {
+        ...legacy,
+        originalMonthlyNetCents: null,
+        monthlyDiscountCents: 0,
+        discountBps: 0,
+        discountRuleId: null,
+        discountRuleRevision: null,
+        providerId: null,
+        renterId: null,
+      },
+    ]);
+    for (const [table, rows] of Object.entries(preserved))
+      expect(upgraded.prepare(`SELECT * FROM "${table}"`).all()).toEqual(rows);
+    expect(upgraded.pragma('foreign_key_check')).toEqual([]);
+    expect(
+      upgraded
+        .prepare('SELECT finished_at FROM _prisma_migrations WHERE migration_name=?')
+        .get(migration).finished_at
+    ).not.toBeNull();
+  } finally {
+    upgraded.close();
+  }
+  const recoveredDb = createPrismaClient(`file:${targetFile}`);
+  try {
+    expect(await restoreParticipantsFromSigningRecords(recoveredDb)).toBe(1);
+    expect(
+      await recoveredDb.contract.findUniqueOrThrow({ where: { id: legacy.id } })
+    ).toMatchObject({
+      renterId: 'cust-aino',
+      providerId: 'legacy-provider',
+      monthlyNetCents: legacy.monthlyNetCents,
+      buyoutNetCents: legacy.buyoutNetCents,
+    });
+    expect(await recoveredDb.invoice.findMany()).toEqual(snapshot.invoices);
+    expect(
+      await recoveredDb.auditLog.count({ where: { action: 'contract.participants_recovered' } })
+    ).toBe(1);
+    expect(await restoreParticipantsFromSigningRecords(recoveredDb)).toBe(0);
+  } finally {
+    await recoveredDb.$disconnect();
+  }
+}, 30000);

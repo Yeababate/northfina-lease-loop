@@ -10,15 +10,23 @@ type NavLinksProps = {
   label: string;
   catalogueLabel: string;
   leasesLabel: string;
+  discountsLabel: string;
 };
 
-export function NavLinks({ locale, label, catalogueLabel, leasesLabel }: NavLinksProps) {
+export function NavLinks({
+  locale,
+  label,
+  catalogueLabel,
+  leasesLabel,
+  discountsLabel,
+}: NavLinksProps) {
   const pathname = usePathname();
   const section = pathname.split('/')[2] ?? '';
   const links = [
     // The catalogue is the home page, and item pages belong to it.
     { href: `/${locale}`, text: catalogueLabel, active: section === '' || section === 'items' },
     { href: `/${locale}/leases`, text: leasesLabel, active: section === 'leases' },
+    { href: `/${locale}/discounts`, text: discountsLabel, active: section === 'discounts' },
   ];
 
   return (
