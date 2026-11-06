@@ -18,13 +18,14 @@ import {
   minDownPaymentCents,
   quoteLease,
 } from '@/domain/pricing';
-import { formatIsoDate, formatNumber } from '@/i18n/format';
+import { formatIsoDate } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { PriceExplainer, TermComparison, type VatChange } from './price-explainer';
 import { LiveReadiness } from './live-readiness';
 import { StartApplicationButton } from './start-application-button';
 import type { PriceSource } from '@/domain/price-list';
+import { MonthlyPrice } from './monthly-price';
 
 type LeaseCalculatorProps = {
   locale: Locale;
@@ -53,6 +54,7 @@ type LeaseCalculatorProps = {
   liveReadiness?: boolean;
   /** Signed out: the hint shown in the badge's place instead. */
   readinessHint?: ReactNode;
+  priceBasis?: 'net' | 'gross';
 };
 
 /** The down payment slider moves in whole euros. */
@@ -251,26 +253,13 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
             {result.ok ? (
               <>
                 <DiscountBreakdown price={result.quote} locale={locale} />
-                <div
-                  aria-live="polite"
-                  className="rounded-xl bg-blue-50 px-5 py-4 dark:bg-blue-950/60"
-                >
-                  <p>
-                    <span className="text-4xl font-bold tabular-nums">
-                      {euro(result.quote.monthlyNetCents)}
-                    </span>{' '}
-                    <span className="text-stone-700 dark:text-stone-300">
-                      {t('lease.perMonthNet')}
-                    </span>
-                  </p>
-                  <p className="mt-1">
-                    {t('lease.withVat', {
-                      amount: euro(result.quote.monthlyGrossCents),
-                      rate: formatNumber(vatRatePercent, locale),
-                    })}
-                  </p>
-                  <p>{t('lease.buyout', { amount: euro(result.quote.buyoutCents) })}</p>
-                </div>
+                <MonthlyPrice
+                  netCents={result.quote.monthlyNetCents}
+                  grossCents={result.quote.monthlyGrossCents}
+                  basis={props.priceBasis ?? 'gross'}
+                  locale={locale}
+                />
+                <p>{t('lease.buyout', { amount: euro(result.quote.buyoutCents) })}</p>
                 <p className="text-xs text-stone-600 dark:text-stone-400">
                   {t('lease.startsOn', { date: formatIsoDate(props.startDate, locale) })}
                 </p>

@@ -39,6 +39,8 @@ import { QuestionStep } from './question-step';
 import { RememberAnswers, RememberToggle } from './remember-answers';
 import { saveAnswers, useSavedAnswers } from './saved-answers';
 import { useRememberedAnswers } from './use-remembered-answers';
+import { priceBasis } from '@/domain/application-terms';
+import { MonthlyPrice } from '../monthly-price';
 
 type ApplicationWizardProps = {
   locale: Locale;
@@ -46,6 +48,7 @@ type ApplicationWizardProps = {
   deal: Deal;
   coefficientTable: CoefficientTable;
   monthlyRentWithVatCents: number;
+  monthlyNetCents?: number;
   /** Unique per item and lease choice, so two applications never share answers. */
   storageKey: string;
   links: { item: string; sign: string; catalogue: string };
@@ -195,6 +198,16 @@ export function ApplicationWizard(props: ApplicationWizardProps) {
     <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
       <div className="min-w-0 lg:col-span-2">
         {props.intro}
+        {props.monthlyNetCents !== undefined ? (
+          <div className="mb-5">
+            <MonthlyPrice
+              netCents={props.monthlyNetCents}
+              grossCents={props.monthlyRentWithVatCents}
+              basis={priceBasis(flow.answers)}
+              locale={locale}
+            />
+          </div>
+        ) : null}
         {main}
       </div>
       <aside className="lg:sticky lg:top-6 lg:self-start">{panel}</aside>

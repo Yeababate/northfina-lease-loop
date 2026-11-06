@@ -846,5 +846,13 @@
   "dealers.howTitle": "Hur vi räknar ut avståndet",
   "dealers.how.straight": "Avståndet är fågelvägen mellan ortscentrum, inte en körväg.",
   "dealers.how.rounded": "Lägen är avrundade till 0,1 grader, så avstånd avrundas till närmaste 5 km.",
-  "dealers.how.private": "Inga gatuadresser lagras eller visas. Fråga återförsäljaren var du hämtar din artikel."
+  "dealers.how.private": "Inga gatuadresser lagras eller visas. Fråga återförsäljaren var du hämtar din artikel.",
+  "pricing.monthlyNet": "{amount} / månad, exkl. moms",
+  "pricing.monthlyGross": "{amount} / månad, inkl. moms",
+  "pricing.registeredNote": "Momsregistrerat företag: hyran utan moms visas först. Beloppet att betala innehåller fortfarande moms.",
+  "applicationTerms.usage": "Angiven användning",
+  "applicationTerms.deliveryCheck": "Leveransbruk angivet: kontrollera körsträcka, batteri och säkerhet vid återlämning. Värderingen använder besiktningens uppgifter; inget automatiskt leveranstillägg tas ut.",
+  "sign.error.ASSET_ALREADY_OFFERED": "Produkten är reserverad för en annan kund i kön. Välj en annan produkt.",
+  "sign.error.OFFER_CHANGED": "Erbjudandet i kön har ändrats. Öppna din köförfrågan och granska produkten och hyrestiden igen.",
+  "sign.error.PLACEMENT_REQUIRED": "Erbjudandet har gått ut eller är inte längre tillgängligt för dig. Kontrollera statusen i din köförfrågan."
 }

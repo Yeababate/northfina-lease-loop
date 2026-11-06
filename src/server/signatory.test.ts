@@ -137,7 +137,12 @@ describe('scenario 6: waiting for the company signatory', () => {
   it('saves the contract waiting for the signatory: reserved, not active, nothing billed', async () => {
     const { status, body } = await norviApplies();
     expect(status).toBe(201);
-    expect(body.data).toMatchObject({ signatoryEmail: SIGNATORY, actor: 'Norvi Logistics Oy' });
+    expect(body.data).toMatchObject({
+      signatoryEmail: SIGNATORY,
+      actor: 'Norvi Logistics Oy',
+      usagePurpose: 'delivery',
+      vatRegistered: true,
+    });
     const id = body.data.id as string;
     expect(await db.contractLifecycle.findUnique({ where: { contractId: id } })).toMatchObject({
       status: 'awaiting_signature',

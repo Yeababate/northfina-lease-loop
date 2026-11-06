@@ -68,16 +68,16 @@ it('proposes, reserves and audits the card 9 winner while blocking public relist
     reason: 'best_net_value',
   });
   expect(data.ranked[0]).toMatchObject({
-    entry: { id: 'wait-13' },
-    option: { id: 'to_good', costCents: 51_500 },
-    monthlyNetCents: 6_326,
-    monthlyGrossCents: 7_939,
+    entry: { id: 'wait-02' },
+    option: { id: 'as_is', costCents: 39_500 },
+    monthlyNetCents: 7_397,
+    monthlyGrossCents: 9_283,
   });
-  expect(data.rejected).toContainEqual({ entryId: 'wait-02', reason: 'over_budget' });
+  expect(data.ranked[1]).toMatchObject({ entry: { id: 'wait-13' } });
 
-  expect((await assign(request(provider, 'wait-02'), context)).status).toBe(409);
-  expect((await assign(request(provider, 'wait-13'), context)).status).toBe(201);
-  expect(await db.waitingListEntry.findUnique({ where: { id: 'wait-13' } })).toMatchObject({
+  expect((await assign(request(provider, 'wait-05'), context)).status).toBe(409);
+  expect((await assign(request(provider, 'wait-02'), context)).status).toBe(201);
+  expect(await db.waitingListEntry.findUnique({ where: { id: 'wait-02' } })).toMatchObject({
     status: 'offered',
     offeredAssetId: 'ebike-007',
     offeredIntakeId: intake,

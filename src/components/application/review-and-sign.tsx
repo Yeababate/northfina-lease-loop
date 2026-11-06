@@ -19,6 +19,8 @@ import { Badge, InfoBox, primaryButton, secondaryButton } from '../ui';
 import { RememberAnswers } from './remember-answers';
 import { clearAnswers, useCanReadAnswers, useSavedAnswers } from './saved-answers';
 import { useRememberedAnswers } from './use-remembered-answers';
+import { priceBasis } from '@/domain/application-terms';
+import { MonthlyPrice } from '../monthly-price';
 
 export type LeaseSummary = {
   assetId: string;
@@ -62,6 +64,9 @@ type ReviewAndSignProps = {
 const SIGN_ERRORS = [
   'PRICE_CHANGED',
   'ASSET_UNAVAILABLE',
+  'ASSET_ALREADY_OFFERED',
+  'OFFER_CHANGED',
+  'PLACEMENT_REQUIRED',
   'NOT_APPROVED',
   'SIGNATORY_REQUIRED',
   'LOGIN_REQUIRED',
@@ -187,6 +192,14 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
               </div>
             ))}
           </dl>
+          <div className="mt-4">
+            <MonthlyPrice
+              netCents={lease.monthlyNetCents}
+              grossCents={props.monthlyRentWithVatCents}
+              basis={priceBasis(answers)}
+              locale={locale}
+            />
+          </div>
         </section>
         <div className="mt-5 space-y-4">{props.explanations}</div>
       </div>

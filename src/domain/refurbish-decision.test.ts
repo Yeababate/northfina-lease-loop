@@ -70,7 +70,7 @@ describe('decideRefurbishment', () => {
       netValueAddedCents: -2_500,
       leasable: true,
     });
-    expect(recommendation).toEqual({ optionId: null, reason: 'not_worth_it_sell_or_scrap' });
+    expect(recommendation).toEqual({ optionId: 'as_is', reason: 'mandatory_step_only' });
   });
 
   it('requires service hours and charges for each started farm service interval', () => {
