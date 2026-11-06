@@ -1,5 +1,5 @@
 import { isoDateSchema, type VatRate } from '@/data/schemas';
-import { earlyExitPeriod } from './early-exit-period';
+import { earlyExitPeriod, type ExitPeriod } from './early-exit-period';
 import { BUYOUT_METHOD, CANCELLATION_METHOD } from './early-exit-price';
 import {
   FAIR_EXIT_METHOD,
@@ -42,6 +42,12 @@ export type ExitQuote = {
   contractRevision: number;
   /** v2 only: every step of the price, net, VAT and gross. */
   breakdown?: FairExitBreakdown;
+  /**
+   * Set when the exit was completed: from that day the net amount and breakdown are final.
+   * Before that a stored quote is only indicative and is re-priced with current data. VAT is
+   * never frozen: it is added at the rate on the invoice date (exit-settlement.ts).
+   */
+  frozenOn?: string;
 };
 
 export type ExitPreviewFailure =
@@ -90,17 +96,29 @@ export function previewEarlyExit(
   if (contract.status !== 'active') return { ok: false, reason: 'not_active' };
   const result = earlyExitPeriod(contract, requestedOn);
   if (!result.ok) return result;
-  const { effectiveEndOn, remainingMonths } = result.period;
-  const vat = vatRateOn(pricing.vatRates, effectiveEndOn);
+  return priceExitPeriod(contract, kind, result.period, pricing);
+}
+
+/**
+ * Prices an exit over a known period with fair-exit-v2: a fresh preview, or a stored request
+ * re-priced with current data until it is completed (exit-settlement.ts).
+ */
+export function priceExitPeriod(
+  contract: ExitContract,
+  kind: ExitKind,
+  period: ExitPeriod,
+  pricing: ExitPricing
+): { ok: true; quote: ExitQuote } | { ok: false; reason: 'price_unavailable' } {
+  const vat = vatRateOn(pricing.vatRates, period.effectiveEndOn);
   if (pricing.annualInterestPercent === null || !vat.ok) {
     return { ok: false, reason: 'price_unavailable' };
   }
-  const valuation = kind === 'return' ? pricing.valueReturn(effectiveEndOn) : null;
+  const valuation = kind === 'return' ? pricing.valueReturn(period.effectiveEndOn) : null;
   if (valuation && !valuation.ok) return { ok: false, reason: 'price_unavailable' };
   const breakdown = fairExitPrice({
     kind,
     monthlyRentCents: contract.monthlyNetCents,
-    remainingMonths,
+    remainingMonths: period.remainingMonths,
     endOfTermBuyoutCents: contract.buyoutNetCents,
     annualInterestPercent: pricing.annualInterestPercent,
     vatRatePercent: vat.rate.rate_percent,
@@ -111,7 +129,10 @@ export function previewEarlyExit(
     quote: {
       contractId: contract.id,
       kind,
-      ...result.period,
+      periodStartOn: period.periodStartOn,
+      effectiveEndOn: period.effectiveEndOn,
+      elapsedMonths: period.elapsedMonths,
+      remainingMonths: period.remainingMonths,
       monthlyRentCents: contract.monthlyNetCents,
       amountNetCents: breakdown.netCents,
       method: FAIR_EXIT_METHOD,
@@ -134,6 +155,7 @@ export function sameExitQuote(a: ExitQuote, b: ExitQuote): boolean {
     a.amountNetCents === b.amountNetCents &&
     a.method === b.method &&
     a.contractRevision === b.contractRevision &&
+    a.frozenOn === b.frozenOn &&
     sameBreakdown(a.breakdown, b.breakdown)
   );
 }

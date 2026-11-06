@@ -6,6 +6,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ExitKind, ExitPreviewFailure, ExitQuote } from '@/domain/early-exit';
+import type { ExitPriceChange } from '@/domain/exit-settlement';
 import { formatEuro } from '@/domain/money';
 import { formatIsoDate } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
@@ -24,6 +25,10 @@ export type ExitRequestView = {
   revision: number;
   /** The stored quote, explained with the method it was priced with. */
   quote: ExitQuote;
+  /** An open request re-priced with current data; null if it can't be priced right now. */
+  currentQuote: ExitQuote | null;
+  /** Why the current price differs from the one shown at request time, if it does. */
+  priceChange: ExitPriceChange | null;
 };
 
 type EarlyExitProps = {
@@ -87,35 +92,47 @@ export function EarlyExit({
     </p>
   ) : null;
 
-  // A request is waiting for the provider: show it, and let the customer withdraw it.
-  if (request?.status === 'pending') {
+  // An open request (waiting for the provider, or the item received): show its current price,
+  // which stays indicative until completion, and let the customer withdraw while pending.
+  if (request?.status === 'pending' || request?.status === 'received') {
+    const shown = request.currentQuote ?? request.quote;
     return (
       <div className="space-y-3">
         <div className="rounded-xl bg-orange-50 px-4 py-3 dark:bg-orange-950/50">
           <p className="font-semibold">{t(`exit.pending.${request.kind}`)}</p>
           <p className="mt-0.5 text-sm">
-            {t('exit.pending.detail', {
+            {t(request.status === 'pending' ? 'exit.pending.detail' : 'exit.received.detail', {
               date: date(request.effectiveEndOn),
-              amount: euro(request.quote.amountNetCents),
+              amount: euro(shown.amountNetCents),
             })}
           </p>
+          {request.priceChange ? (
+            <p className="mt-1 text-sm font-medium">
+              {t(`exit.changed.${request.priceChange.reason}`, {
+                before: euro(request.priceChange.previousNetCents),
+              })}
+            </p>
+          ) : null}
           <ExitExplanation
-            quote={request.quote}
+            quote={shown}
             endOfTermBuyoutCents={endOfTermBuyoutCents}
             locale={locale}
           />
+          <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">{t('exit.priceNote')}</p>
         </div>
         {problemText}
-        <button
-          type="button"
-          disabled={busy}
-          className={secondaryButton}
-          onClick={() =>
-            send({ action: 'withdraw', exitId: request.id, expectedRevision: request.revision })
-          }
-        >
-          {t('exit.withdraw')}
-        </button>
+        {request.status === 'pending' ? (
+          <button
+            type="button"
+            disabled={busy}
+            className={secondaryButton}
+            onClick={() =>
+              send({ action: 'withdraw', exitId: request.id, expectedRevision: request.revision })
+            }
+          >
+            {t('exit.withdraw')}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -147,6 +164,7 @@ export function EarlyExit({
           locale={locale}
         />
         <p className="text-sm text-stone-600 dark:text-stone-400">{t('exit.rentNote')}</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400">{t('exit.priceNote')}</p>
         {problemText}
         <div className="flex flex-wrap gap-3">
           <button
@@ -233,6 +251,7 @@ export function EarlyExit({
       </div>
       {problemText}
       <p className="text-sm text-stone-600 dark:text-stone-400">{t('exit.rentNote')}</p>
+      <p className="text-sm text-stone-600 dark:text-stone-400">{t('exit.priceNote')}</p>
     </div>
   );
 }
