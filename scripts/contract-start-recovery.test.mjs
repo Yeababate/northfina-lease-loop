@@ -138,7 +138,7 @@ it('reproduces P3018 on legacy rows and inspects the actual partial state withou
   } finally {
     db.close();
   }
-});
+}, 30000);
 
 it('prepares a compatible start-date backfill from original-policy evidence without applying it', () => {
   const before = structuredClone(snapshot);
@@ -156,8 +156,10 @@ it('prepares a compatible start-date backfill from original-policy evidence with
     })
   ).toMatchObject({ ok: false, reason: 'unknown_start' });
   expect(snapshot).toEqual(before);
-});
+}, 30000);
 
+// Each of these runs `prisma migrate` on a scratch database; with more migrations in the
+// project that takes longer than Vitest's 5 s default under a full test run.
 it('shows that appending another migration cannot get past the failed migration', () => {
   expect(deploy()).toContain('P3009');
   const db = new Database(filename, { readonly: true });
@@ -167,7 +169,7 @@ it('shows that appending another migration cannot get past the failed migration'
   } finally {
     db.close();
   }
-});
+}, 30000);
 
 function exportSnapshot() {
   return {
@@ -215,7 +217,7 @@ it('recovers to a separately migrated empty database, preserving money, ids, ass
   } finally {
     await target.cleanup();
   }
-});
+}, 30000);
 
 it('refuses unknown legacy starts and rolls back the import if its audit cannot be written', async () => {
   const target = await createTestDb();
@@ -243,7 +245,7 @@ it('refuses unknown legacy starts and rolls back the import if its audit cannot 
   } finally {
     await target.cleanup();
   }
-});
+}, 30000);
 
 it('preserves populated contracts and invoices through discount and schema reconciliation migrations', async () => {
   const migrations = path.join(directory, 'discount-upgrade-migrations');
