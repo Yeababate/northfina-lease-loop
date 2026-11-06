@@ -8,7 +8,6 @@ import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
 import { db } from '@/server/db';
-import { readDemoNameFromRequest } from '@/server/demo-session';
 import { reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
 import { requirePrincipal } from '@/server/mock-users';
@@ -41,8 +40,6 @@ const schema = z.strictObject({
 export const POST = handleRoute(async (request) => {
   const { reminders, ...input } = await readJsonBody(request, schema);
   const principal = await requirePrincipal(db, request);
-  // Reminders belong to the demo sign-in name, as in src/server/reminders/recipient.ts.
-  const demoName = readDemoNameFromRequest(request);
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
@@ -60,14 +57,13 @@ export const POST = handleRoute(async (request) => {
       questions: questionsFile.questions,
     },
     principal.id,
-    demoName
-      ? {
-          recipientId: demoName,
-          locale: input.locale,
-          preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
-          now: new Date(),
-        }
-      : undefined
+    // Reminders belong to the signer's participant id (src/server/reminders/recipient.ts).
+    {
+      recipientId: principal.id,
+      locale: input.locale,
+      preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
+      now: new Date(),
+    }
   );
   return ok(contract, { status: 201 });
 });

@@ -70,8 +70,11 @@ describe('signing with reminder settings', () => {
   it('saves default 30/7/1 reminders in Helsinki time when none are sent', async () => {
     const response = await post(application);
     expect(response.status).toBe(201);
-    const { data } = (await response.json()) as { data: { id: string; endOn: string } };
-    const settings = await getReminderSettings(db, data.id, 'Aino Virtanen');
+    const { data } = (await response.json()) as {
+      data: { id: string; endOn: string; renterId: string };
+    };
+    // Saved under the signer's participant id, not the typed name.
+    const settings = await getReminderSettings(db, data.id, data.renterId);
     expect(settings.preferences.timeZone).toBe('Europe/Helsinki');
     expect(settings.schedule.map((s) => [s.daysBefore, s.localDate, s.localTime])).toEqual([
       [30, '2029-10-06', '09:00'],
@@ -92,8 +95,8 @@ describe('signing with reminder settings', () => {
         rules: [{ id: 'r1', daysBefore: 14, time: '18:15', channels: ['email'], enabled: true }],
       },
     });
-    const { data } = (await response.json()) as { data: { id: string } };
-    const settings = await getReminderSettings(db, data.id, 'Aino Virtanen');
+    const { data } = (await response.json()) as { data: { id: string; renterId: string } };
+    const settings = await getReminderSettings(db, data.id, data.renterId);
     expect(settings.locale).toBe('et');
     expect(settings.schedule).toMatchObject([
       { ruleId: 'r1', localTime: '18:15', timeZone: 'Europe/Tallinn', channels: ['email'] },
