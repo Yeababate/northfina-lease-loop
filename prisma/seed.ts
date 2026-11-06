@@ -8,6 +8,8 @@ import { seedModerator } from '@/server/moderator-seed';
 import { seedDealerSide } from '@/server/providers';
 import { createPrismaClient } from '@/server/prisma-client';
 import { seedDemoParticipants } from '@/server/demo-participants';
+import { prepareReturnedItems } from '@/server/second-life';
+import { todayIso } from '@/server/today';
 
 const db = createPrismaClient();
 try {
@@ -28,6 +30,10 @@ try {
   const participants = await seedDemoParticipants(db);
   console.log(
     `Seeded ${participants.usersCreated} demo users and assigned ${participants.assetsAssigned} unowned demo assets.`
+  );
+  const secondLife = await prepareReturnedItems(db, todayIso());
+  console.log(
+    `♻️ Second life: ${secondLife.relisted} returned items refurbished and relisted (${secondLife.planned} planned).`
   );
 } finally {
   await db.$disconnect();

@@ -7,7 +7,7 @@ import { connection } from 'next/server';
 import { ReviewAndSign } from '@/components/application/review-and-sign';
 import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
-import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadQuestions, loadVatRates } from '@/data/load';
 import { priceLockNote } from '@/domain/application-signing';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
@@ -21,6 +21,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
@@ -35,7 +36,7 @@ export default async function SignPage({
 
   const [asset, lists, table, vatRates, questionsFile] = await Promise.all([
     getAsset(db, assetId),
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),

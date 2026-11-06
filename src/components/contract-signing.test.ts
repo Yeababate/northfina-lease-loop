@@ -14,6 +14,8 @@ vi.mock('@/server/today', () => ({ todayIso: () => '2026-11-05' }));
 vi.mock('@/server/db', () => ({
   db: {
     assetOwnership: { findUnique: async () => null },
+    // No relisted items: prices come straight from the data pack (src/server/price-lists.ts).
+    returnIntake: { findMany: async () => [] },
     asset: {
       findUnique: async () => ({
         id: 'farm-006',

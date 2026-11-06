@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { AssetCard } from '@/components/asset-card';
 import { CatalogueFilters, SortSelect } from '@/components/catalogue-filters';
-import { loadCoefficientTable, loadPriceLists } from '@/data/load';
+import { loadCoefficientTable } from '@/data/load';
 import { assetCategorySchema, assetConditionSchema } from '@/data/schemas';
 import {
   catalogueSorts,
@@ -20,6 +20,7 @@ import { providerBadgesForAssets } from '@/server/reputation';
 import { dealBadgesForAssets, providerOffer } from '@/server/deals';
 import { textLink } from '@/components/ui';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { todayIso } from '@/server/today';
 
 export default async function CataloguePage({ params, searchParams }: PageProps<'/[locale]'>) {
@@ -33,7 +34,7 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
   const today = todayIso(); // the page decides what "today" is; domain code never reads the clock
   const [assets, priceLists, table] = await Promise.all([
     listAssets(db),
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
   ]);
   const terms = availableTerms(table);

@@ -2,6 +2,7 @@
 // node_modules/next/dist/docs/01-app/02-guides/instrumentation.md). Starts background work
 // in the running Node.js server only, never during a build or a test run:
 //   - a one-time repair moving reminders saved under a typed name to the participant's id;
+//   - second life: returned items are planned, refurbished and relisted (src/server/second-life.ts);
 //   - the lifecycle worker, which finalises due early returns (#6);
 //   - the lease-end reminder worker (#10). It is not awaited as a loop: register() returns
 //     at once while its first catch-up pass runs in the background. Set
@@ -22,6 +23,14 @@ export async function register() {
   await adoptNamedReminderRecipients(db).catch((error: unknown) => {
     // Old reminders stay under their name; the app itself still starts.
     console.error('Moving reminders to participant ids failed:', error);
+  });
+  const [{ prepareReturnedItems }, { todayIso }] = await Promise.all([
+    import('./server/second-life'),
+    import('./server/today'),
+  ]);
+  await prepareReturnedItems(db, todayIso()).catch((error: unknown) => {
+    // Returned items simply stay "being refurbished"; the app itself still starts.
+    console.error('Preparing returned items for their next life failed:', error);
   });
   registerLifecycleWorker();
 

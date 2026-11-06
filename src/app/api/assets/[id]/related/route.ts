@@ -3,11 +3,12 @@
 // bookable bundles that include this item. `budget` is an optional monthly net maximum in
 // cents. Scores, reasons and prices are worked out here; nothing is taken from the caller.
 import { z } from 'zod';
-import { loadCoefficientTable, loadPriceLists, loadRelatedItemRules } from '@/data/load';
+import { loadCoefficientTable, loadRelatedItemRules } from '@/data/load';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
 import { ApiError, fail, handleRoute, ok } from '@/server/api-response';
 import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { relatedItemsFor } from '@/server/related-items';
 import { todayIso } from '@/server/today';
 
@@ -21,7 +22,7 @@ export const GET = handleRoute(
     const { id } = await params;
     const query = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     const [lists, table, rules] = await Promise.all([
-      loadPriceLists(),
+      loadPricingLists(db),
       loadCoefficientTable(),
       loadRelatedItemRules(),
     ]);

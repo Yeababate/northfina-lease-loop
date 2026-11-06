@@ -6,6 +6,7 @@ import { connection } from 'next/server';
 import { ItemImpactPanel } from '@/components/impact-panel';
 import { LeaseCalculator } from '@/components/lease-calculator';
 import { RelatedItems } from '@/components/related-items';
+import { ItemPassport, SecondLifePanel } from '@/components/second-life';
 import { ProviderRatingLine, ReviewsCard } from '@/components/reviews';
 import { InfoBox, PhotoPlaceholder, textLink } from '@/components/ui';
 import {
@@ -27,6 +28,9 @@ import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
+import { firstListPrice, loadPricingLists } from '@/server/price-lists';
+import { loadPassport } from '@/server/passport';
+import { nextLifePlanFor } from '@/server/second-life';
 import { rulesForAsset } from '@/server/discount-rules';
 import { estimateForAsset, loadImpactInputs } from '@/server/impact';
 import { relatedItemsFor } from '@/server/related-items';
@@ -43,7 +47,7 @@ export default async function ItemPage({
 
   const [asset, priceLists, table, vatRates, relatedRules, impactInputs] = await Promise.all([
     getAsset(db, assetId),
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
     loadVatRates(),
     loadRelatedItemRules(),
@@ -63,7 +67,7 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today);
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
-  const [related, bundles, provider] = await Promise.all([
+  const [related, bundles, provider, nextLife, passport, rawLists] = await Promise.all([
     relatedItemsFor(
       db,
       { assetId: asset.id, termMonths, onDate: today },
@@ -71,6 +75,9 @@ export default async function ItemPage({
     ),
     bookableBundlesWithAsset(db, asset.id),
     providerReputationForAsset(db, asset.id),
+    nextLifePlanFor(db, asset.id, today),
+    loadPassport(db, asset.id),
+    loadPriceLists(),
   ]);
   // The estimate does not depend on the term (see src/domain/co2-impact.ts), so the panel
   // is rendered once here rather than following the term slider.
@@ -78,6 +85,18 @@ export default async function ItemPage({
   // suggestions are visible without scrolling to the bottom of the page.
   const leftExtras = (
     <div className="space-y-6">
+      {nextLife ? (
+        <SecondLifePanel
+          plan={nextLife.plan}
+          relistedOn={nextLife.relistedOn}
+          originalPriceCents={firstListPrice(rawLists, asset.id)}
+          locale={locale}
+          t={t}
+        />
+      ) : null}
+      {passport && (nextLife || asset.previous_lives > 0) ? (
+        <ItemPassport passport={passport} locale={locale} t={t} />
+      ) : null}
       {provider ? (
         <ReviewsCard
           id="provider-reviews"

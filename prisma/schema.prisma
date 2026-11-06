@@ -185,23 +185,27 @@ model ContractProvider {
 // One physical return being prepared for its next life. The stage is derived from these
 // facts (receipt, completion, inspection, work, relisting); no free status string is stored.
 model ReturnIntake {
-  id          String              @id
-  assetId     String
+  id                 String              @id
+  assetId            String
   /// null only for a seed import of an item the data pack already marks returned.
-  contractId  String?
-  providerId  String
+  contractId         String?
+  providerId         String
   /// receipt | seed_import
-  source      String
-  receivedOn  String?
-  receivedBy  String?
+  source             String
+  receivedOn         String?
+  receivedBy         String?
   /// The old lease was finalized (received and its exclusive end reached); life counted once.
-  completedOn String?
-  relistedOn  String?
-  relistedBy  String?
+  completedOn        String?
+  relistedOn         String?
+  relistedBy         String?
+  /// Net list price for the item's next life, set when it is relisted (src/domain/second-life.ts).
+  nextLifePriceCents Int?
+  /// The relisting decision as JSON: refurbish or not, costs, waiting-list match and why.
+  nextLifePlanJson   String?
   /// Optimistic concurrency: every command must name the revision it was based on.
-  revision    Int                 @default(0)
-  inspections ReturnInspection[]
-  work        RefurbishmentWork[]
+  revision           Int                 @default(0)
+  inspections        ReturnInspection[]
+  work               RefurbishmentWork[]
 
   @@unique([contractId, assetId])
   @@index([providerId])

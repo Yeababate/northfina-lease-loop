@@ -5,12 +5,13 @@
 // compareOptions in src/domain/price-breakdown.ts.
 import { z } from 'zod';
 import { isoDateSchema } from '@/data/schemas';
-import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadVatRates } from '@/data/load';
 import { listPriceOn } from '@/domain/price-list';
 import { compareOptions, MAX_COMPARE_OPTIONS, MIN_COMPARE_OPTIONS } from '@/domain/price-breakdown';
 import { fail, handleRoute, ok } from '@/server/api-response';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 
@@ -41,7 +42,7 @@ export const GET = handleRoute(
     const asset = await getAsset(db, id);
     if (!asset) return fail(404, 'ASSET_NOT_FOUND', 'Asset not found');
     const [lists, table, vat, discountRules] = await Promise.all([
-      loadPriceLists(),
+      loadPricingLists(db),
       loadCoefficientTable(),
       loadVatRates(),
       rulesForAsset(db, id),

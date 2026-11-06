@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { ContractSigning } from '@/components/contract-signing';
-import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadVatRates } from '@/data/load';
 import { isLocale } from '@/i18n/locales';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 import { parseCatalogueQuery } from '@/domain/catalogue';
@@ -19,7 +20,7 @@ export default async function LeasePage({
   const asset = await db.asset.findUnique({ where: { id } });
   if (!asset || asset.status !== 'available') notFound();
   const [lists, table, vat] = await Promise.all([
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
     loadVatRates(),
   ]);

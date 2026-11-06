@@ -1,8 +1,9 @@
 // Audited commands for a returned item's next life: receipt, lease completion, inspection,
 // work records and relisting. Each one re-checks scope and the domain rules inside its
 // withAudit transaction and writes every affected row through that `tx`, so a stale or
-// concurrent request either applies completely or not at all. Relisting changes availability
-// only: the item keeps its existing catalogue price.
+// concurrent request either applies completely or not at all. Relisting changes availability;
+// with a next-life plan (src/server/second-life.ts) it also stores the item's next-life price,
+// which the catalogue then uses (src/server/price-lists.ts). Without one, the price is kept.
 import { randomUUID } from 'node:crypto';
 import { loadRefurbishmentCosts } from '@/data/load';
 import { assetStatusSchema, type AssetCondition } from '@/data/schemas';
@@ -313,7 +314,11 @@ export async function relist(
   db: PrismaClient,
   providerId: string,
   intakeId: string,
-  input: { expectedRevision: number },
+  input: {
+    expectedRevision: number;
+    /** From the next-life plan: the new list price, the plan itself, and its listing minimum. */
+    nextLife?: { priceCents: number; planJson: string; listingMinimum: AssetCondition };
+  },
   today: string
 ) {
   await finalizeDueReturns(db, today);
@@ -322,7 +327,7 @@ export async function relist(
     db,
     { providerId, intakeId, expectedRevision: input.expectedRevision, action: 'return.relisted' },
     async (tx, { asset, facts, intake }, details) => {
-      const view = deriveNextLife(facts, rules);
+      const view = deriveNextLife(facts, rules, input.nextLife?.listingMinimum);
       if (!view.canRelist)
         throw new ApiError(409, 'NOT_READY', 'This item cannot be relisted yet', view.blockers);
       const released = await tx.asset.updateMany({
@@ -333,9 +338,18 @@ export async function relist(
         throw new ApiError(409, 'ASSET_NOT_RETURNED', 'This item cannot be relisted yet');
       await tx.returnIntake.update({
         where: { id: intakeId },
-        data: { relistedOn: today, relistedBy: providerId },
+        data: {
+          relistedOn: today,
+          relistedBy: providerId,
+          nextLifePriceCents: input.nextLife?.priceCents ?? null,
+          nextLifePlanJson: input.nextLife?.planJson ?? null,
+        },
       });
-      Object.assign(details, { condition: view.current?.condition, relistedOn: today });
+      Object.assign(details, {
+        condition: view.current?.condition,
+        relistedOn: today,
+        nextLifePriceCents: input.nextLife?.priceCents ?? null,
+      });
       await addEvent(tx, {
         assetId: asset.id,
         intakeId,
@@ -343,7 +357,11 @@ export async function relist(
         type: 'relisted',
         on: today,
         actor: providerId,
-        details: { condition: view.current?.condition, usageValue: view.current?.usageValue },
+        details: {
+          condition: view.current?.condition,
+          usageValue: view.current?.usageValue,
+          priceCents: input.nextLife?.priceCents ?? null,
+        },
       });
       return { id: intakeId, assetId: asset.id, relistedOn: today, revision: intake.revision + 1 };
     }

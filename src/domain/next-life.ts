@@ -85,8 +85,16 @@ export function isOnHold(facts: Pick<NextLifeFacts, 'lease' | 'completedOn'>): b
   return facts.lease !== null && facts.completedOn === null;
 }
 
-/** Where the item is, what is still required and whether relisting is allowed now. */
-export function deriveNextLife(facts: NextLifeFacts, rules: RefurbishmentCosts): NextLifeView {
+/**
+ * Where the item is, what is still required and whether relisting is allowed now.
+ * `listingMinimum` is 'good' unless the item goes to someone on the waiting list who accepts
+ * a lower condition (refurbishment-costs.json allows 'fair' then; see ./second-life.ts).
+ */
+export function deriveNextLife(
+  facts: NextLifeFacts,
+  rules: RefurbishmentCosts,
+  listingMinimum: AssetCondition = LISTING_MIN_CONDITION
+): NextLifeView {
   const onHold = isOnHold(facts);
   const current = currentState(facts);
   if (facts.relistedOn !== null)
@@ -116,15 +124,13 @@ export function deriveNextLife(facts: NextLifeFacts, rules: RefurbishmentCosts):
     // condition, so an alternative supported path (or a better inspected state) also counts.
     outstanding = required
       .filter((a) =>
-        a.kind === 'fixed'
-          ? !done.has(a.id)
-          : !meetsCondition(current.condition, LISTING_MIN_CONDITION)
+        a.kind === 'fixed' ? !done.has(a.id) : !meetsCondition(current.condition, listingMinimum)
       )
       .map((a) => a.id);
     if (needs.missing.length > 0) blockers.push('missing_service_hours');
     if (needs.unsupported.length > 0) blockers.push('unsupported_rule');
     if (outstanding.length > 0) blockers.push('work_incomplete');
-    if (!meetsCondition(current.condition, LISTING_MIN_CONDITION))
+    if (!meetsCondition(current.condition, listingMinimum))
       blockers.push('condition_below_listing');
   }
   const workBlocked = blockers.length > 0;

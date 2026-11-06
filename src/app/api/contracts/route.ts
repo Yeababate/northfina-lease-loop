@@ -1,13 +1,14 @@
 // POST /api/contracts: sign an approved application. The body carries the lease choice and
 // the answers; the server prices the lease and decides the application again before signing.
 import { z } from 'zod';
-import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadQuestions, loadVatRates } from '@/data/load';
 import { centsSchema, isoDateSchema } from '@/data/schemas';
 import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
 import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
 import { requirePrincipal } from '@/server/mock-users';
@@ -41,7 +42,7 @@ export const POST = handleRoute(async (request) => {
   const { reminders, ...input } = await readJsonBody(request, schema);
   const principal = await requirePrincipal(db, request);
   const [lists, table, vatRates, questionsFile] = await Promise.all([
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),

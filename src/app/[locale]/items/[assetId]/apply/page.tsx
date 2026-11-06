@@ -8,7 +8,7 @@ import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { ApplicationWizard } from '@/components/application/application-wizard';
 import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
-import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
 import { isIsoDate } from '@/domain/iso-date';
@@ -20,6 +20,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { loadPricingLists } from '@/server/price-lists';
 import { rulesForAsset } from '@/server/discount-rules';
 import { readDemoName } from '@/server/demo-session';
 import { todayIso } from '@/server/today';
@@ -35,7 +36,7 @@ export default async function ApplyPage({
 
   const [asset, priceLists, table, vatRates, questionsFile] = await Promise.all([
     getAsset(db, assetId),
-    loadPriceLists(),
+    loadPricingLists(db),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
