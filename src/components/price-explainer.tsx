@@ -1,32 +1,37 @@
-// "Explain my price" and the side-by-side term comparison. Pure presentation: the numbers
-// come from quoteLease in src/domain/pricing.ts, so what we show is what we charge.
+// "Explain my price" and the side-by-side term comparison (#48). Pure presentation: every number
+// comes from breakdown / compareOptions in src/domain/price-breakdown.ts (built on quoteLease),
+// so what we show is what we charge, here and in GET /api/assets/:id/compare.
+import type { CoefficientTable, VatRates } from '@/data/schemas';
+import { percentText } from '@/domain/deals';
 import type { RentalDiscountRule } from '@/domain/discounts';
-import type { CoefficientTable } from '@/data/schemas';
 import { formatEuro } from '@/domain/money';
-import { quoteLease, type LeaseQuote } from '@/domain/pricing';
+import { compareOptions, type PriceBreakdown } from '@/domain/price-breakdown';
 import { formatIsoDate, formatNumber } from '@/i18n/format';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
+import { Badge } from './ui';
 
 export type VatChange = { ratePercent: number; validFrom: string };
 
 type ExplainProps = {
-  quote: LeaseQuote;
+  breakdown: PriceBreakdown;
   nextVatChange: VatChange | null;
   locale: Locale;
   t: Translate;
 };
 
-export function PriceExplainer({ quote, nextVatChange, locale, t }: ExplainProps) {
+export function PriceExplainer({ breakdown, nextVatChange, locale, t }: ExplainProps) {
+  const { quote } = breakdown;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
   const rate = formatNumber(quote.vatRatePercent, locale);
+  const signed = (cents: number) => (cents < 0 ? `−${euro(-cents)}` : `+${euro(cents)}`);
   const rows: { label: string; value: string; strong?: boolean }[] = [
     { label: t('explain.listPrice'), value: euro(quote.listPriceCents) },
     { label: t('explain.downPayment'), value: `−${euro(quote.downPaymentCents)}` },
     { label: t('explain.financed'), value: euro(quote.financedCents) },
     {
       label: t('explain.factor', { band: quote.band.band, months: quote.termMonths }),
-      value: `× ${formatNumber(quote.factor, locale)}`,
+      value: `× ${factorText(quote.factor, locale)} (${percentText(breakdown.monthlyFactorBps, intlLocale[locale])} %)`,
     },
     { label: t('discount.original'), value: euro(quote.originalMonthlyNetCents) },
     { label: t('discount.amount'), value: '−' + euro(quote.monthlyDiscountCents) },
@@ -34,7 +39,12 @@ export function PriceExplainer({ quote, nextVatChange, locale, t }: ExplainProps
     { label: t('explain.vat', { rate }), value: euro(quote.monthlyVatCents) },
     { label: t('explain.monthlyTotal'), value: euro(quote.monthlyGrossCents), strong: true },
     { label: t('explain.buyout'), value: euro(quote.buyoutCents) },
-    { label: t('explain.total'), value: euro(quote.totalNetCents), strong: true },
+    { label: t('explain.total'), value: euro(breakdown.totalNetCents), strong: true },
+    ...(breakdown.totalGrossCents === null
+      ? []
+      : [{ label: t('explain.totalGross'), value: euro(breakdown.totalGrossCents) }]),
+    { label: t('explain.ifKept'), value: euro(breakdown.totalIfKeptNetCents) },
+    { label: t('explain.vsBuying'), value: signed(breakdown.costOfLeasingNetCents) },
   ];
 
   return (
@@ -67,6 +77,11 @@ export function PriceExplainer({ quote, nextVatChange, locale, t }: ExplainProps
   );
 }
 
+/** The factor with all six of its decimals (0.027584), not the default three (0.028). */
+function factorText(factor: number, locale: Locale): string {
+  return new Intl.NumberFormat(intlLocale[locale], { maximumFractionDigits: 6 }).format(factor);
+}
+
 type CompareProps = {
   table: CoefficientTable;
   discountRules?: readonly RentalDiscountRule[];
@@ -74,89 +89,122 @@ type CompareProps = {
   selectedTerm: number;
   listPriceCents: number;
   downPaymentCents: number;
-  vatRatePercent: number;
+  vat: VatRates;
+  startOn: string;
+  /** Choosing a card moves the term slider to that term. */
+  onSelect: (termMonths: number) => void;
   locale: Locale;
   t: Translate;
 };
 
+/** At most this many terms fit side by side; the comparison takes the first ones. */
+const MAX_CARDS = 4;
+
 export function TermComparison(props: CompareProps) {
-  const { table, terms, selectedTerm, locale, t } = props;
+  const { selectedTerm, locale, t } = props;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
-  const quotes = terms.map((termMonths) => ({
-    termMonths,
-    result: quoteLease(
-      table,
-      {
-        listPriceCents: props.listPriceCents,
-        downPaymentCents: props.downPaymentCents,
-        termMonths,
-        vatRatePercent: props.vatRatePercent,
-      },
-      props.discountRules
-    ),
-  }));
+  const terms = props.terms.slice(0, MAX_CARDS);
+  if (terms.length < 2) return null;
+  const comparison = compareOptions(
+    {
+      table: props.table,
+      discountRules: props.discountRules,
+      listPriceCents: props.listPriceCents,
+      vat: props.vat,
+      startOn: props.startOn,
+    },
+    terms.map((termMonths) => ({ termMonths, downPaymentCents: props.downPaymentCents }))
+  );
+  const chosen = comparison.options.find((option) => option.termMonths === selectedTerm);
+  const difference = (cents: number, more: 'compare.moreMonthly' | 'compare.moreTotal') =>
+    cents === 0
+      ? null
+      : cents > 0
+        ? t(more, { amount: euro(cents) })
+        : t(more === 'compare.moreMonthly' ? 'compare.lessMonthly' : 'compare.lessTotal', {
+            amount: euro(-cents),
+          });
 
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-blue-700 underline underline-offset-2 dark:text-blue-300">
         {t('compare.toggle')}
       </summary>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-left tabular-nums">
-          <caption className="sr-only">{t('compare.caption')}</caption>
-          <thead className="text-stone-600 dark:text-stone-400">
-            <tr>
-              <th scope="col" className="py-1 pr-3 font-medium">
-                {t('compare.term')}
-              </th>
-              <th scope="col" className="py-1 pr-3 text-right font-medium">
-                {t('compare.monthlyNet')}
-              </th>
-              <th scope="col" className="py-1 pr-3 text-right font-medium">
-                {t('compare.monthlyGross')}
-              </th>
-              <th scope="col" className="py-1 pr-3 text-right font-medium">
-                {t('compare.buyout')}
-              </th>
-              <th scope="col" className="py-1 text-right font-medium">
-                {t('compare.total')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {quotes.map(({ termMonths, result }) => {
-              const selected = termMonths === selectedTerm;
-              return (
-                <tr
-                  key={termMonths}
-                  className={`border-t border-stone-200 dark:border-stone-800 ${selected ? 'bg-blue-50 font-semibold dark:bg-blue-950/60' : ''}`}
-                >
-                  <th scope="row" className="py-1.5 pr-3 font-medium">
-                    {t('term.months', { months: termMonths })}
-                    {selected ? <span className="sr-only"> ({t('compare.selected')})</span> : null}
-                  </th>
-                  {result.ok ? (
-                    <>
-                      <td className="py-1.5 pr-3 text-right">
-                        {euro(result.quote.monthlyNetCents)}
-                      </td>
-                      <td className="py-1.5 pr-3 text-right">
-                        {euro(result.quote.monthlyGrossCents)}
-                      </td>
-                      <td className="py-1.5 pr-3 text-right">{euro(result.quote.buyoutCents)}</td>
-                      <td className="py-1.5 text-right">{euro(result.quote.totalNetCents)}</td>
-                    </>
-                  ) : (
-                    <td colSpan={4} className="py-1.5 text-right">
-                      –
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <p className="mt-2 text-stone-600 dark:text-stone-400">
+        {t('compare.basis', { down: euro(props.downPaymentCents) })}
+      </p>
+      <ul className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {comparison.options.map((option, index) => {
+          const selected = option.termMonths === selectedTerm;
+          return (
+            <li key={option.termMonths}>
+              <button
+                type="button"
+                onClick={() => props.onSelect(option.termMonths)}
+                aria-pressed={selected}
+                disabled={!option.ok}
+                className={
+                  'flex h-full w-full flex-col items-start rounded-xl border p-3 text-left transition-colors disabled:opacity-60 ' +
+                  (selected
+                    ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:border-blue-400 dark:bg-blue-950/60 dark:ring-blue-400'
+                    : 'border-stone-300 hover:border-stone-500 dark:border-stone-700 dark:hover:border-stone-500')
+                }
+              >
+                <span className="font-semibold">
+                  {t('term.months', { months: option.termMonths })}
+                </span>
+                {option.ok ? (
+                  <>
+                    <span className="mt-1 text-base font-bold tabular-nums">
+                      {euro(option.breakdown.quote.monthlyNetCents)}
+                    </span>
+                    <span className="text-xs text-stone-600 dark:text-stone-400">
+                      {t('compare.perMonth')}
+                    </span>
+                    <span className="mt-2 font-semibold tabular-nums">
+                      {euro(option.breakdown.totalNetCents)}
+                    </span>
+                    <span className="text-xs text-stone-600 dark:text-stone-400">
+                      {t('compare.totalLabel')}
+                    </span>
+                    <span className="mt-2 flex flex-wrap gap-1">
+                      {comparison.lowestMonthly === index ? (
+                        <Badge tone="green">{t('compare.lowestMonthly')}</Badge>
+                      ) : null}
+                      {comparison.lowestTotal === index ? (
+                        <Badge tone="blue">{t('compare.lowestTotal')}</Badge>
+                      ) : null}
+                    </span>
+                    {selected ? (
+                      <span className="mt-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                        {t('compare.yourChoice')}
+                      </span>
+                    ) : chosen?.ok ? (
+                      <span className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+                        {[
+                          difference(
+                            option.breakdown.quote.monthlyNetCents -
+                              chosen.breakdown.quote.monthlyNetCents,
+                            'compare.moreMonthly'
+                          ),
+                          difference(
+                            option.breakdown.totalNetCents - chosen.breakdown.totalNetCents,
+                            'compare.moreTotal'
+                          ),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="mt-1 text-xs">{t('compare.notPossible')}</span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </details>
   );
 }
