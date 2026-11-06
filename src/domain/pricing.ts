@@ -34,7 +34,7 @@ export type LeaseQuote = ReturnType<typeof monthlyDiscount> & {
   monthlyGrossCents: number;
   /** Price to buy the item when the lease ends. Optional for the customer. */
   buyoutCents: number;
-  /** Down payment + every monthly net rent. Net of VAT, without the optional buyout. */
+  /** Down payment + every monthly net rent; excludes invoice VAT and optional buyout. */
   totalNetCents: number;
 };
 
@@ -96,6 +96,7 @@ export function quoteLease(
       monthlyVatCents,
       monthlyGrossCents: monthlyNetCents + monthlyVatCents,
       buyoutCents: buyoutCents(table, financedCents, termMonths),
+      // Net-only quote total: include the down payment once; exclude monthly VAT and buyout.
       totalNetCents: downPaymentCents + monthlyNetCents * termMonths,
     },
   };

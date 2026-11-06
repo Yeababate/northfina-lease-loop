@@ -22,7 +22,11 @@ export function invoiceSchedule(signedOn: string, termMonths: number) {
   });
 }
 
-/** Locked net rent only. VAT is rounded half up once per invoice by invoicePrice. */
+/**
+ * Locked net rent only. VAT is rounded half up once per invoice by invoicePrice.
+ * A returned lease's cash total is its down payment plus these gross invoice rows; add a
+ * separately paid buyout only if exercised. Keep each row's net and VAT split once.
+ */
 export function calculateInvoices(contract: RentalContract, vat: VatRates) {
   const schedule = invoiceSchedule(contract.startOn ?? contract.signedOn, contract.termMonths);
   const invoices = [];
