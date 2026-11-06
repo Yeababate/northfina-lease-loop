@@ -99,7 +99,11 @@ export async function requestEarlyExit(
           );
         if (!sameExitQuote(result.quote, input.expectedQuote))
           throw new ApiError(409, 'QUOTE_CHANGED', 'Review the updated exit quote');
-        if (await tx.exitRequest.findUnique({ where: { openContractId: input.contractId } })) {
+        const [exit, endTerm] = await Promise.all([
+          tx.exitRequest.findUnique({ where: { openContractId: input.contractId } }),
+          tx.endTermChoice.findUnique({ where: { contractId: input.contractId } }),
+        ]);
+        if (exit || endTerm) {
           throw new ApiError(409, 'EXIT_PENDING', 'An exit is already pending');
         }
         await assertOwnedAssets(tx, assetIds, context.providerId!);

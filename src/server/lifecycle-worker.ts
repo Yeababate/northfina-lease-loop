@@ -1,9 +1,22 @@
 import type { PrismaClient } from './prisma-client';
-import { finalizeDueReturns } from './exit-completion';
+import { finalizeDueReturns as finalizeEarlyReturns } from './exit-completion';
+import { finalizeDueReturns as finalizeIntakeReturns } from './next-life-commands';
 
 /** One reusable worker tick. Notifications can register their own independent tick later. */
 export async function runLifecycleTick(db: PrismaClient, today: string) {
-  return finalizeDueReturns(db, today);
+  const early = await finalizeEarlyReturns(db, today);
+  const choices = await db.endTermChoice.findMany({
+    where: { kind: 'end_return', completedOn: null },
+    select: { contractId: true },
+  });
+  const completed = choices.length
+    ? await finalizeIntakeReturns(
+        db,
+        today,
+        choices.map((choice) => choice.contractId)
+      )
+    : 0;
+  return { ...early, completed: early.completed + completed };
 }
 
 /** Infrastructure only: the caller supplies clock, database and scheduler interval. */
