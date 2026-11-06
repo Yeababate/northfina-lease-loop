@@ -5,6 +5,8 @@
 // reminders, or the other way round. The clock is read here, once per pass.
 import { loadCustomers } from '@/data/load';
 import type { PrismaClient } from '../prisma-client';
+import { demoToday, todayIso } from '../today';
+import { runWaitingListFollowUp } from '../waiting-list-follow-up';
 import { runReminderPass, type ReminderContacts } from './processor';
 
 export const WORKER_INTERVAL_MS = 30_000;
@@ -72,12 +74,24 @@ export function reminderJob(db: PrismaClient, contacts = dataPackContacts): Work
   return { name: 'lease-end-reminders', run: (now) => runReminderPass(db, now, { contacts }) };
 }
 
+/**
+ * "Do you still want this?" for waiting-list entries past their needed-by date (#75). It
+ * sends through the same inbox and simulated email as the lease-end reminders. Business
+ * dates follow the app's today, so LEASE_LOOP_TODAY replays the demo dates here as well.
+ */
+export function waitingListFollowUpJob(db: PrismaClient, contacts = dataPackContacts): WorkerJob {
+  return {
+    name: 'waiting-list-follow-up',
+    run: (now) => runWaitingListFollowUp(db, demoToday() ?? todayIso(now), now, { contacts }),
+  };
+}
+
 const globalForWorker = globalThis as typeof globalThis & { leaseLoopWorker?: Worker };
 
 /** Starts the app's single worker once per server process (dev hot reload included). */
 export function startAppWorker(db: PrismaClient): Worker {
   if (globalForWorker.leaseLoopWorker) return globalForWorker.leaseLoopWorker;
-  const worker = startWorker([reminderJob(db)]);
+  const worker = startWorker([reminderJob(db), waitingListFollowUpJob(db)]);
   globalForWorker.leaseLoopWorker = worker;
   // Stop the timer on shutdown. If nothing else handles the signal, exit as Node would.
   const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
