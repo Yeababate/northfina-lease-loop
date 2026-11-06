@@ -1,3 +1,5 @@
+// The v1 early-exit policies. New quotes use fair-exit-v2 (fair-exit.ts); these stay so that a
+// quote stored with a v1 `method` keeps its price and is still explained by the rule it used.
 import { divideRoundHalfUp } from './rounding';
 
 export type EarlyExitPriceInput = Readonly<{
@@ -20,15 +22,14 @@ function remainingRent(input: EarlyExitPriceInput): number {
   return amount;
 }
 
-/** Prototype only: replace this implementation when the final policy is agreed.
+/** v1 cancellation: half of the remaining rents. Superseded by fair-exit-v2 for new quotes.
  * Half-cent fees round once, half up, using the application's shared monetary rule.
- * elapsedMonths is intentionally accepted for the future time-dependent policy.
  */
 export function calculateEarlyCancellationFee(input: EarlyExitPriceInput): number {
   return divideRoundHalfUp(remainingRent(input), 2);
 }
 
-/** A separate replaceable policy: cancellation fees are never added to ownership price. */
+/** v1 buyout: the remaining rents plus the buyout, undiscounted. Superseded by fair-exit-v2. */
 export function calculateEarlyBuyoutPrice(
   input: EarlyExitPriceInput & Readonly<{ endOfTermBuyoutCents: number }>
 ): number {

@@ -1,8 +1,93 @@
 @import 'tailwindcss';
 
+/*
+ * Design tokens (#74). Every colour the app uses is defined here once, as sRGB hex, so
+ * `src/app/design-tokens.test.ts` can check the WCAG 2.2 AA contrast of the key pairs
+ * with `contrastRatio()` from `src/domain/contrast-ratio.ts`:
+ *   - body text 4.5:1 or more; large text, control borders, icons and focus rings 3:1.
+ * Components keep using the usual Tailwind names (`text-stone-600`, `dark:bg-stone-900`);
+ * the values below replace Tailwind's defaults. Shades not listed keep Tailwind's value,
+ * so add a shade here (and a pair to the test) before using it.
+ *
+ * Shades changed from Tailwind's defaults, and why:
+ *   - stone-400 #96908b (was #a8a29e): input borders reach 3:1 on white, and
+ *     `dark:text-stone-400` still reaches 4.5:1 on stone-800.
+ *   - stone-500 #736c67 (was #78716c): muted text reaches 4.5:1 on blue-50.
+ *   - stone-600 #6b655f (was #57534e): `dark:border-stone-600` input borders reach 3:1 on
+ *     stone-900, and `text-stone-600` stays above 4.5:1 on white, stone-50/100 and blue-50.
+ *   - amber-500 #c2690a (was #f59e0b): rating stars reach 3:1 on white and stone-900.
+ */
 @theme {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Font sizes: content text is at least 14px, so the smallest step (`text-xs`, used for
+     hints, badges and labels) is raised from 12px to 14px, the same as `text-sm`. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: calc(1.25 / 0.875);
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #96908b;
+  --color-stone-500: #736c67;
+  --color-stone-600: #6b655f;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  --color-stone-950: #0c0a09;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
+  --color-blue-950: #172554;
+
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-green-900: #14532d;
+  --color-green-950: #052e16;
+
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-800: #065f46;
+
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-800: #9a3412;
+  --color-orange-900: #7c2d12;
+  --color-orange-950: #431407;
+
+  --color-amber-300: #fcd34d;
+  --color-amber-500: #c2690a;
+
+  --color-red-400: #f87171;
+  --color-red-700: #b91c1c;
+
+  /* Keyboard focus ring: blue-600 on light pages, blue-400 on dark ones, where blue-600
+     falls under 3:1 on stone-800. Switched below with the colour scheme. */
+  --color-focus: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-focus: #60a5fa;
+  }
 }
 
 /* Two-handle slider (src/components/price-range-slider.tsx): two range inputs share one
@@ -28,7 +113,7 @@
   width: 1.25rem;
   height: 1.25rem;
   margin-top: 0.125rem;
-  border: 2px solid white;
+  border: 2px solid var(--color-white);
   border-radius: 9999px;
   background: var(--color-blue-600);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
@@ -38,7 +123,7 @@
   pointer-events: auto;
   width: 1.25rem;
   height: 1.25rem;
-  border: 2px solid white;
+  border: 2px solid var(--color-white);
   border-radius: 9999px;
   background: var(--color-blue-600);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
@@ -49,16 +134,16 @@
   outline: none;
 }
 .dual-range:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--color-blue-600);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .dual-range:focus-visible::-moz-range-thumb {
-  outline: 2px solid var(--color-blue-600);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 /* A visible keyboard focus everywhere, in both color schemes. */
 :focus-visible {
-  outline: 2px solid var(--color-blue-600);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
