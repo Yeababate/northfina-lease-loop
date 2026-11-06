@@ -22,6 +22,8 @@ type CatalogueFiltersProps = {
   conditions: readonly AssetCondition[];
   terms: readonly number[];
   today: string;
+  /** Kept while browsing one provider's deals (from the Deals page). */
+  provider?: string;
 };
 
 const fieldClass =
@@ -47,6 +49,7 @@ export function CatalogueFilters(props: CatalogueFiltersProps) {
       aria-label={t('filters.title')}
       className="space-y-6"
     >
+      {props.provider ? <input type="hidden" name="provider" value={props.provider} /> : null}
       <div>
         <label htmlFor="filter-q" className="font-semibold">
           {t('filters.search')}

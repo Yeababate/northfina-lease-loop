@@ -16,6 +16,9 @@ import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
 import { getT } from '@/i18n/get-t';
 import { isLocale } from '@/i18n/locales';
 import { listAssets } from '@/server/assets';
+import { providerBadgesForAssets } from '@/server/reputation';
+import { dealBadgesForAssets, providerOffer } from '@/server/deals';
+import { textLink } from '@/components/ui';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
 
@@ -34,7 +37,8 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     loadCoefficientTable(),
   ]);
   const terms = availableTerms(table);
-  const query = parseCatalogueQuery(await searchParams, {
+  const rawQuery = await searchParams;
+  const query = parseCatalogueQuery(rawQuery, {
     today,
     terms,
     defaultTerm: DEFAULT_TERM_MONTHS,
@@ -44,7 +48,18 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     const price = listPriceOn(priceLists, asset.id, today);
     return { asset, listPriceCents: price.ok ? price.priceCents : null };
   });
-  const shown = filterCatalogue(items, query);
+  // "See these items" on the Deals page narrows the catalogue to one provider's stock.
+  const providerParam = typeof rawQuery.provider === 'string' ? rawQuery.provider : null;
+  const offer = providerParam ? await providerOffer(db, providerParam) : null;
+  const shown = filterCatalogue(
+    offer ? items.filter((item) => offer.assetIds.has(item.asset.id)) : items,
+    query
+  );
+  const shownIds = shown.map((item) => item.asset.id);
+  const [providers, deals] = await Promise.all([
+    providerBadgesForAssets(db, shownIds),
+    dealBadgesForAssets(db, shownIds, terms),
+  ]);
   const leaseParams = new URLSearchParams({
     term: String(query.termMonths),
     start: query.startDate,
@@ -60,12 +75,21 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
           conditions={assetConditionSchema.options}
           terms={terms}
           today={today}
+          provider={offer ? (providerParam ?? undefined) : undefined}
         />
       </aside>
 
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">{t('catalogue.heading')}</h1>
         <p className="mt-2 text-stone-700 dark:text-stone-300">{t('catalogue.intro')}</p>
+        {offer && providerParam ? (
+          <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-green-50 px-4 py-2.5 text-sm dark:bg-green-950/50">
+            <span className="font-medium">{t('deals.showingProvider', { name: offer.name })}</span>
+            <a href={`/${locale}`} className={textLink}>
+              {t('deals.showAll')}
+            </a>
+          </p>
+        ) : null}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <p role="status" className="text-stone-700 dark:text-stone-300">
@@ -89,6 +113,8 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
                 <AssetCard
                   item={item}
                   href={`/${locale}/items/${item.asset.id}?${leaseParams}`}
+                  provider={providers.get(item.asset.id)}
+                  deal={deals.get(item.asset.id)}
                   locale={locale}
                   t={t}
                 />

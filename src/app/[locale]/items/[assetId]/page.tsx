@@ -3,9 +3,17 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
+import { ItemImpactPanel } from '@/components/impact-panel';
 import { LeaseCalculator } from '@/components/lease-calculator';
+import { RelatedItems } from '@/components/related-items';
+import { ProviderRatingLine, ReviewsCard } from '@/components/reviews';
 import { InfoBox, PhotoPlaceholder, textLink } from '@/components/ui';
-import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
+import {
+  loadCoefficientTable,
+  loadPriceLists,
+  loadRelatedItemRules,
+  loadVatRates,
+} from '@/data/load';
 import type { Asset } from '@/data/schemas';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
@@ -17,8 +25,12 @@ import { formatNumber } from '@/i18n/format';
 import { getT, type Translate } from '@/i18n/get-t';
 import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
+import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
+import { estimateForAsset, loadImpactInputs } from '@/server/impact';
+import { relatedItemsFor } from '@/server/related-items';
+import { providerReputationForAsset, type ProviderReputation } from '@/server/reputation';
 import { todayIso } from '@/server/today';
 
 export default async function ItemPage({
@@ -29,16 +41,20 @@ export default async function ItemPage({
   if (!isLocale(locale)) notFound();
   await connection();
 
-  const [asset, priceLists, table, vatRates] = await Promise.all([
+  const [asset, priceLists, table, vatRates, relatedRules, impactInputs] = await Promise.all([
     getAsset(db, assetId),
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
+    loadRelatedItemRules(),
+    loadImpactInputs(),
   ]);
   if (!asset) notFound();
   const discountRules = await rulesForAsset(db, assetId);
+  // Main's dealer record for the item (AssetOwnership → Provider), shown by the calculator
+  // with its discounts. Named apart from `provider`, the owner's ratings further down.
   const ownership = await db.assetOwnership.findUnique({ where: { assetId } });
-  const provider = ownership
+  const discountProvider = ownership
     ? await db.provider.findUnique({ where: { id: ownership.providerId } })
     : null;
 
@@ -53,11 +69,51 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today);
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
+  const [related, bundles, provider] = await Promise.all([
+    relatedItemsFor(
+      db,
+      { assetId: asset.id, termMonths, onDate: today },
+      { lists: priceLists, table, rules: relatedRules }
+    ),
+    bookableBundlesWithAsset(db, asset.id),
+    providerReputationForAsset(db, asset.id),
+  ]);
+  // The estimate does not depend on the term (see src/domain/co2-impact.ts), so the panel
+  // is rendered once here rather than following the term slider.
+  // Under the apply button in the left column: the CO2 panel, then related items, so the
+  // suggestions are visible without scrolling to the bottom of the page.
+  const leftExtras = (
+    <div className="space-y-6">
+      {provider ? (
+        <ReviewsCard
+          id="provider-reviews"
+          title={t('reviews.aboutProvider', { name: provider.name })}
+          reputation={provider}
+          emptyText={t('reviews.providerNone')}
+          locale={locale}
+          t={t}
+        />
+      ) : null}
+      <ItemImpactPanel
+        result={impactInputs ? estimateForAsset(asset, termMonths, impactInputs) : null}
+        locale={locale}
+        t={t}
+      />
+      <RelatedItems
+        items={related.status === 'ok' ? related.items : []}
+        bundles={bundles}
+        termMonths={termMonths}
+        locale={locale}
+        t={t}
+      />
+    </div>
+  );
 
   const summary = (
     <AssetSummary
       asset={asset}
       listPriceCents={price.ok ? price.priceCents : null}
+      provider={provider}
       locale={locale}
       t={t}
     />
@@ -70,15 +126,19 @@ export default async function ItemPage({
       </Link>
       <div className="mt-4">
         {!isLeasable(asset) ? (
-          <Unavailable summary={summary} message={unavailableMessage(asset, t)} />
+          <Unavailable
+            summary={summary}
+            extras={leftExtras}
+            message={unavailableMessage(asset, t)}
+          />
         ) : !price.ok || !vat.ok ? (
-          <Unavailable summary={summary} message={t('lease.unavailable')} />
+          <Unavailable summary={summary} extras={leftExtras} message={t('lease.unavailable')} />
         ) : (
           <LeaseCalculator
             locale={locale}
             table={table}
             discountRules={discountRules}
-            providerName={provider?.displayName}
+            providerName={discountProvider?.displayName}
             listPriceCents={price.priceCents}
             vatRatePercent={vat.rate.rate_percent}
             nextVatChange={
@@ -89,6 +149,7 @@ export default async function ItemPage({
             quotedOn={today}
             applyPath={`/${locale}/items/${asset.id}/apply`}
             summary={summary}
+            afterApply={leftExtras}
           />
         )}
       </div>
@@ -99,10 +160,11 @@ export default async function ItemPage({
 function AssetSummary(props: {
   asset: Asset;
   listPriceCents: number | null;
+  provider: ProviderReputation | null;
   locale: Locale;
   t: Translate;
 }) {
-  const { asset, listPriceCents, locale, t } = props;
+  const { asset, listPriceCents, provider, locale, t } = props;
   const facts = [
     { label: t('condition.label'), value: t(`condition.${asset.condition}`) },
     { label: t('asset.modelYear'), value: String(asset.model_year) },
@@ -118,6 +180,7 @@ function AssetSummary(props: {
       <PhotoPlaceholder label={t(`categoryOne.${asset.category}`)} className="h-64" />
       <p className="mt-5 text-sm text-stone-600 dark:text-stone-400">{asset.make}</p>
       <h1 className="text-3xl font-semibold tracking-tight">{asset.model}</h1>
+      {provider ? <ProviderRatingLine provider={provider} locale={locale} t={t} /> : null}
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
         {facts.map((fact) => (
           <div key={fact.label}>
@@ -138,10 +201,18 @@ function AssetSummary(props: {
   );
 }
 
-function Unavailable({ summary, message }: { summary: React.ReactNode; message: string }) {
+function Unavailable(props: {
+  summary: React.ReactNode;
+  extras: React.ReactNode;
+  message: string;
+}) {
+  const { summary, extras, message } = props;
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
-      {summary}
+      <div>
+        {summary}
+        <div className="mt-6">{extras}</div>
+      </div>
       <div>
         <InfoBox>
           <p role="status">{message}</p>

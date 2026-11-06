@@ -9,11 +9,14 @@ export function InvoiceList({
   contractId,
   actor,
   locale,
+  showHeading = true,
 }: {
   invoices: Invoice[];
   contractId: string;
   actor: string;
   locale: Locale;
+  /** False when a surrounding panel already shows the title and the "none yet" text. */
+  showHeading?: boolean;
 }) {
   const t = getT(locale);
   const money = (cents: number) => formatEuro(cents, intlLocale[locale]);
@@ -26,15 +29,21 @@ export function InvoiceList({
     { net: 0, vat: 0, gross: 0 }
   );
   return (
-    <section className="space-y-4" aria-labelledby="invoices-title">
-      <h2 id="invoices-title" className="text-xl font-semibold">
-        {t('invoices.title')}
-      </h2>
+    <section
+      className={showHeading ? 'space-y-4' : 'space-y-3 text-sm'}
+      aria-labelledby={showHeading ? 'invoices-title' : undefined}
+      aria-label={showHeading ? undefined : t('invoices.title')}
+    >
+      {showHeading ? (
+        <h2 id="invoices-title" className="text-xl font-semibold">
+          {t('invoices.title')}
+        </h2>
+      ) : null}
       <p>{t('invoices.policy')}</p>
       <p>{t('invoices.separate')}</p>
       {invoices.length === 0 ? (
         <>
-          <p>{t('invoices.empty')}</p>
+          {showHeading ? <p>{t('invoices.empty')}</p> : null}
           <GenerateInvoices contractId={contractId} actor={actor} locale={locale} />
         </>
       ) : (
