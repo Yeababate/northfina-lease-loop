@@ -45,8 +45,12 @@ first-invoice gross and buyout, and explains any difference from the offer sent 
 signatory must explicitly accept that current offer. The API recalculates it in the audited
 transaction and rejects stale consent. On success, that transaction replaces the provisional
 financial snapshot, regenerates the PDF, writes the final lock date/version and activates the
-contract. If the saved lease start date has passed, the signatory cannot sign; the applicant
-must choose a new start date and send an updated application.
+contract. If the saved start date has passed, the authorised signatory selects a replacement
+start date on or after today and reviews the recalculated offer. Previewing dates does
+not mutate the contract or release its reservation. The final audited signature records
+the old and replacement dates and atomically updates the contract dates, line prices,
+PDF and all recipients’ reminder schedules. Expired-date consent is rejected. The original
+persisted quote remains unchanged.
 
 ## Invoice VAT explanation
 

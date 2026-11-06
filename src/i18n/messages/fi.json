@@ -692,5 +692,8 @@
   "waitlist.status.offered": "Tarjottu sinulle",
   "waitlist.status.expired": "Vanhentunut",
   "asset.unavailableDetails": "Tiedot ja jonoon liittyminen",
-  "asset.unavailableDetailsOf": "Tiedot ja jonoon liittyminen: {name}"
+  "asset.unavailableDetailsOf": "Tiedot ja jonoon liittyminen: {name}",
+  "signatory.replaceStart": "Valitse aloituspäiväksi tämä päivä tai myöhempi ja tarkista tarjous. Tuote pysyy varattuna. Uudet päivät ja hinnat vahvistetaan allekirjoituksella.",
+  "signatory.startDate": "Vuokran aloituspäivä",
+  "signatory.reviewDates": "Tarkista päivitetty tarjous"
 }

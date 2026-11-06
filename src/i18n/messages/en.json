@@ -692,5 +692,8 @@
   "waitlist.status.offered": "Offered to you",
   "waitlist.status.expired": "Expired",
   "asset.unavailableDetails": "Details and waiting list",
-  "asset.unavailableDetailsOf": "Details and waiting list for {name}"
+  "asset.unavailableDetailsOf": "Details and waiting list for {name}",
+  "signatory.replaceStart": "Choose a start date on or after today and review the updated offer. Your item stays reserved. New dates and prices take effect when you confirm and sign.",
+  "signatory.startDate": "Lease start date",
+  "signatory.reviewDates": "Review updated offer"
 }

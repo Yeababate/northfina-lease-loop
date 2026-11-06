@@ -11,6 +11,8 @@ import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
+import { rescheduleRemindersInTx } from './reminders/preferences';
+import { isoDateSchema } from '@/data/schemas';
 
 type Signer = { id: string; canonicalUsername: string };
 type PendingContract = {
@@ -86,7 +88,8 @@ async function offerForContract(
   db: Pick<PrismaClient, 'asset' | 'assetOwnership' | 'discountRule' | 'provider'>,
   contract: PendingContract | null,
   today: string,
-  data: SignatoryPricingData
+  data: SignatoryPricingData,
+  startOn?: string
 ) {
   if (!contract) throw new ApiError(404, 'CONTRACT_NOT_FOUND', 'Contract not found');
   const asset = await db.asset.findUnique({ where: { id: contract.assetId } });
@@ -98,14 +101,14 @@ async function offerForContract(
       assetId: contract.assetId,
       termMonths: contract.termMonths,
       downPaymentCents: contract.downPaymentCents,
-      startOn: contract.startOn,
+      startOn: startOn ?? contract.startOn,
     },
     today,
     await rulesForAsset(db, contract.assetId),
     assetPriceOverride(asset)
   );
   if (!priced.ok) return { ok: false as const, reason: priced.reason };
-  const vat = vatRateOn(data.vatRates.rates, contract.startOn);
+  const vat = vatRateOn(data.vatRates.rates, priced.price.startOn);
   if (!vat.ok) return { ok: false as const, reason: vat.reason };
   const price = priced.price;
   const snapshot: SignatoryOfferSnapshot = {
@@ -137,6 +140,7 @@ async function offerForContract(
     snapshot,
     price,
     offerChanged:
+      price.startOn !== contract.startOn ||
       price.monthlyNetCents !== contract.monthlyNetCents ||
       price.buyoutNetCents !== contract.buyoutNetCents ||
       price.priceListVersion !== contract.priceListVersion ||
@@ -167,7 +171,8 @@ export async function signatoryOffer(
   signer: Signer,
   contractId: string,
   today: string,
-  data: SignatoryPricingData
+  data: SignatoryPricingData,
+  startOn?: string
 ) {
   const contract = await contractForSignatory(db, signer, contractId);
   if (!contract) throw new ApiError(404, 'CONTRACT_NOT_FOUND', 'Contract not found');
@@ -177,7 +182,9 @@ export async function signatoryOffer(
   );
   if (!check.ok)
     throw new ApiError(409, 'NOT_WAITING_FOR_SIGNATURE', 'This contract is not waiting for you');
-  return offerForContract(db, contract, today, data);
+  if (startOn !== undefined && !isoDateSchema.safeParse(startOn).success)
+    throw new ApiError(422, 'INVALID_START_DATE', 'Choose a valid lease start date');
+  return offerForContract(db, contract, today, data, startOn);
 }
 
 function sameOffer(left: SignatoryOfferSnapshot, right: SignatoryOfferSnapshot) {
@@ -202,7 +209,9 @@ export async function signAsSignatory(
   );
   if (!check.ok)
     throw new ApiError(409, 'NOT_WAITING_FOR_SIGNATURE', 'This contract is not waiting for you');
-  const preview = await offerForContract(db, contract, today, data);
+  if (expected.startOn < today)
+    throw new ApiError(409, 'PRICE_CHANGED', 'Choose and review a new lease start date');
+  const preview = await offerForContract(db, contract, today, data, expected.startOn);
   if (!preview.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'The lease can no longer be priced for signing');
   if (!sameOffer(preview.snapshot, expected))
@@ -218,6 +227,8 @@ export async function signAsSignatory(
       details: {
         signatoryEmail: contract.signatoryEmail,
         signedOn: today,
+        previousStartOn: contract.startOn,
+        lockedStartOn: expected.startOn,
         quotedPriceListVersion: contract.quotedPriceListVersion,
         lockedPriceListVersion: preview.price.priceListVersion,
         previousMonthlyNetCents: contract.monthlyNetCents,
@@ -241,7 +252,7 @@ export async function signAsSignatory(
         );
       if ((await tx.invoice.count({ where: { contractId } })) > 0)
         throw new ApiError(409, 'INVOICES_ALREADY_ISSUED', 'Issued invoices prevent repricing');
-      const currentOffer = await offerForContract(tx, current, today, data);
+      const currentOffer = await offerForContract(tx, current, today, data, expected.startOn);
       if (!currentOffer.ok)
         throw new ApiError(422, 'INVALID_PRICE', 'The lease can no longer be priced for signing');
       if (!sameOffer(currentOffer.snapshot, expected))
@@ -309,6 +320,8 @@ export async function signAsSignatory(
       } else {
         await tx.contractDocument.create({ data: { contractId, ...document } });
       }
+      if (current.endOn !== updated.endOn)
+        await rescheduleRemindersInTx(tx, contractId, updated.endOn, new Date());
       const activated = await tx.contractLifecycle.updateMany({
         where: { contractId, status: AWAITING_SIGNATURE },
         data: { status: 'active', revision: { increment: 1 } },

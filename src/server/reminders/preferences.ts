@@ -264,3 +264,18 @@ export async function updateReminderSettings(
   );
   return getReminderSettings(db, input.contractId, input.recipientId);
 }
+
+/** Reconcile every recipient's schedule in the audited final-signature transaction. */
+export async function rescheduleRemindersInTx(
+  tx: TransactionClient,
+  contractId: string,
+  endOn: string,
+  now: Date
+) {
+  const rows = await tx.reminderPreference.findMany({ where: { contractId } });
+  for (const row of rows) {
+    const event = { contractId, recipientId: row.recipientId, endOn };
+    const { schedule } = validateReminderSetup(event, preferencesFromRow(row), now);
+    await applySchedule(tx, event, schedule, row.revision);
+  }
+}

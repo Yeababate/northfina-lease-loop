@@ -56,6 +56,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   clock.today = '2026-11-05';
+  await db.invoice.deleteMany();
   await db.contract.deleteMany();
   await db.discountRule.deleteMany();
   await db.asset.deleteMany();
@@ -146,6 +147,75 @@ describe('scenario 6: waiting for the company signatory', () => {
       (await signatureApi(json(url, SIGNATORY, { expected: offer.snapshot }), ctx(id))).status
     ).toBe(409);
     expect(await db.auditLog.count({ where: { action: 'contract.signatory_signed' } })).toBe(1);
+  });
+
+  it('replaces an expired start next day without releasing the reservation and rejects stale consent', async () => {
+    const { body } = await norviApplies();
+    const id = body.data.id as string;
+    const signer = await ensureDemoUser(db, SIGNATORY);
+    const original = await signatoryOffer(db, signer, id, clock.today, pricingData);
+    if (!original.ok) throw new Error('Expected original offer');
+    const beforePdf = await db.contractDocument.findUniqueOrThrow({ where: { contractId: id } });
+    clock.today = '2026-11-06';
+    expect(await signatoryOffer(db, signer, id, clock.today, pricingData)).toMatchObject({
+      ok: false,
+      reason: 'start_before_signing',
+    });
+    const url = `http://localhost/api/contracts/${id}/signature`;
+    const stale = await signatureApi(
+      json(url, SIGNATORY, { expected: original.snapshot }),
+      ctx(id)
+    );
+    expect(stale.status).toBe(409);
+    expect((await stale.json()).error.code).toBe('PRICE_CHANGED');
+    const replacement = await signatoryOffer(db, signer, id, clock.today, pricingData, clock.today);
+    if (!replacement.ok) throw new Error('Expected replacement offer');
+    expect(replacement.snapshot.priceListVersion).toBe(2);
+    expect(await db.contract.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      startOn: '2026-11-05',
+      lockedPriceListVersion: null,
+    });
+    expect(await db.asset.findUniqueOrThrow({ where: { id: 'ebike-004' } })).toMatchObject({
+      status: 'reserved',
+    });
+    const accepted = await signatureApi(
+      json(url, SIGNATORY, { expected: replacement.snapshot }),
+      ctx(id)
+    );
+    expect(accepted.status).toBe(200);
+    expect((await accepted.json()).data).toMatchObject({
+      startOn: '2026-11-06',
+      endOn: '2029-11-06',
+      signedOn: clock.today,
+      signatorySignedOn: clock.today,
+      lockedPriceListVersion: 2,
+    });
+    expect(await db.contractLine.findFirstOrThrow({ where: { contractId: id } })).toMatchObject({
+      monthlyNetCents: replacement.snapshot.monthlyNetCents,
+      priceListVersion: 2,
+    });
+    const reminders = await db.reminderOccurrence.findMany({ where: { contractId: id } });
+    expect(reminders.filter((row) => row.status === 'cancelled')).toHaveLength(3);
+    expect(reminders.filter((row) => row.status === 'pending')).toHaveLength(3);
+    expect(
+      reminders
+        .filter((row) => row.status === 'pending')
+        .every((row) => row.eventVersion === 'end:2029-11-06')
+    ).toBe(true);
+    const afterPdf = await db.contractDocument.findUniqueOrThrow({ where: { contractId: id } });
+    expect(afterPdf).not.toEqual(beforePdf);
+    const audit = await db.auditLog.findFirstOrThrow({
+      where: { entity_id: id, action: 'contract.signatory_signed' },
+    });
+    expect(JSON.stringify(audit)).toContain('previousStartOn');
+    const generated = await invoicesApi(
+      json(`http://localhost/api/contracts/${id}/invoices`, 'norvi', { actor: 'Norvi' }),
+      ctx(id)
+    );
+    expect(generated.status).toBe(200);
+    expect(
+      await db.invoice.findFirstOrThrow({ where: { contractId: id }, orderBy: { period: 'asc' } })
+    ).toMatchObject({ invoiceDate: '2026-11-06', netCents: replacement.snapshot.monthlyNetCents });
   });
 
   it('requires a fresh offer review when pricing changes while the contract waits', async () => {

@@ -21,6 +21,8 @@ type AwaitingSignatureProps = {
   signatoryEmail: string;
   companyName: string;
   sentOn: string;
+  today: string;
+  startOn: string;
   /** Who is looking: the applicant who sent it, or the signatory who must sign. */
   viewer: 'applicant' | 'signatory';
   currentOffer?:
@@ -32,6 +34,7 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
   const { contractId, locale, signatoryEmail, companyName, viewer } = props;
   const t = getT(locale);
   const router = useRouter();
+  const [dateDirty, setDateDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [consentedOffer, setConsentedOffer] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
   const path = `/${locale}/contracts/${encodeURIComponent(contractId)}`;
 
   async function sign() {
+    setProblemCode(null);
     setBusy(true);
     try {
       if (!offer || !consented) return;
@@ -97,9 +101,32 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
       </ol>
       {viewer === 'signatory' ? (
         <div className="mt-4">
+          <form method="get" className="mb-4 space-y-2">
+            <p>{t('signatory.replaceStart')}</p>
+            <label htmlFor="signatory-start">{t('signatory.startDate')}</label>
+            <input
+              id="signatory-start"
+              name="startOn"
+              type="date"
+              required
+              min={props.today}
+              onChange={() => {
+                setConsentedOffer(null);
+                setDateDirty(true);
+              }}
+              defaultValue={props.startOn < props.today ? props.today : props.startOn}
+              className="mx-2 rounded border p-2"
+            />
+            <button type="submit" className={secondaryButton}>
+              {t('signatory.reviewDates')}
+            </button>
+          </form>
           {offer ? (
             <div className="mb-4 rounded-xl border border-stone-300 bg-white p-4 text-sm dark:border-stone-700 dark:bg-stone-900">
               <h3 className="font-semibold">{t('signatory.currentOffer')}</h3>
+              <p>
+                {t('signatory.startDate')}: {formatIsoDate(offer.snapshot.startOn, locale)}
+              </p>
               <p className="mt-2">
                 {t('discount.original')}:{' '}
                 {formatEuro(offer.snapshot.originalMonthlyNetCents, intlLocale[locale])}
@@ -141,6 +168,7 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
                   id="signatory-offer-consent"
                   type="checkbox"
                   checked={consented}
+                  disabled={dateDirty}
                   onChange={(event) => setConsentedOffer(event.target.checked ? offerKey : null)}
                   className="mt-1 size-4 accent-blue-600"
                 />
@@ -154,7 +182,7 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
           )}
           <button
             type="button"
-            disabled={busy || !offer || !consented}
+            disabled={busy || dateDirty || !offer || !consented}
             onClick={sign}
             className={`${primaryButton} disabled:cursor-not-allowed disabled:opacity-50`}
           >

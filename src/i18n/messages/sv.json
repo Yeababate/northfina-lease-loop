@@ -692,5 +692,8 @@
   "waitlist.status.offered": "Erbjuden dig",
   "waitlist.status.expired": "Utgången",
   "asset.unavailableDetails": "Detaljer och väntelista",
-  "asset.unavailableDetailsOf": "Detaljer och väntelista för {name}"
+  "asset.unavailableDetailsOf": "Detaljer och väntelista för {name}",
+  "signatory.replaceStart": "Välj ett startdatum tidigast idag och granska erbjudandet. Varan förblir reserverad. Nya datum och priser fastställs vid underskrift.",
+  "signatory.startDate": "Hyresavtalets startdatum",
+  "signatory.reviewDates": "Granska uppdaterat erbjudande"
 }

@@ -86,19 +86,27 @@ export default async function ContractPage({
         : null,
       loadLeaseActivity(db, id, { id: principal.id, displayName: principal.displayName }),
     ]);
+  const query = await searchParams;
+  const selectedStart = isoDateSchema.safeParse(query.startOn);
   const currentSignatoryOffer =
     viewerIsSignatory && awaiting
-      ? await signatoryOffer(db, principal, id, today, {
-          lists: await loadPriceLists(),
-          table: await loadCoefficientTable(),
-          vatRates: vat,
-        })
+      ? await signatoryOffer(
+          db,
+          principal,
+          id,
+          today,
+          {
+            lists: await loadPriceLists(),
+            table: await loadCoefficientTable(),
+            vatRates: vat,
+          },
+          selectedStart.success ? selectedStart.data : undefined
+        )
       : null;
   const name = assets
     .map((asset, index) => (asset ? `${asset.make} ${asset.model}` : assetIds[index]))
     .join(' + ');
   const grossToday = invoicePrice(contract, vat, today);
-  const query = await searchParams;
   const vatDate = isoDateSchema.safeParse(query.invoiceDate ?? today);
   const vatCheck = vatDate.success ? invoicePrice(contract, vat, vatDate.data) : null;
   const canRate = ratingEligibility({ ...contract, status }, principal.id).ok;
@@ -225,6 +233,8 @@ export default async function ContractPage({
               signatoryEmail={contract.signatoryEmail}
               companyName={contract.actor}
               sentOn={contract.signedOn}
+              today={today}
+              startOn={selectedStart.success ? selectedStart.data : contract.startOn}
               viewer={viewerIsSignatory ? 'signatory' : 'applicant'}
               currentOffer={
                 currentSignatoryOffer

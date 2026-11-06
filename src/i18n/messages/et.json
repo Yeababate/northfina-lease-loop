@@ -692,5 +692,8 @@
   "waitlist.status.offered": "Sulle pakutud",
   "waitlist.status.expired": "Aegunud",
   "asset.unavailableDetails": "Üksikasjad ja ootejärjekord",
-  "asset.unavailableDetailsOf": "Üksikasjad ja ootejärjekord: {name}"
+  "asset.unavailableDetailsOf": "Üksikasjad ja ootejärjekord: {name}",
+  "signatory.replaceStart": "Vali alguskuupäev tänaseks või hilisemaks ja vaata pakkumine üle. Ese jääb broneerituks. Uued kuupäevad ja hinnad kinnitatakse allkirjastamisel.",
+  "signatory.startDate": "Üüri alguskuupäev",
+  "signatory.reviewDates": "Vaata uuendatud pakkumist"
 }
