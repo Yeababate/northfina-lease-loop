@@ -26,7 +26,6 @@ import { ApiError } from '@/server/api-response';
 import { getAsset } from '@/server/assets';
 import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
-import { readDemoName } from '@/server/demo-session';
 import { readExitView } from '@/server/exit-requests';
 import { getParticipantContract } from '@/server/profile';
 import { loadLeaseActivity } from '@/server/lease-activity';
@@ -60,7 +59,6 @@ export default async function ContractPage({
 
   const assetIds =
     contract.lines.length > 0 ? contract.lines.map((line) => line.assetId) : [contract.assetId];
-  const demoName = await readDemoName();
   const [assets, document, invoices, vat, exitView, rating, reminders, activity] =
     await Promise.all([
       Promise.all(assetIds.map((assetId) => getAsset(db, assetId))),
@@ -69,8 +67,8 @@ export default async function ContractPage({
       loadVatRates(),
       isRenter ? readExitView(db, id, principal.id, today) : null,
       ownContractRating(db, id, principal.id),
-      isRenter && demoName
-        ? getReminderSettings(db, id, demoName).catch((error: unknown) => {
+      isRenter
+        ? getReminderSettings(db, id, principal.id).catch((error: unknown) => {
             if (error instanceof ApiError && error.status === 404) return null;
             throw error;
           })

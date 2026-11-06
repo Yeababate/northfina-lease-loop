@@ -17,8 +17,12 @@ vi.mock('@/server/db', () => ({
   },
 }));
 const customer = vi.hoisted(() => ({ id: 'cust-aino' as string | null }));
-vi.mock('@/server/demo-session', () => ({
-  readDemoName: async () => customer.id,
+// The signed-in participant; reminders belong to their stable id.
+vi.mock('@/server/current-principal', () => ({
+  currentPrincipal: async () =>
+    customer.id
+      ? { id: customer.id, displayName: customer.id, canonicalUsername: customer.id }
+      : null,
 }));
 
 let db: PrismaClient;

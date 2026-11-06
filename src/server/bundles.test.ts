@@ -8,13 +8,14 @@ import { seedAssets } from './assets';
 import {
   bookableBundlesWithAsset,
   createBundleOffer,
-  DEMO_PROVIDER_ID,
+  LEGACY_FLEET_PROVIDER_ID,
   getBundleOffer,
   listBundleOffers,
   seedBundleOffers,
   updateBundleOffer,
 } from './bundles';
 import type { PrismaClient } from './prisma-client';
+import { PROVIDER_COOKIE, seedDealerSide } from './providers';
 
 vi.mock('@/server/db', () => ({
   get db() {
@@ -25,7 +26,9 @@ vi.mock('@/server/db', () => ({
 let db: PrismaClient;
 let cleanup: () => Promise<void>;
 const terms = [12, 24, 36, 48];
-const options = { providerId: DEMO_PROVIDER_ID, supportedTerms: terms };
+// The seed gives laptops and most e-bikes to Kettu (src/server/providers.ts).
+const KETTU = 'provider-kettu';
+const options = { providerId: KETTU, supportedTerms: terms };
 const input = {
   name: 'Commuter kit',
   description: 'Bike and laptop',
@@ -44,15 +47,20 @@ beforeEach(async () => {
   await db.bundleOffer.deleteMany();
   await db.auditLog.deleteMany();
   await db.asset.deleteMany();
-  await seedAssets(db, await loadAssets());
+  const assets = await loadAssets();
+  await seedAssets(db, assets);
+  await seedDealerSide(db, assets); // stores who owns each item
+  await db.auditLog.deleteMany(); // tests below count only their own audit rows
 });
 
 const json = (body: unknown, method = 'POST') =>
   new Request('http://test/api/bundles', {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', cookie: providerCookie },
     body: JSON.stringify(body),
   });
+const get = (url: string) => new Request(url, { headers: { cookie: providerCookie } });
+const providerCookie = `${PROVIDER_COOKIE}=${KETTU}`;
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 describe('bundle groupings', () => {
@@ -60,7 +68,7 @@ describe('bundle groupings', () => {
     const offer = await createBundleOffer(db, input, { ...options, id: 'kit' });
     expect(offer).toMatchObject({
       id: 'kit',
-      providerId: DEMO_PROVIDER_ID,
+      providerId: KETTU,
       assetIds: ['ebike-002', 'laptop-001'],
       terms: [24, 36],
       revision: 1,
@@ -98,12 +106,12 @@ describe('bundle groupings', () => {
     expect(await bookableBundlesWithAsset(db, 'ebike-002')).toEqual([]);
     expect(await getBundleOffer(db, 'kit', { providerId: null })).toBeNull();
 
-    const [mine] = await listBundleOffers(db, { kind: 'provider', providerId: DEMO_PROVIDER_ID });
+    const [mine] = await listBundleOffers(db, { kind: 'provider', providerId: KETTU });
     expect(mine?.availability).toEqual({
       bookable: false,
       reasons: [{ code: 'component_not_available', assetId: 'laptop-001', status: 'reserved' }],
     });
-    expect(await getBundleOffer(db, 'kit', { providerId: DEMO_PROVIDER_ID })).not.toBeNull();
+    expect(await getBundleOffer(db, 'kit', { providerId: KETTU })).not.toBeNull();
     // Editing or blocking a bundle never reserves or changes inventory.
     expect((await db.asset.findUnique({ where: { id: 'ebike-002' } }))?.status).toBe('available');
   });
@@ -111,7 +119,7 @@ describe('bundle groupings', () => {
   it('keeps unpublished bundles to the provider', async () => {
     await createBundleOffer(db, { ...input, published: false }, { ...options, id: 'draft' });
     expect(await listBundleOffers(db, { kind: 'public' })).toEqual([]);
-    const [draft] = await listBundleOffers(db, { kind: 'provider', providerId: DEMO_PROVIDER_ID });
+    const [draft] = await listBundleOffers(db, { kind: 'provider', providerId: KETTU });
     expect(draft?.availability.reasons).toEqual([{ code: 'not_published' }]);
     expect(await listBundleOffers(db, { kind: 'provider', providerId: 'other' })).toEqual([]);
   });
@@ -147,7 +155,7 @@ describe('bundle groupings', () => {
         options
       )
     ).rejects.toMatchObject({ status: 422 });
-    const kept = await getBundleOffer(db, 'kit', { providerId: DEMO_PROVIDER_ID });
+    const kept = await getBundleOffer(db, 'kit', { providerId: KETTU });
     expect(kept?.assetIds).toEqual(['laptop-001', 'ebike-003', 'ebike-002']);
     expect((await db.auditLog.findMany()).map((row) => row.action)).toEqual([
       'bundle_offer.created',
@@ -160,12 +168,43 @@ describe('bundle groupings', () => {
     expect(await seedBundleOffers(db, seeds, terms)).toEqual({
       created: seeds.length,
       skipped: 0,
+      unowned: 0,
+      reowned: 0,
     });
     expect(await seedBundleOffers(db, seeds, terms)).toEqual({
       created: 0,
       skipped: seeds.length,
+      unowned: 0,
+      reowned: 0,
     });
-    expect((await listBundleOffers(db, { kind: 'public' })).length).toBe(seeds.length);
+    const offers = await listBundleOffers(db, { kind: 'public' });
+    expect(offers.length).toBe(seeds.length);
+    // Each example belongs to the provider of its items: the hay set to Pelto.
+    expect(offers.find((o) => o.id === 'hay-season-set')?.providerId).toBe('provider-pelto');
+  });
+
+  it('moves a bundle saved under the old placeholder provider to its real provider', async () => {
+    await db.bundleOffer.create({
+      data: {
+        id: 'old-kit',
+        providerId: LEGACY_FLEET_PROVIDER_ID,
+        name: 'Old kit',
+        description: '',
+        terms_json: '[36]',
+        published: true,
+        items: {
+          create: [
+            { assetId: 'ebike-002', position: 0 },
+            { assetId: 'laptop-001', position: 1 },
+          ],
+        },
+      },
+    });
+    expect(await listBundleOffers(db, { kind: 'public' })).toEqual([]);
+    expect((await seedBundleOffers(db, [], terms)).reowned).toBe(1);
+    const [offer] = await listBundleOffers(db, { kind: 'public' });
+    expect(offer).toMatchObject({ id: 'old-kit', providerId: KETTU, revision: 2 });
+    expect(await db.auditLog.count({ where: { action: 'bundle_offer.reowned' } })).toBe(1);
   });
 });
 
@@ -176,10 +215,10 @@ describe('bundle API routes', () => {
     const { data } = await created.json();
     expect(data.assetIds).toEqual(input.assetIds);
 
-    const listed = await (await list(new Request('http://test/api/bundles'), undefined)).json();
+    const listed = await (await list(get('http://test/api/bundles'), undefined)).json();
     expect(listed.data.map((o: { id: string }) => o.id)).toEqual([data.id]);
 
-    const one = await getOne(new Request(`http://test/api/bundles/${data.id}`), params(data.id));
+    const one = await getOne(get(`http://test/api/bundles/${data.id}`), params(data.id));
     expect(one.status).toBe(200);
 
     const put = await PUT(
@@ -188,17 +227,14 @@ describe('bundle API routes', () => {
     );
     expect((await put.json()).data).toMatchObject({ revision: 2, published: false });
 
-    const hidden = await getOne(new Request(`http://test/api/bundles/${data.id}`), params(data.id));
+    const hidden = await getOne(get(`http://test/api/bundles/${data.id}`), params(data.id));
     expect(hidden.status).toBe(404);
     const provider = await getOne(
-      new Request(`http://test/api/bundles/${data.id}?scope=provider`),
+      get(`http://test/api/bundles/${data.id}?scope=provider`),
       params(data.id)
     );
     expect(provider.status).toBe(200);
-    const providerList = await list(
-      new Request('http://test/api/bundles?scope=provider'),
-      undefined
-    );
+    const providerList = await list(get('http://test/api/bundles?scope=provider'), undefined);
     expect((await providerList.json()).data).toHaveLength(1);
   });
 

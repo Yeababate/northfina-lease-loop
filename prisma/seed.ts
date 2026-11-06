@@ -15,12 +15,15 @@ try {
   const assets = await loadAssets();
   const { created, skipped } = await seedAssets(db, assets);
   console.log(`🌱 Seeded ${created} new assets (${skipped} were already there).`);
-  const [offers, table] = await Promise.all([loadBundleOffers(), loadCoefficientTable()]);
-  const bundles = await seedBundleOffers(db, offers, availableTerms(table));
-  console.log(`🌱 Seeded ${bundles.created} new bundles (${bundles.skipped} were already there).`);
+  // Ownership first: each example bundle belongs to the provider of its items.
   const dealer = await seedDealerSide(db, assets);
   console.log(
     `🌱 Dealer side: ${dealer.providers} providers, ${dealer.ownership} ownership rows, ${dealer.intakes} imported returns.`
+  );
+  const [offers, table] = await Promise.all([loadBundleOffers(), loadCoefficientTable()]);
+  const bundles = await seedBundleOffers(db, offers, availableTerms(table));
+  console.log(
+    `🌱 Seeded ${bundles.created} new bundles (${bundles.skipped} were already there, ${bundles.unowned} without a single provider, ${bundles.reowned} moved to their real provider).`
   );
   const participants = await seedDemoParticipants(db);
   console.log(
