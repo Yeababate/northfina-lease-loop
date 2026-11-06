@@ -9,6 +9,7 @@ import { ApiError } from './api-response';
 import { assetPriceOverride, toAsset } from './assets';
 import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
+import { completePassOnInTx, getPassOnPrice } from './end-of-term';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
 import type { Locale } from '@/i18n/locales';
@@ -38,6 +39,7 @@ export async function signContract(
     expectedPriceListVersion: number;
     expectedPriceSource?: PriceSource;
     expectedListPriceCents?: number;
+    passOnContractId?: string;
     expectedDiscountRuleId?: string | null;
     expectedDiscountRuleRevision?: number | null;
     participants?: SigningParticipants;
@@ -58,13 +60,23 @@ export async function signContract(
     rulesForAsset(db, input.assetId),
   ]);
   if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  const passOnId = input.passOnContractId;
+  if (passOnId && !input.participants)
+    throw new ApiError(401, 'LOGIN_REQUIRED', 'Select the nominated demo renter first');
+  const passOnPrice =
+    passOnId && input.participants
+      ? await getPassOnPrice(db, passOnId, input.assetId, input.participants.renterId, signedOn, {
+          lists,
+          table,
+        })
+      : undefined;
   const result = priceContract(
     lists,
     table,
     pricingInput,
     signedOn,
     discountRules,
-    assetPriceOverride(assetSnapshot)
+    passOnPrice ?? assetPriceOverride(assetSnapshot)
   );
   if (!result.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
@@ -111,9 +123,11 @@ export async function signContract(
       action: 'contract.signed',
       entityType: 'contract',
       entityId: id,
-      details: reminderSetup
-        ? { ...result.price, reminderPreferences: reminderSetup.preferences }
-        : result.price,
+      details: {
+        ...result.price,
+        ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
+        ...(passOnId && { passOnContractId: passOnId }),
+      },
     },
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
@@ -125,13 +139,24 @@ export async function signContract(
           (owner !== null && owner.providerId !== input.participants.providerId))
       )
         throw new ApiError(409, 'PROVIDER_CHANGED', 'The provider changed. Review before signing');
+      const currentPassOn =
+        passOnId && input.participants
+          ? await getPassOnPrice(
+              tx,
+              passOnId,
+              input.assetId,
+              input.participants.renterId,
+              signedOn,
+              { lists, table }
+            )
+          : undefined;
       const currentPrice = priceContract(
         lists,
         table,
         pricingInput,
         signedOn,
         await rulesForAsset(tx, input.assetId),
-        assetPriceOverride(asset)
+        currentPassOn ?? assetPriceOverride(asset)
       );
       if (!currentPrice.ok)
         throw new ApiError(
@@ -159,12 +184,23 @@ export async function signContract(
           'PRICE_CHANGED',
           'The price changed. Refresh and review before signing'
         );
-      const reserved = await tx.asset.updateMany({
-        where: { id: input.assetId, status: 'available' },
-        data: { status: 'reserved' },
-      });
-      if (reserved.count !== 1)
-        throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+      if (passOnId && currentPassOn) {
+        await completePassOnInTx(tx, {
+          contractId: passOnId,
+          nextContractId: id,
+          assetId: asset.id,
+          endOn: currentPassOn.endOn,
+          today: signedOn,
+          priceCents: currentPassOn.priceCents,
+        });
+      } else {
+        const reserved = await tx.asset.updateMany({
+          where: { id: input.assetId, status: 'available' },
+          data: { status: 'reserved' },
+        });
+        if (reserved.count !== 1)
+          throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+      }
       const { assetId, ...linePrice } = currentPrice.price;
       const contract = await tx.contract.create({
         data: {
@@ -225,6 +261,7 @@ export type SignApplicationInput = {
   expectedPriceListVersion: number;
   expectedPriceSource?: PriceSource;
   expectedListPriceCents?: number;
+  passOnContractId?: string;
   expectedDiscountRuleId?: string | null;
   expectedDiscountRuleRevision?: number | null;
   locale?: Locale;
@@ -256,6 +293,12 @@ export async function signApplication(
   ]);
   if (!assetRow) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   const asset = toAsset(assetRow);
+  if (input.passOnContractId && !principalId)
+    throw new ApiError(401, 'LOGIN_REQUIRED', 'Select the nominated demo renter first');
+  const passOnPrice =
+    input.passOnContractId && principalId
+      ? await getPassOnPrice(db, input.passOnContractId, input.assetId, principalId, signedOn, data)
+      : undefined;
 
   const priced = priceContract(
     data.lists,
@@ -263,7 +306,7 @@ export async function signApplication(
     input,
     signedOn,
     discountRules,
-    assetPriceOverride(assetRow)
+    passOnPrice ?? assetPriceOverride(assetRow)
   );
   if (!priced.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', priced.reason);

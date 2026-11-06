@@ -16,6 +16,9 @@ async function finish(tx: TransactionClient, exitId: string, today: string, acto
   const { context, assetIds } = await loadExitContract(tx, request.contractId);
   if (context.status !== 'active')
     throw new ApiError(409, 'CONTRACT_COMPLETED', 'This lease is already complete');
+  const endTerm = await tx.endTermChoice.findUnique({ where: { contractId: request.contractId } });
+  if (endTerm?.kind === 'pass_on' && !endTerm.completedOn)
+    throw new ApiError(409, 'EXIT_CHANGED', 'The lease is pending a pass-on');
   if (
     request.kind === 'return' &&
     !returnCanComplete(

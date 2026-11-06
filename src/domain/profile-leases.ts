@@ -17,7 +17,9 @@ export type LeaseDirection = 'incoming' | 'outgoing';
 
 /** Actual operational completion is not inferred from a passed calendar date. */
 export function isCompletedLease(lease: ProfileLease): boolean {
-  return ['completed_return', 'completed_buyout'].includes(lease.lifecycle?.status ?? '');
+  return ['completed_return', 'completed_buyout', 'passed_on'].includes(
+    lease.lifecycle?.status ?? ''
+  );
 }
 
 export function effectiveLeaseEnd(lease: ProfileLease): string {

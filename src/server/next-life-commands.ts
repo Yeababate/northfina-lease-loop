@@ -20,6 +20,7 @@ import {
 import { ApiError } from './api-response';
 import { hasWaitingListReservation, toAsset } from './assets';
 import { withAudit, type TransactionClient } from './audit';
+import { completeEndTermReturnInTx } from './end-of-term';
 import { loadIntake, sequencedId } from './next-life-reads';
 import { priceNextLife } from './next-life-pricing';
 import type { PrismaClient } from './prisma-client';
@@ -51,11 +52,17 @@ async function completeLease(
   today: string,
   actor: string
 ): Promise<boolean> {
+  if (intake.contractId) {
+    const choice = await tx.endTermChoice.findUnique({ where: { contractId: intake.contractId } });
+    if (choice && choice.kind !== 'end_return') return false;
+  }
   const marked = await tx.returnIntake.updateMany({
     where: { id: intake.id, completedOn: null },
     data: { completedOn: today },
   });
   if (marked.count !== 1) return false;
+  if (intake.contractId)
+    await completeEndTermReturnInTx(tx, intake.contractId, intake.assetId, today);
   await tx.asset.update({
     where: { id: intake.assetId },
     data: { previous_lives: { increment: 1 } },
@@ -93,11 +100,18 @@ export async function recordReceipt(
       details,
     },
     async (tx) => {
-      const [contract, asset, existing] = await Promise.all([
+      const [contract, asset, existing, choice] = await Promise.all([
         tx.contract.findUniqueOrThrow({ where: { id: contractId } }),
         tx.asset.findUniqueOrThrow({ where: { id: link.assetId } }),
         tx.returnIntake.findFirst({ where: { contractId, assetId: link.assetId } }),
+        tx.endTermChoice.findUnique({ where: { contractId } }),
       ]);
+      if (choice && choice.kind !== 'end_return')
+        throw new ApiError(
+          409,
+          'ENDING_ALREADY_CHOSEN',
+          'This lease already has another ending in progress'
+        );
       const check = checkReceipt(
         {
           startOn: contract.startOn,
@@ -144,9 +158,13 @@ export async function recordReceipt(
  * Finalizes every received lease whose exclusive end has arrived. Idempotent; called by the
  * returns API before reading and by relisting. A startup/background runner can call it too.
  */
-export async function finalizeDueReturns(db: PrismaClient, today: string) {
+export async function finalizeDueReturns(db: PrismaClient, today: string, contractIds?: string[]) {
   const open = await db.returnIntake.findMany({
-    where: { completedOn: null, receivedOn: { not: null }, contractId: { not: null } },
+    where: {
+      completedOn: null,
+      receivedOn: { not: null },
+      contractId: { not: null, in: contractIds },
+    },
   });
   let completed = 0;
   for (const intake of open) {

@@ -84,6 +84,7 @@ model Contract {
   lifecycle               ContractLifecycle?
   document                ContractDocument?
   exitRequests            ExitRequest[]
+  endTermChoice           EndTermChoice?
   lifeCompletions         AssetLifeCompletion[]
 
   @@index([assetId])
@@ -310,6 +311,17 @@ model ExitReceipt {
   receivedBy String
 
   @@unique([exitId, assetId])
+}
+
+model EndTermChoice {
+  contractId     String   @id
+  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  kind           String
+  requestedOn    String
+  nomineeId      String?
+  completedOn    String?
+  nextContractId String?
+  settlementJson String?
 }
 
 // Unique per physical life even when a contract contains several bundled assets.
