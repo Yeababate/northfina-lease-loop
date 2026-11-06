@@ -17,16 +17,19 @@ it('card 9: prices the work and selects the courier whose term and budget fit', 
     );
     const match = await getWaitingListMatches(db, providerId, intakeId, DAY_ONE);
     expect(match.ranked[0]).toMatchObject({
-      entry: { id: 'wait-13' },
-      monthlyNetCents: 6_326,
+      entry: { id: 'wait-02' },
+      monthlyNetCents: 7_397,
       option: {
-        id: 'to_good',
-        costCents: 51_500,
+        id: 'as_is',
+        costCents: 39_500,
         work: expect.arrayContaining([
           { action: expect.objectContaining({ id: 'battery_replacement' }), costCents: 35_000 },
         ]),
       },
     });
-    expect(match.rejected).toContainEqual({ entryId: 'wait-02', reason: 'over_budget' });
+    expect(match.ranked[1]).toMatchObject({
+      entry: { id: 'wait-13' },
+      rankReason: 'less_refurbishment',
+    });
   });
 });

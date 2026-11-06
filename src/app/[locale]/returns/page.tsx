@@ -18,6 +18,7 @@ import { getReturn, listReturns } from '@/server/next-life-reads';
 import { listProviders, PROVIDER_COOKIE } from '@/server/providers';
 import { todayIso } from '@/server/today';
 import { getWaitingListMatches } from '@/server/waiting-list';
+import { expireWaitingPlacements } from '@/server/waiting-list-expiry';
 
 export default async function ReturnsPage({
   params,
@@ -35,11 +36,22 @@ export default async function ReturnsPage({
   const wanted = typeof query.intake === 'string' ? query.intake : undefined;
 
   // The same order as GET /api/returns: finalize due leases first so holds reflect today.
-  if (provider) await finalizeDueReturns(db, today);
-  const returns = provider ? await listReturns(db, provider.id) : [];
+  if (provider) {
+    await expireWaitingPlacements(db, today);
+    await finalizeDueReturns(db, today);
+  }
+  const returns = provider ? await listReturns(db, provider.id, today) : [];
   const intakeId = wanted ?? returns[0]?.id;
   const detail =
-    provider && intakeId ? await orNull(getReturn(db, provider.id, intakeId), [404]) : null;
+    provider && intakeId ? await orNull(getReturn(db, provider.id, intakeId, today), [404]) : null;
+  const recipients =
+    detail?.placement && !detail.placement.participantId
+      ? await db.demoUser.findMany({
+          where: { id: { not: provider!.id } },
+          select: { id: true, displayName: true },
+          orderBy: { displayName: 'asc' },
+        })
+      : [];
   const matches =
     provider && detail && detail.current && detail.stage !== 'relisted'
       ? await orNull(getWaitingListMatches(db, provider.id, detail.id, today), [409, 422])
@@ -100,6 +112,7 @@ export default async function ReturnsPage({
                 locale={locale}
                 detail={detail}
                 matches={matches}
+                recipients={recipients}
               />
             ) : intakeId ? (
               <p className="text-sm">{t('returns.notFound')}</p>

@@ -4,25 +4,24 @@ import { DAY_TWO, withScenario } from './fixtures';
 
 // Card 9 as the customer sees it on ebike-007's page: read-only, from the same decision and
 // ranking the provider's match proposal uses, before anyone has inspected the item.
-it('card 9: ebike-007’s page says it is refurbished and offered to wait-13 first, and why', async () => {
+it('card 9: ebike-007’s page says it is refurbished and offered fairly to wait-02 with mandatory work, and why', async () => {
   await withScenario(async (db) => {
     await seedWaitingList(db);
     const note = await secondLifeNote(db, 'ebike-007', DAY_TWO);
     expect(note).toMatchObject({
       fromCondition: 'fair',
       plan: {
-        toCondition: 'good',
-        costCents: 51_500,
+        toCondition: 'fair',
+        costCents: 39_500,
         work: [
           { id: 'battery_replacement', costCents: 35_000 },
           { id: 'safety_inspection', costCents: 4_500 },
-          { id: 'upgrade:fair->good', costCents: 12_000 },
         ],
       },
-      winner: { id: 'wait-13', termMonths: 24, monthlyNetCents: 6_326 },
+      winner: { id: 'wait-02', termMonths: 12, monthlyNetCents: 7_397 },
     });
     expect(note?.others).toContainEqual(
-      expect.objectContaining({ id: 'wait-02', reason: 'over_budget' })
+      expect.objectContaining({ id: 'wait-13', reason: 'lost:less_refurbishment' })
     );
   });
 });

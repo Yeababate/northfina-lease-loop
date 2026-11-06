@@ -847,6 +847,14 @@
   "dealers.how.straight": "Kaugus on linnulennul linnakeskuste vahel, mitte sõiduteekond.",
   "dealers.how.rounded": "Asukohad on ümardatud 0,1 kraadini, seega on kaugused ümardatud lähima 5 km-ni.",
   "dealers.how.private": "Tänavaaadresse ei salvestata ega näidata. Küsi edasimüüjalt, kust toote kätte saad.",
+  "pricing.monthlyNet": "{amount} / kuu, käibemaksuta",
+  "pricing.monthlyGross": "{amount} / kuu, käibemaksuga",
+  "pricing.registeredNote": "Käibemaksukohustuslasest ettevõte: esmalt kuvatakse käibemaksuta rent. Tasumisele kuuluv summa sisaldab endiselt käibemaksu.",
+  "applicationTerms.usage": "Deklareeritud kasutus",
+  "applicationTerms.deliveryCheck": "Deklareeritud kullerikasutus: tagastamisel kontrollige läbisõitu, akut ja ohutust. Väärtus põhineb ülevaatuse näitudel; automaatset kullerikasutuse lisatasu ei ole.",
+  "sign.error.ASSET_ALREADY_OFFERED": "Toode on reserveeritud teisele ootenimekirja kliendile. Vali teine toode.",
+  "sign.error.OFFER_CHANGED": "Ootenimekirja pakkumine muutus. Ava oma taotlus ning vaata toode ja liisinguperiood uuesti üle.",
+  "sign.error.PLACEMENT_REQUIRED": "Pakkumine on aegunud või pole sulle enam saadaval. Kontrolli selle olekut oma ootenimekirja taotluses.",
   "audit.nav": "Auditilogi",
   "audit.title": "Auditilogi",
   "audit.intro": "Kes mida ja millal tegi, uusim eespool. Kuni {count} rida.",
@@ -949,5 +957,9 @@
   "returns.reject.condition_too_low": "seisukord on halvem, kui nad aktsepteerivad",
   "returns.reject.refurbishment_not_worth_it": "nende jaoks taastamine ei tasu end ära",
   "returns.reject.unfinanceable": "üüri ei saa nende perioodiks hinnastada",
-  "returns.reject.over_budget": "üür ületab eelarve"
+  "returns.reject.over_budget": "üür ületab eelarve",
+  "returns.placement.offer": "Pakkumine {entry} on reserveeritud ootenimekirja kliendile.",
+  "returns.placement.customer": "Pakkumise vastu võttev klient",
+  "returns.placement.chooseCustomer": "Vali klient",
+  "returns.placement.prepare": "Valmista kliendi pakkumine ette"
 }

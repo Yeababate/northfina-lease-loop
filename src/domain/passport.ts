@@ -1,6 +1,7 @@
 import type { Asset, AssetCategory, RefurbishmentCosts } from '@/data/schemas';
 import { estimateRentalCo2Saving, type ImpactEstimateInput } from './co2-impact';
 import { parseRefurbishmentRule } from './refurbishment-rules';
+import { AWAITING_SIGNATURE } from './signatory';
 
 export type PassportReading = Pick<Asset, 'condition' | 'usage'>;
 export type PassportEnding = 'active' | 'returned' | 'bought_out' | 'exited_early' | 'passed_on';
@@ -21,6 +22,14 @@ export type PassportLifeFact = {
   refurbishment: readonly PassportWork[];
 };
 type Impact = Pick<ImpactEstimateInput, 'factors' | 'wearPolicy' | 'method'>;
+
+/**
+ * A contract counts as a lease life once it is signed. A company application still waiting
+ * for its signatory is not a life yet. A legacy contract with no lifecycle row still counts.
+ */
+export function isLeaseLife(lifecycleStatus: string | null | undefined): boolean {
+  return lifecycleStatus !== AWAITING_SIGNATURE;
+}
 
 /** Each life uses its signed reading, never the item's latest condition. */
 export function buildPassport(input: {

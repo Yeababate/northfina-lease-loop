@@ -49,8 +49,21 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
 
+  const principal = await currentPrincipal();
+  const placements = await db.waitingListEntry.findMany({
+    where: { status: 'offered', neededBy: { gte: today }, offeredAssetId: { not: null } },
+    select: { offeredAssetId: true, participantId: true },
+  });
+  const held = new Map(placements.map((entry) => [entry.offeredAssetId, entry.participantId]));
   const items: CatalogueItem[] = assetRows.map((row) => {
     const asset = toAsset(row);
+    if (
+      asset.status === 'available' &&
+      (held.has(asset.id)
+        ? !principal || held.get(asset.id) !== principal.id
+        : asset.condition === 'fair' || asset.condition === 'poor')
+    )
+      asset.status = 'reserved';
     const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(row));
     return { asset, listPriceCents: price.ok ? price.priceCents : null };
   });
@@ -69,7 +82,6 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     query
   );
   const shownIds = shown.map((item) => item.asset.id);
-  const principal = await currentPrincipal();
   const [providers, deals, readiness] = await Promise.all([
     providerBadgesForAssets(db, shownIds),
     dealBadgesForAssets(db, shownIds, terms),

@@ -71,6 +71,10 @@ model Contract {
   signatoryEmail          String?
   /// The day the signatory signed; the lease is active from then. Null while waiting.
   signatorySignedOn       String?
+  /// Declared use at application time, retained for the return inspection; null for other items.
+  usagePurpose            String?
+  /// Price display preference only; never a VAT exemption.
+  vatRegistered           Boolean?
   termMonths              Int
   downPaymentCents        Int
   listPriceCents          Int

@@ -13,9 +13,15 @@ export function ProblemMessage(props: {
   const { locale, problem } = props;
   if (!problem || !props.steps.includes(problem.step)) return null;
   const t = getT(locale);
-  const text =
-    problem.code === 'REVISION_CHANGED' || problem.code === 'MATCH_CHANGED'
-      ? t('returns.error.changed')
+  const text = [
+    'REVISION_CHANGED',
+    'MATCH_CHANGED',
+    'OFFER_CHANGED',
+    'ASSET_ALREADY_OFFERED',
+  ].includes(problem.code)
+    ? t('returns.error.changed')
+    : problem.code === 'OFFER_RECIPIENT_REQUIRED'
+      ? t('returns.placement.chooseCustomer')
       : problem.code === 'NOT_READY'
         ? t('returns.error.notReady')
         : t('returns.error.generic');

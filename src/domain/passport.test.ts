@@ -1,6 +1,15 @@
 import { expect, it } from 'vitest';
 import { loadRefurbishmentCosts } from '@/data/load';
-import { buildPassport, passportWorkCost, type PassportLifeFact } from './passport';
+import { buildPassport, isLeaseLife, passportWorkCost, type PassportLifeFact } from './passport';
+import { AWAITING_SIGNATURE } from './signatory';
+
+it('counts a contract as a life only once it is signed', () => {
+  expect(isLeaseLife(AWAITING_SIGNATURE)).toBe(false);
+  expect(isLeaseLife('active')).toBe(true);
+  expect(isLeaseLife('passed_on')).toBe(true);
+  expect(isLeaseLife(undefined)).toBe(true);
+  expect(isLeaseLife(null)).toBe(true);
+});
 
 it('retains seed-only lives without inventing dates, prices, or carbon savings', () => {
   const empty = { category: 'e_bike' as const, lives: [], importedWork: [], impact: null };

@@ -6,9 +6,11 @@ import { finalizeDueReturns } from '@/server/next-life-commands';
 import { listReturns } from '@/server/next-life-reads';
 import { requireProvider } from '@/server/providers';
 import { todayIso } from '@/server/today';
+import { expireWaitingPlacements } from '@/server/waiting-list-expiry';
 
 export const GET = handleRoute(async (request) => {
   const provider = await requireProvider(db, request);
+  await expireWaitingPlacements(db, todayIso());
   await finalizeDueReturns(db, todayIso());
-  return ok(await listReturns(db, provider.id));
+  return ok(await listReturns(db, provider.id, todayIso()));
 });
