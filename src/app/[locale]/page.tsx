@@ -8,6 +8,8 @@ import { assetCategorySchema, assetConditionSchema } from '@/data/schemas';
 import {
   catalogueSorts,
   filterCatalogue,
+  normalisePriceRange,
+  priceSlider,
   parseCatalogueQuery,
   type CatalogueItem,
 } from '@/domain/catalogue';
@@ -38,7 +40,7 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
   ]);
   const terms = availableTerms(table);
   const rawQuery = await searchParams;
-  const query = parseCatalogueQuery(rawQuery, {
+  const parsed = parseCatalogueQuery(rawQuery, {
     today,
     terms,
     defaultTerm: DEFAULT_TERM_MONTHS,
@@ -52,6 +54,13 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
   // "See these items" on the Deals page narrows the catalogue to one provider's stock.
   const providerParam = typeof rawQuery.provider === 'string' ? rawQuery.provider : null;
   const offer = providerParam ? await providerOffer(db, providerParam) : null;
+  // The price slider fits the chosen categories (e-bikes up to €5,800, farm machines up to
+  // €260,000); its top end means "no upper limit" for the filter too.
+  const slider = priceSlider(items, parsed.categories);
+  const query = {
+    ...parsed,
+    ...normalisePriceRange(parsed.minPriceEuros, parsed.maxPriceEuros, slider.topEuros),
+  };
   const shown = filterCatalogue(
     offer ? items.filter((item) => offer.assetIds.has(item.asset.id)) : items,
     query
@@ -76,6 +85,7 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
           conditions={assetConditionSchema.options}
           terms={terms}
           today={today}
+          slider={slider}
           provider={offer ? (providerParam ?? undefined) : undefined}
         />
       </aside>

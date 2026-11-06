@@ -6,6 +6,8 @@ import { connection } from 'next/server';
 import { ItemImpactPanel } from '@/components/impact-panel';
 import { ItemPassport } from '@/components/item-passport';
 import { LeaseCalculator } from '@/components/lease-calculator';
+import { JoinWaitingList } from '@/components/join-waiting-list';
+import { NextLifeNote } from '@/components/next-life-note';
 import { RelatedItems } from '@/components/related-items';
 import { ProviderRatingLine, ReviewsCard } from '@/components/reviews';
 import { InfoBox, PhotoPlaceholder, textLink } from '@/components/ui';
@@ -32,6 +34,9 @@ import { rulesForAsset } from '@/server/discount-rules';
 import { estimateForAsset, loadImpactInputs } from '@/server/impact';
 import { loadPassport } from '@/server/passport';
 import { relatedItemsFor } from '@/server/related-items';
+import { secondLifeNote } from '@/server/waiting-list';
+import { readDemoName } from '@/server/demo-session';
+import { contractEndOn } from '@/domain/contract-period';
 import { providerReputationForAsset, type ProviderReputation } from '@/server/reputation';
 import { todayIso } from '@/server/today';
 
@@ -66,7 +71,8 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
-  const [related, bundles, provider, passport] = await Promise.all([
+  const signedIn = (await readDemoName()) !== null;
+  const [related, bundles, provider, passport, nextLife] = await Promise.all([
     relatedItemsFor(
       db,
       { assetId: asset.id, termMonths, onDate: today },
@@ -75,6 +81,8 @@ export default async function ItemPage({
     bookableBundlesWithAsset(db, asset.id),
     providerReputationForAsset(db, asset.id),
     loadPassport(db, asset.id, { asset, impact: impactInputs }),
+    // Card 9: what happens next to a returned item, read-only.
+    isLeasable(asset) ? null : secondLifeNote(db, asset.id, today),
   ]);
   // The estimate does not depend on the term (see src/domain/co2-impact.ts), so the panel
   // is rendered once here rather than following the term slider.
@@ -132,6 +140,24 @@ export default async function ItemPage({
             summary={summary}
             extras={leftExtras}
             message={unavailableMessage(asset, t)}
+            note={
+              <>
+                {nextLife ? <NextLifeNote note={nextLife} locale={locale} t={t} /> : null}
+                <JoinWaitingList
+                  locale={locale}
+                  category={asset.category}
+                  itemCondition={asset.condition}
+                  terms={availableTerms(table)}
+                  today={today}
+                  defaultNeededBy={contractEndOn(today, 1)}
+                  signInHref={
+                    signedIn
+                      ? null
+                      : `/${locale}/sign-in?next=${encodeURIComponent(`/${locale}/items/${asset.id}`)}`
+                  }
+                />
+              </>
+            }
           />
         ) : !price.ok || !vat.ok ? (
           <Unavailable summary={summary} extras={leftExtras} message={t('lease.unavailable')} />
@@ -210,8 +236,10 @@ function Unavailable(props: {
   summary: React.ReactNode;
   extras: React.ReactNode;
   message: string;
+  /** Card 9: a returned item's next life, under the message. */
+  note?: React.ReactNode;
 }) {
-  const { summary, extras, message } = props;
+  const { summary, extras, message, note } = props;
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
       <div>
@@ -222,6 +250,7 @@ function Unavailable(props: {
         <InfoBox>
           <p role="status">{message}</p>
         </InfoBox>
+        {note ? <div className="mt-4 space-y-4">{note}</div> : null}
       </div>
     </div>
   );
