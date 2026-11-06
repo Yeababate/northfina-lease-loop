@@ -16,6 +16,15 @@ export function isNamedSignatory(
   return parsed.ok && parsed.canonicalUsername === canonicalUsername;
 }
 
+/**
+ * When a pass-on handover happens (#78). A lease the recipient signs themselves completes the
+ * handover at once. A company lease waiting for its named signatory is not signed yet, so the
+ * old lease, the end-of-term choice and the item's life count change only at that signature.
+ */
+export function passOnHandoverTiming(awaitingSignatory: boolean): 'now' | 'at_signatory_signature' {
+  return awaitingSignatory ? 'at_signatory_signature' : 'now';
+}
+
 export type SignatoryCheck = { ok: true } | { ok: false; reason: 'not_waiting' | 'not_signatory' };
 
 /** Whether this participant may sign this waiting contract now. */
