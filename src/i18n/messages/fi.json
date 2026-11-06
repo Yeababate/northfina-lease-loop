@@ -586,5 +586,18 @@
   "reminders.willRemind": "Muistutamme sinua:",
   "reminders.dateTime": "{date} klo {time}",
   "reminders.daysBeforeShort": "{days} päivää ennen",
-  "reminders.onLastDay": "viimeisenä päivänä"
+  "reminders.onLastDay": "viimeisenä päivänä",
+  "passport.title": "Tuotepassi",
+  "passport.totals": "Käyttöjaksot: {count} · tiedossa olevat kunnostuskulut: {cost}",
+  "passport.co2": "Arvioitu CO₂-säästö: {kg} kg",
+  "passport.earlier": "Aiemmat käyttöjaksot ilman tarkempia tietoja: {count}",
+  "passport.life": "Käyttöjakso {number}",
+  "passport.atStart": "Alussa: {reading}",
+  "passport.atReturn": "Palautettaessa: {reading}",
+  "passport.work": "Kunnostusvaiheet: {count}",
+  "passport.ending.active": "Voimassa",
+  "passport.ending.returned": "Palautettu",
+  "passport.ending.bought_out": "Lunastettu",
+  "passport.ending.exited_early": "Päättynyt ennenaikaisesti",
+  "passport.ending.passed_on": "Siirretty seuraavalle"
 }

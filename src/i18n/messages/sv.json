@@ -586,5 +586,18 @@
   "reminders.willRemind": "Vi påminner dig:",
   "reminders.dateTime": "{date} kl. {time}",
   "reminders.daysBeforeShort": "{days} dagar före",
-  "reminders.onLastDay": "på sista dagen"
+  "reminders.onLastDay": "på sista dagen",
+  "passport.title": "Produktpass",
+  "passport.totals": "Användningsperioder: {count} · kända rekonditioneringskostnader: {cost}",
+  "passport.co2": "Uppskattad CO₂-besparing: {kg} kg",
+  "passport.earlier": "Tidigare användningsperioder utan detaljer: {count}",
+  "passport.life": "Användningsperiod {number}",
+  "passport.atStart": "Vid start: {reading}",
+  "passport.atReturn": "Vid retur: {reading}",
+  "passport.work": "Rekonditioneringssteg: {count}",
+  "passport.ending.active": "Aktiv",
+  "passport.ending.returned": "Returnerad",
+  "passport.ending.bought_out": "Utköpt",
+  "passport.ending.exited_early": "Avslutad i förtid",
+  "passport.ending.passed_on": "Överlåten"
 }

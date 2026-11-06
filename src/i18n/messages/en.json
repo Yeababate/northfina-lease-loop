@@ -586,5 +586,18 @@
   "reminders.willRemind": "We'll remind you:",
   "reminders.dateTime": "{date}, {time}",
   "reminders.daysBeforeShort": "{days} days before",
-  "reminders.onLastDay": "on the last day"
+  "reminders.onLastDay": "on the last day",
+  "passport.title": "Item passport",
+  "passport.totals": "Lives: {count} · known refurbishment costs: {cost}",
+  "passport.co2": "Estimated CO₂ saving: {kg} kg",
+  "passport.earlier": "Earlier lives without detailed records: {count}",
+  "passport.life": "Life {number}",
+  "passport.atStart": "At start: {reading}",
+  "passport.atReturn": "At return: {reading}",
+  "passport.work": "Refurbishment steps: {count}",
+  "passport.ending.active": "Active",
+  "passport.ending.returned": "Returned",
+  "passport.ending.bought_out": "Bought out",
+  "passport.ending.exited_early": "Ended early",
+  "passport.ending.passed_on": "Passed on"
 }

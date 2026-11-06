@@ -586,5 +586,18 @@
   "reminders.willRemind": "Tuletame sulle meelde:",
   "reminders.dateTime": "{date} kell {time}",
   "reminders.daysBeforeShort": "{days} päeva enne",
-  "reminders.onLastDay": "viimasel päeval"
+  "reminders.onLastDay": "viimasel päeval",
+  "passport.title": "Tootepass",
+  "passport.totals": "Kasutusperioodid: {count} · teadaolevad taastamiskulud: {cost}",
+  "passport.co2": "Hinnanguline CO₂ kokkuhoid: {kg} kg",
+  "passport.earlier": "Varasemad kasutusperioodid ilma üksikasjadeta: {count}",
+  "passport.life": "Kasutusperiood {number}",
+  "passport.atStart": "Alguses: {reading}",
+  "passport.atReturn": "Tagastamisel: {reading}",
+  "passport.work": "Taastamistööd: {count}",
+  "passport.ending.active": "Aktiivne",
+  "passport.ending.returned": "Tagastatud",
+  "passport.ending.bought_out": "Välja ostetud",
+  "passport.ending.exited_early": "Ennetähtaegselt lõpetatud",
+  "passport.ending.passed_on": "Edasi antud"
 }

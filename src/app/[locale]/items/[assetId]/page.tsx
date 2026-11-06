@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { ItemImpactPanel } from '@/components/impact-panel';
+import { ItemPassport } from '@/components/item-passport';
 import { LeaseCalculator } from '@/components/lease-calculator';
 import { RelatedItems } from '@/components/related-items';
 import { ProviderRatingLine, ReviewsCard } from '@/components/reviews';
@@ -29,6 +30,7 @@ import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
 import { rulesForAsset } from '@/server/discount-rules';
 import { estimateForAsset, loadImpactInputs } from '@/server/impact';
+import { loadPassport } from '@/server/passport';
 import { relatedItemsFor } from '@/server/related-items';
 import { providerReputationForAsset, type ProviderReputation } from '@/server/reputation';
 import { todayIso } from '@/server/today';
@@ -64,7 +66,7 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
-  const [related, bundles, provider] = await Promise.all([
+  const [related, bundles, provider, passport] = await Promise.all([
     relatedItemsFor(
       db,
       { assetId: asset.id, termMonths, onDate: today },
@@ -72,6 +74,7 @@ export default async function ItemPage({
     ),
     bookableBundlesWithAsset(db, asset.id),
     providerReputationForAsset(db, asset.id),
+    loadPassport(db, asset.id, { asset, impact: impactInputs }),
   ]);
   // The estimate does not depend on the term (see src/domain/co2-impact.ts), so the panel
   // is rendered once here rather than following the term slider.
@@ -94,6 +97,9 @@ export default async function ItemPage({
         locale={locale}
         t={t}
       />
+      {passport && (passport.totals.lives > 0 || passport.importedWork.length > 0) ? (
+        <ItemPassport passport={passport} locale={locale} />
+      ) : null}
       <RelatedItems
         items={related.status === 'ok' ? related.items : []}
         bundles={bundles}
