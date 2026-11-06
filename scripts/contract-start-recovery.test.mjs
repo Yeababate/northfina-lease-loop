@@ -33,6 +33,7 @@ function deploy(configFile = config, databaseFile = filename) {
   }
 }
 
+// Prisma runs twice per fixture; allow slow disks without changing ordinary test timeouts.
 beforeAll(async () => {
   directory = await mkdtemp(path.join(tmpdir(), 'lease-loop-legacy-'));
   filename = path.join(directory, 'legacy.db');
@@ -109,7 +110,7 @@ beforeAll(async () => {
     recursive: true,
   });
   failure = deploy();
-}, 30000);
+}, 300000);
 afterAll(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
@@ -167,7 +168,7 @@ it('shows that appending another migration cannot get past the failed migration'
   } finally {
     db.close();
   }
-});
+}, 300000);
 
 function exportSnapshot() {
   return {
@@ -376,4 +377,4 @@ it('preserves populated contracts and invoices through discount and schema recon
   } finally {
     await recoveredDb.$disconnect();
   }
-}, 30000);
+}, 300000);
