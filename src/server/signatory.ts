@@ -7,7 +7,9 @@ import { vatCents, vatRateOn } from '@/domain/vat';
 import type { Locale } from '@/i18n/locales';
 import { ApiError } from './api-response';
 import { assetPriceOverride } from './assets';
-import { withAudit } from './audit';
+import { withAudit, type TransactionClient } from './audit';
+import { findPendingPassOn, getPassOnPrice, completePassOnInTx } from './end-of-term';
+import type { PriceOverride } from '@/domain/price-list';
 import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
@@ -20,6 +22,7 @@ type PendingContract = {
   actor: string;
   providerId: string | null;
   assetId: string;
+  renterId: string | null;
   startOn: string;
   termMonths: number;
   downPaymentCents: number;
@@ -89,7 +92,8 @@ async function offerForContract(
   contract: PendingContract | null,
   today: string,
   data: SignatoryPricingData,
-  startOn?: string
+  startOn?: string,
+  passOnPrice?: PriceOverride
 ) {
   if (!contract) throw new ApiError(404, 'CONTRACT_NOT_FOUND', 'Contract not found');
   const asset = await db.asset.findUnique({ where: { id: contract.assetId } });
@@ -105,7 +109,7 @@ async function offerForContract(
     },
     today,
     await rulesForAsset(db, contract.assetId),
-    assetPriceOverride(asset)
+    passOnPrice ?? assetPriceOverride(asset)
   );
   if (!priced.ok) return { ok: false as const, reason: priced.reason };
   const vat = vatRateOn(data.vatRates.rates, priced.price.startOn);
@@ -166,6 +170,35 @@ async function offerForContract(
   };
 }
 
+/**
+ * A company pass-on waiting for this signature (#78): the old lease it replaces and the
+ * next-life price, re-checked so a withdrawn or ended offer cannot be signed.
+ */
+async function pendingPassOn(
+  db: PrismaClient | TransactionClient,
+  contract: PendingContract,
+  today: string,
+  data: SignatoryPricingData
+) {
+  const choice = await findPendingPassOn(db, contract.id);
+  if (!choice) return undefined;
+  if (!contract.renterId)
+    throw new ApiError(409, 'PASS_ON_UNAVAILABLE', 'This item cannot be passed on now');
+  const price = await getPassOnPrice(
+    db,
+    choice.contractId,
+    contract.assetId,
+    contract.renterId,
+    today,
+    {
+      lists: data.lists,
+      table: data.table,
+      pendingContractId: contract.id,
+    }
+  );
+  return { contractId: choice.contractId, ...price };
+}
+
 export async function signatoryOffer(
   db: PrismaClient,
   signer: Signer,
@@ -184,7 +217,8 @@ export async function signatoryOffer(
     throw new ApiError(409, 'NOT_WAITING_FOR_SIGNATURE', 'This contract is not waiting for you');
   if (startOn !== undefined && !isoDateSchema.safeParse(startOn).success)
     throw new ApiError(422, 'INVALID_START_DATE', 'Choose a valid lease start date');
-  return offerForContract(db, contract, today, data, startOn);
+  const passOn = await pendingPassOn(db, contract, today, data);
+  return offerForContract(db, contract, today, data, startOn, passOn);
 }
 
 function sameOffer(left: SignatoryOfferSnapshot, right: SignatoryOfferSnapshot) {
@@ -211,7 +245,8 @@ export async function signAsSignatory(
     throw new ApiError(409, 'NOT_WAITING_FOR_SIGNATURE', 'This contract is not waiting for you');
   if (expected.startOn < today)
     throw new ApiError(409, 'PRICE_CHANGED', 'Choose and review a new lease start date');
-  const preview = await offerForContract(db, contract, today, data, expected.startOn);
+  const passOn = await pendingPassOn(db, contract, today, data);
+  const preview = await offerForContract(db, contract, today, data, expected.startOn, passOn);
   if (!preview.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'The lease can no longer be priced for signing');
   if (!sameOffer(preview.snapshot, expected))
@@ -233,6 +268,7 @@ export async function signAsSignatory(
         lockedPriceListVersion: preview.price.priceListVersion,
         previousMonthlyNetCents: contract.monthlyNetCents,
         lockedMonthlyNetCents: preview.price.monthlyNetCents,
+        passOnContractId: passOn?.contractId ?? null,
       },
     },
     async (tx) => {
@@ -252,7 +288,15 @@ export async function signAsSignatory(
         );
       if ((await tx.invoice.count({ where: { contractId } })) > 0)
         throw new ApiError(409, 'INVOICES_ALREADY_ISSUED', 'Issued invoices prevent repricing');
-      const currentOffer = await offerForContract(tx, current, today, data, expected.startOn);
+      const currentPassOn = await pendingPassOn(tx, current, today, data);
+      const currentOffer = await offerForContract(
+        tx,
+        current,
+        today,
+        data,
+        expected.startOn,
+        currentPassOn
+      );
       if (!currentOffer.ok)
         throw new ApiError(422, 'INVALID_PRICE', 'The lease can no longer be priced for signing');
       if (!sameOffer(currentOffer.snapshot, expected))
@@ -332,6 +376,16 @@ export async function signAsSignatory(
           'NOT_WAITING_FOR_SIGNATURE',
           'This contract is not waiting for you'
         );
+      // Card 6 pass-on (#78): the handover completes only now, inside the same signature.
+      if (currentPassOn)
+        await completePassOnInTx(tx, {
+          contractId: currentPassOn.contractId,
+          nextContractId: contractId,
+          assetId: current.assetId,
+          endOn: currentPassOn.endOn,
+          today,
+          priceCents: currentPassOn.priceCents,
+        });
       return { ...updated, lifecycle: { status: 'active' } };
     }
   );

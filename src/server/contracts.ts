@@ -7,12 +7,12 @@ import { checkApplicationForSigning } from '@/domain/application-signing';
 import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import type { PriceSource } from '@/domain/price-list';
 import { vatCents, vatRateOn } from '@/domain/vat';
-import { AWAITING_SIGNATURE } from '@/domain/signatory';
+import { AWAITING_SIGNATURE, passOnHandoverTiming } from '@/domain/signatory';
 import { ApiError } from './api-response';
 import { assetPriceOverride, toAsset } from './assets';
 import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
-import { completePassOnInTx, getPassOnPrice } from './end-of-term';
+import { completePassOnInTx, getPassOnPrice, linkPendingPassOnInTx } from './end-of-term';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
 import type { Locale } from '@/i18n/locales';
@@ -221,7 +221,13 @@ export async function signContract(
           'PRICE_CHANGED',
           'The price changed. Refresh and review before signing'
         );
-      if (passOnId && currentPassOn) {
+      if (
+        passOnId &&
+        currentPassOn &&
+        passOnHandoverTiming(Boolean(input.awaitingSignatory)) === 'at_signatory_signature'
+      ) {
+        await linkPendingPassOnInTx(tx, passOnId, id);
+      } else if (passOnId && currentPassOn) {
         await completePassOnInTx(tx, {
           contractId: passOnId,
           nextContractId: id,
