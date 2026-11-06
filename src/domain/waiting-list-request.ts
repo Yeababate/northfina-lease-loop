@@ -3,6 +3,7 @@
 // it must make sense for that: a budget, the worst condition accepted, an offered lease
 // length, and a date that is not in the past.
 import type { AssetCondition } from '@/data/schemas';
+import { isIsoDate } from './iso-date';
 import { CONDITION_ORDER } from './refurbishment-rules';
 
 /** €10,000 a month: anything above is a typo, not a budget. */
@@ -29,8 +30,7 @@ export function checkWaitingListRequest(
   )
     problems.push('budget');
   if (!context.terms.includes(input.preferredTermMonths)) problems.push('term');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.neededBy) || input.neededBy < context.today)
-    problems.push('needed_by');
+  if (!isIsoDate(input.neededBy) || input.neededBy < context.today) problems.push('needed_by');
   return problems.length === 0 ? { ok: true } : { ok: false, problems };
 }
 

@@ -36,6 +36,18 @@ describe('checkWaitingListRequest', () => {
         checkWaitingListRequest({ ...request, maxMonthlyNetRentCents: cents }, context)
       ).toEqual({ ok: false, problems: ['budget'] });
   });
+
+  it('requires a real calendar date, including leap-year rules', () => {
+    for (const neededBy of ['2027-02-29', '2027-04-31', '2027-13-01', '2027-1-01']) {
+      expect(checkWaitingListRequest({ ...request, neededBy }, context)).toEqual({
+        ok: false,
+        problems: ['needed_by'],
+      });
+    }
+    expect(checkWaitingListRequest({ ...request, neededBy: '2028-02-29' }, context)).toEqual({
+      ok: true,
+    });
+  });
 });
 
 describe('conditionsUpTo', () => {
