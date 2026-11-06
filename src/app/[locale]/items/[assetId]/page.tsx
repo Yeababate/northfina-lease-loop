@@ -3,9 +3,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
+import { ItemImpactPanel } from '@/components/impact-panel';
 import { LeaseCalculator } from '@/components/lease-calculator';
+import { RelatedItems } from '@/components/related-items';
 import { InfoBox, PhotoPlaceholder, textLink } from '@/components/ui';
-import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
+import {
+  loadCoefficientTable,
+  loadPriceLists,
+  loadRelatedItemRules,
+  loadVatRates,
+} from '@/data/load';
 import type { Asset } from '@/data/schemas';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
@@ -17,7 +24,10 @@ import { formatNumber } from '@/i18n/format';
 import { getT, type Translate } from '@/i18n/get-t';
 import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
+import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
+import { estimateForAsset, loadImpactInputs } from '@/server/impact';
+import { relatedItemsFor } from '@/server/related-items';
 import { todayIso } from '@/server/today';
 
 export default async function ItemPage({
@@ -28,11 +38,13 @@ export default async function ItemPage({
   if (!isLocale(locale)) notFound();
   await connection();
 
-  const [asset, priceLists, table, vatRates] = await Promise.all([
+  const [asset, priceLists, table, vatRates, relatedRules, impactInputs] = await Promise.all([
     getAsset(db, assetId),
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
+    loadRelatedItemRules(),
+    loadImpactInputs(),
   ]);
   if (!asset) notFound();
 
@@ -47,6 +59,34 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today);
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
+  const [related, bundles] = await Promise.all([
+    relatedItemsFor(
+      db,
+      { assetId: asset.id, termMonths, onDate: today },
+      { lists: priceLists, table, rules: relatedRules }
+    ),
+    bookableBundlesWithAsset(db, asset.id),
+  ]);
+  // The estimate does not depend on the term (see src/domain/co2-impact.ts), so the panel
+  // is rendered once here rather than following the term slider.
+  // Under the apply button in the left column: the CO2 panel, then related items, so the
+  // suggestions are visible without scrolling to the bottom of the page.
+  const leftExtras = (
+    <div className="space-y-6">
+      <ItemImpactPanel
+        result={impactInputs ? estimateForAsset(asset, termMonths, impactInputs) : null}
+        locale={locale}
+        t={t}
+      />
+      <RelatedItems
+        items={related.status === 'ok' ? related.items : []}
+        bundles={bundles}
+        termMonths={termMonths}
+        locale={locale}
+        t={t}
+      />
+    </div>
+  );
 
   const summary = (
     <AssetSummary
@@ -64,9 +104,13 @@ export default async function ItemPage({
       </Link>
       <div className="mt-4">
         {!isLeasable(asset) ? (
-          <Unavailable summary={summary} message={unavailableMessage(asset, t)} />
+          <Unavailable
+            summary={summary}
+            extras={leftExtras}
+            message={unavailableMessage(asset, t)}
+          />
         ) : !price.ok || !vat.ok ? (
-          <Unavailable summary={summary} message={t('lease.unavailable')} />
+          <Unavailable summary={summary} extras={leftExtras} message={t('lease.unavailable')} />
         ) : (
           <LeaseCalculator
             locale={locale}
@@ -81,6 +125,7 @@ export default async function ItemPage({
             quotedOn={today}
             applyPath={`/${locale}/items/${asset.id}/apply`}
             summary={summary}
+            afterApply={leftExtras}
           />
         )}
       </div>
@@ -130,10 +175,18 @@ function AssetSummary(props: {
   );
 }
 
-function Unavailable({ summary, message }: { summary: React.ReactNode; message: string }) {
+function Unavailable(props: {
+  summary: React.ReactNode;
+  extras: React.ReactNode;
+  message: string;
+}) {
+  const { summary, extras, message } = props;
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
-      {summary}
+      <div>
+        {summary}
+        <div className="mt-6">{extras}</div>
+      </div>
       <div>
         <InfoBox>
           <p role="status">{message}</p>

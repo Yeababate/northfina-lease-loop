@@ -34,6 +34,8 @@ type LeaseCalculatorProps = {
   applyPath: string;
   /** Photo, facts and list price: rendered on the server, shown above the apply button. */
   summary: ReactNode;
+  /** Rendered on the server and shown under the apply button (the CO2 "Your impact" panel). */
+  afterApply?: ReactNode;
 };
 
 /** The down payment slider moves in whole euros. */
@@ -82,6 +84,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
             <p className="mt-3 text-sm text-stone-600 dark:text-stone-400">{t('item.applyNote')}</p>
           </>
         ) : null}
+        {props.afterApply ? <div className="mt-6">{props.afterApply}</div> : null}
       </div>
 
       <section
