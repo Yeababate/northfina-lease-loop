@@ -1,7 +1,7 @@
 // The application result: approved, not possible yet, or a person will check. Every
-// outcome says why, and lists what we checked in words, not colours alone.
+// outcome says why, and lists what we checked in words, not colours alone. The answers sit in
+// the wizard's side bar beside it.
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { ruleForBlock } from '@/domain/application-progress';
 import type { Check, Decision } from '@/domain/eligibility';
 import { formatEuro } from '@/domain/money';
@@ -19,8 +19,6 @@ type DecisionViewProps = {
   minFinancedCents: number;
   maxFinancedCents: number;
   links: { sign: string; changeLease: string; catalogue: string };
-  /** "Your answers so far", shown under "See my answers". */
-  answersPanel: ReactNode;
   locale: Locale;
   t: Translate;
 };
@@ -145,13 +143,6 @@ export function DecisionView(props: DecisionViewProps) {
           </Link>
         </div>
       </div>
-
-      <details className="mt-6">
-        <summary className="cursor-pointer font-semibold text-blue-700 underline underline-offset-2 dark:text-blue-300">
-          {t('decision.seeAnswers')}
-        </summary>
-        <div className="mt-3">{props.answersPanel}</div>
-      </details>
     </section>
   );
 }
