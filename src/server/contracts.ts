@@ -7,6 +7,7 @@ import { vatCents, vatRateOn } from '@/domain/vat';
 import { ApiError } from './api-response';
 import { getAsset } from './assets';
 import { withAudit } from './audit';
+import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
 import type { Locale } from '@/i18n/locales';
@@ -34,6 +35,8 @@ export async function signContract(
     expectedMonthlyNetCents: number;
     expectedBuyoutNetCents: number;
     expectedPriceListVersion: number;
+    expectedDiscountRuleId?: string | null;
+    expectedDiscountRuleRevision?: number | null;
     participants?: SigningParticipants;
   },
   signedOn: string,
@@ -41,23 +44,27 @@ export async function signContract(
   table: CoefficientTable,
   reminders?: SigningReminders
 ) {
+  const pricingInput = {
+    assetId: input.assetId,
+    termMonths: input.termMonths,
+    downPaymentCents: input.downPaymentCents,
+    startOn: input.startOn,
+  };
   const result = priceContract(
     lists,
     table,
-    {
-      assetId: input.assetId,
-      termMonths: input.termMonths,
-      downPaymentCents: input.downPaymentCents,
-      startOn: input.startOn,
-    },
-    signedOn
+    pricingInput,
+    signedOn,
+    await rulesForAsset(db, input.assetId)
   );
   if (!result.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
   if (
     result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
     result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
-    result.price.priceListVersion !== input.expectedPriceListVersion
+    result.price.priceListVersion !== input.expectedPriceListVersion ||
+    result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
+    result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
   )
     throw new ApiError(
       409,
@@ -82,6 +89,9 @@ export async function signContract(
     assetName: `${assetSnapshot.make} ${assetSnapshot.model}`,
     serialNumber: assetSnapshot.serial_number,
     locale: input.participants?.locale ?? 'en',
+    originalMonthlyNetCents: result.price.originalMonthlyNetCents,
+    monthlyDiscountCents: result.price.monthlyDiscountCents,
+    discountBps: result.price.discountBps,
     generatedAt: new Date().toISOString(),
   });
   return withAudit(
@@ -98,20 +108,57 @@ export async function signContract(
     async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
       if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
-      if (input.participants && asset.ownerId !== input.participants.providerId)
+      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
+      if (
+        input.participants &&
+        (asset.ownerId !== input.participants.providerId ||
+          (owner !== null && owner.providerId !== input.participants.providerId))
+      )
         throw new ApiError(409, 'PROVIDER_CHANGED', 'The provider changed. Review before signing');
+      const currentPrice = priceContract(
+        lists,
+        table,
+        pricingInput,
+        signedOn,
+        await rulesForAsset(tx, input.assetId)
+      );
+      if (!currentPrice.ok)
+        throw new ApiError(
+          422,
+          'INVALID_PRICE',
+          'This lease cannot be priced',
+          currentPrice.reason
+        );
+      if (
+        currentPrice.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+        currentPrice.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
+        currentPrice.price.priceListVersion !== input.expectedPriceListVersion ||
+        currentPrice.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
+        currentPrice.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null) ||
+        currentPrice.price.originalMonthlyNetCents !== result.price.originalMonthlyNetCents ||
+        currentPrice.price.monthlyDiscountCents !== result.price.monthlyDiscountCents ||
+        currentPrice.price.discountBps !== result.price.discountBps ||
+        currentPrice.price.financedCents !== result.price.financedCents ||
+        currentPrice.price.downPaymentCents !== result.price.downPaymentCents ||
+        currentPrice.price.listPriceCents !== result.price.listPriceCents
+      )
+        throw new ApiError(
+          409,
+          'PRICE_CHANGED',
+          'The price changed. Refresh and review before signing'
+        );
       const reserved = await tx.asset.updateMany({
         where: { id: input.assetId, status: 'available' },
         data: { status: 'reserved' },
       });
       if (reserved.count !== 1)
         throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
-      const { assetId, ...linePrice } = result.price;
+      const { assetId, ...linePrice } = currentPrice.price;
       const contract = await tx.contract.create({
         data: {
           id,
           actor: input.actor,
-          ...result.price,
+          ...currentPrice.price,
           renterId: input.participants?.renterId ?? null,
           providerId: input.participants?.providerId ?? null,
           lines: {
@@ -136,10 +183,10 @@ export async function signContract(
       });
       // Record who provides this lease, from current ownership, in the same transaction.
       // The link never changes, so the provider keeps access after any later sale.
-      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
-      if (owner)
+      const recordedProviderId = owner?.providerId ?? asset.ownerId;
+      if (recordedProviderId)
         await tx.contractProvider.create({
-          data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
+          data: { contractId: id, providerId: recordedProviderId, assetId: input.assetId },
         });
       if (reminders && event && reminderSetup)
         await createReminderPreferencesInTx(
@@ -163,6 +210,8 @@ export type SignApplicationInput = {
   expectedMonthlyNetCents: number;
   expectedBuyoutNetCents: number;
   expectedPriceListVersion: number;
+  expectedDiscountRuleId?: string | null;
+  expectedDiscountRuleRevision?: number | null;
   locale?: Locale;
 };
 
@@ -189,7 +238,13 @@ export async function signApplication(
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
 
-  const priced = priceContract(data.lists, data.table, input, signedOn);
+  const priced = priceContract(
+    data.lists,
+    data.table,
+    input,
+    signedOn,
+    await rulesForAsset(db, input.assetId)
+  );
   if (!priced.ok)
     throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', priced.reason);
   const vat = vatRateOn(data.vatRates.rates, input.startOn);
@@ -215,12 +270,13 @@ export async function signApplication(
 
   let participants: SigningParticipants | undefined;
   if (principalId) {
-    const [principal, ownedAsset] = await Promise.all([
+    const [principal, ownedAsset, ownership] = await Promise.all([
       db.demoUser.findUnique({ where: { id: principalId } }),
       db.asset.findUnique({ where: { id: input.assetId } }),
+      db.assetOwnership.findUnique({ where: { assetId: input.assetId } }),
     ]);
     if (!principal) throw new ApiError(401, 'LOGIN_REQUIRED', 'Select a demo username first');
-    if (!ownedAsset?.ownerId)
+    if (!ownedAsset?.ownerId || (ownership !== null && ownership.providerId !== ownedAsset.ownerId))
       throw new ApiError(422, 'PROVIDER_REQUIRED', 'The item has no configured provider');
     if (ownedAsset.ownerId === principal.id)
       throw new ApiError(422, 'OWN_ASSET', 'Choose an item from another provider');

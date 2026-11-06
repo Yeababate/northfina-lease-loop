@@ -4,6 +4,7 @@ import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { getT } from '@/i18n/get-t';
+import { formatNumber } from '@/i18n/format';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { formatEuro } from '@/domain/money';
 
@@ -17,6 +18,9 @@ export type ContractPdfInput = {
   startOn: string;
   endOn: string;
   termMonths: number;
+  originalMonthlyNetCents: number;
+  monthlyDiscountCents: number;
+  discountBps: number;
   monthlyNetCents: number;
   buyoutNetCents: number;
   listPriceCents: number;
@@ -56,7 +60,9 @@ export async function renderContractPdf(input: ContractPdfInput) {
     `${t('explain.listPrice')}: ${euro(input.listPriceCents)}`,
     `${t('explain.downPayment')}: ${euro(input.downPaymentCents)}`,
     `${t('explain.financed')}: ${euro(input.financedCents)}`,
-    `${t('explain.monthlyNet')}: ${euro(input.monthlyNetCents)}`,
+    `${t('discount.original')}: ${euro(input.originalMonthlyNetCents)}`,
+    `${t('discount.amount')} (${formatNumber(input.discountBps / 100, input.locale)}%): −${euro(input.monthlyDiscountCents)}`,
+    `${t('discount.final')}: ${euro(input.monthlyNetCents)}`,
     `${t('explain.buyout')}: ${euro(input.buyoutNetCents)}`,
     `${t('asset.priceListVersion', { version: input.priceListVersion })}`,
     `${t('explain.factor', { band: input.band, months: input.termMonths })}: ${input.factor}`,

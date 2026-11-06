@@ -27,6 +27,7 @@ import { intlLocale, isLocale, type Locale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { bookableBundlesWithAsset } from '@/server/bundles';
 import { db } from '@/server/db';
+import { rulesForAsset } from '@/server/discount-rules';
 import { estimateForAsset, loadImpactInputs } from '@/server/impact';
 import { relatedItemsFor } from '@/server/related-items';
 import { providerReputationForAsset, type ProviderReputation } from '@/server/reputation';
@@ -49,6 +50,13 @@ export default async function ItemPage({
     loadImpactInputs(),
   ]);
   if (!asset) notFound();
+  const discountRules = await rulesForAsset(db, assetId);
+  // Main's dealer record for the item (AssetOwnership → Provider), shown by the calculator
+  // with its discounts. Named apart from `provider`, the owner's ratings further down.
+  const ownership = await db.assetOwnership.findUnique({ where: { assetId } });
+  const discountProvider = ownership
+    ? await db.provider.findUnique({ where: { id: ownership.providerId } })
+    : null;
 
   const t = getT(locale);
   const today = todayIso();
@@ -129,6 +137,8 @@ export default async function ItemPage({
           <LeaseCalculator
             locale={locale}
             table={table}
+            discountRules={discountRules}
+            providerName={discountProvider?.displayName}
             listPriceCents={price.priceCents}
             vatRatePercent={vat.rate.rate_percent}
             nextVatChange={

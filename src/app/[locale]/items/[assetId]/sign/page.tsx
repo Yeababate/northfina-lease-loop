@@ -21,6 +21,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { rulesForAsset } from '@/server/discount-rules';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
 
@@ -40,6 +41,7 @@ export default async function SignPage({
     loadQuestions(),
   ]);
   if (!asset) notFound();
+  const discountRules = await rulesForAsset(db, assetId);
 
   const t = getT(locale);
   const principal = await currentPrincipal();
@@ -66,7 +68,7 @@ export default async function SignPage({
 
   // Today's price is the one that locks; the quote is only compared with it.
   const pricing = { assetId: asset.id, termMonths, downPaymentCents, startOn: startDate };
-  const locked = priceContract(lists, table, pricing, today);
+  const locked = priceContract(lists, table, pricing, today, discountRules);
   const startVat = vatRateOn(vatRates.rates, startDate);
   if (!isLeasable(asset) || !locked.ok || !startVat.ok) {
     return (
@@ -86,7 +88,7 @@ export default async function SignPage({
   }
 
   const price = locked.price;
-  const quoted = priceContract(lists, table, pricing, quotedOn);
+  const quoted = priceContract(lists, table, pricing, quotedOn, discountRules);
   const note = quoted.ok ? priceLockNote(quoted.price, price) : null;
   const listDate = lists.find((list) => list.version === price.priceListVersion)?.valid_from;
   const nowVat = vatRateOn(vatRates.rates, today);
@@ -148,6 +150,8 @@ export default async function SignPage({
             price.monthlyNetCents,
             price.buyoutNetCents,
             price.priceListVersion,
+            price.discountRuleId,
+            price.discountRuleRevision,
             startVat.rate.rate_percent,
           ])}
           locale={locale}
@@ -158,6 +162,11 @@ export default async function SignPage({
             downPaymentCents,
             startOn: startDate,
             monthlyNetCents: price.monthlyNetCents,
+            originalMonthlyNetCents: price.originalMonthlyNetCents,
+            monthlyDiscountCents: price.monthlyDiscountCents,
+            discountBps: price.discountBps,
+            discountRuleId: price.discountRuleId,
+            discountRuleRevision: price.discountRuleRevision,
             buyoutCents: price.buyoutNetCents,
             priceListVersion: price.priceListVersion,
           }}

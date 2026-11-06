@@ -23,6 +23,11 @@ export type LeaseSummary = {
   downPaymentCents: number;
   startOn: string;
   monthlyNetCents: number;
+  originalMonthlyNetCents: number;
+  monthlyDiscountCents: number;
+  discountBps: number;
+  discountRuleId: string | null;
+  discountRuleRevision: number | null;
   buyoutCents: number;
   priceListVersion: number;
 };
@@ -92,6 +97,8 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           expectedMonthlyNetCents: lease.monthlyNetCents,
           expectedBuyoutNetCents: lease.buyoutCents,
           expectedPriceListVersion: lease.priceListVersion,
+          expectedDiscountRuleId: lease.discountRuleId,
+          expectedDiscountRuleRevision: lease.discountRuleRevision,
         }),
       });
       const result: { success: boolean; data?: { id: string }; error?: { code: string } } =
@@ -117,6 +124,11 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
     ...(check.ok ? [{ label: t('sign.leasedBy'), value: check.signerName }] : []),
     { label: t('sign.term'), value: t('term.months', { months: lease.termMonths }) },
     { label: t('sign.down'), value: euro(lease.downPaymentCents) },
+    { label: t('discount.original'), value: euro(lease.originalMonthlyNetCents) },
+    {
+      label: t('discount.amount'),
+      value: `−${euro(lease.monthlyDiscountCents)} (${lease.discountBps / 100}%)`,
+    },
     { label: t('sign.monthlyNet'), value: euro(lease.monthlyNetCents), strong: true },
     { label: t('sign.buyout'), value: euro(lease.buyoutCents) },
     { label: t('sign.starts'), value: formatIsoDate(lease.startOn, locale) },

@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
+import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { ApplicationWizard } from '@/components/application/application-wizard';
 import { applicationStorageKey } from '@/components/application/storage-key';
 import { InfoBox, textLink } from '@/components/ui';
@@ -19,6 +20,7 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { getAsset } from '@/server/assets';
 import { db } from '@/server/db';
+import { rulesForAsset } from '@/server/discount-rules';
 import { readDemoName } from '@/server/demo-session';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
@@ -39,6 +41,7 @@ export default async function ApplyPage({
     loadQuestions(),
   ]);
   if (!asset) notFound();
+  const discountRules = await rulesForAsset(db, assetId);
 
   const t = getT(locale);
   const principal = await currentPrincipal();
@@ -60,12 +63,16 @@ export default async function ApplyPage({
   const vat = vatRateOn(vatRates.rates, startDate);
   const quote =
     price.ok && vat.ok && isLeasable(asset)
-      ? quoteLease(table, {
-          listPriceCents: price.priceCents,
-          downPaymentCents,
-          termMonths,
-          vatRatePercent: vat.rate.rate_percent,
-        })
+      ? quoteLease(
+          table,
+          {
+            listPriceCents: price.priceCents,
+            downPaymentCents,
+            termMonths,
+            vatRatePercent: vat.rate.rate_percent,
+          },
+          discountRules
+        )
       : null;
 
   const leaseParams = new URLSearchParams({
@@ -92,6 +99,7 @@ export default async function ApplyPage({
               monthly: euro(quote.quote.monthlyGrossCents),
             })}
           </p>
+          <DiscountBreakdown price={quote.quote} locale={locale} />
           <ApplicationWizard
             locale={locale}
             questions={questionsFile.questions}

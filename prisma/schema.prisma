@@ -50,32 +50,38 @@ model AuditLog {
 
 // Immutable signing snapshot; later catalogue changes never update this row.
 model Contract {
-  invoices           Invoice[]
-  id                 String @id
-  actor              String
-  renterId           String?
-  providerId         String?
-  assetId            String
+  invoices                Invoice[]
+  id                      String                @id
+  actor                   String
+  renterId                String?
+  providerId              String?
+  assetId                 String
   /// First day of the lease, chosen by the customer. On or after signedOn.
-  startOn            String
-  endOn              String
-  signedOn           String
-  termMonths         Int
-  downPaymentCents   Int
-  listPriceCents     Int
-  priceListVersion   Int
-  coefficientVersion Int
-  coefficientId      String
-  band               String
-  factor             Float
-  financedCents      Int
-  monthlyNetCents    Int
-  buyoutNetCents     Int
-  lines              ContractLine[]
-  lifecycle          ContractLifecycle?
-  document           ContractDocument?
-  exitRequests       ExitRequest[]
-  lifeCompletions    AssetLifeCompletion[]
+  startOn                 String
+  endOn                   String
+  signedOn                String
+  termMonths              Int
+  downPaymentCents        Int
+  listPriceCents          Int
+  priceListVersion        Int
+  coefficientVersion      Int
+  coefficientId           String
+  band                    String
+  factor                  Float
+  financedCents           Int
+  monthlyNetCents         Int
+  buyoutNetCents          Int
+  /// Nullable for pre-discount agreements; a new signing stores the original quote.
+  originalMonthlyNetCents Int?
+  monthlyDiscountCents    Int                   @default(0)
+  discountBps             Int                   @default(0)
+  discountRuleId          String?
+  discountRuleRevision    Int?
+  lines                   ContractLine[]
+  lifecycle               ContractLifecycle?
+  document                ContractDocument?
+  exitRequests            ExitRequest[]
+  lifeCompletions         AssetLifeCompletion[]
 
   @@index([assetId])
   @@index([renterId])
@@ -84,15 +90,15 @@ model Contract {
 
 // Mock accounts are selected by username; lifecycle relationships use stable IDs.
 model DemoUser {
-  id                String @id
-  canonicalUsername String @unique
+  id                String  @id
+  canonicalUsername String  @unique
   displayName       String
   moderator         Boolean @default(false)
 }
 
 // Financial line snapshots allow later bundles without rewriting existing prices.
 model ContractLine {
-  id                 String @id
+  id                 String   @id
   contractId         String
   contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   assetId            String
@@ -112,35 +118,35 @@ model ContractLine {
 
 // Mutable operational state is separate from the signed financial snapshot.
 model ContractLifecycle {
-  contractId String @id
-  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  status     String @default("active")
+  contractId  String   @id
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  status      String   @default("active")
   actualEndOn String?
-  revision   Int @default(0)
+  revision    Int      @default(0)
 }
 
 model ContractDocument {
-  contractId     String @id
-  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  locale         String
+  contractId      String   @id
+  contract        Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  locale          String
   templateVersion String
-  generatedAt    String
-  sha256         String
-  bytes          Bytes
+  generatedAt     String
+  sha256          String
+  bytes           Bytes
 }
 
 // Immutable rental invoice. A billing period can only be issued once per contract.
 model Invoice {
-  id           String @id
-  contractId   String
-  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
-  period       Int
-  invoiceDate  String
-  dueDate      String
-  netCents     Int
-  vatPercent   Float
-  vatCents     Int
-  grossCents   Int
+  id          String   @id
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  period      Int
+  invoiceDate String
+  dueDate     String
+  netCents    Int
+  vatPercent  Float
+  vatCents    Int
+  grossCents  Int
 
   @@unique([contractId, period])
 }
@@ -252,19 +258,19 @@ model AssetLifecycleEvent {
 
 // A confirmed exit freezes its calculation; later policies do not rewrite this quote.
 model ExitRequest {
-  id               String @id
+  id               String        @id
   contractId       String
-  contract         Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  openContractId   String? @unique
+  contract         Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openContractId   String?       @unique
   renterId         String
   providerId       String
   kind             String
-  status           String @default("pending")
+  status           String        @default("pending")
   requestedOn      String
   effectiveEndOn   String
   quoteJson        String
-  revision         Int @default(0)
-  balancesReviewed Boolean @default(false)
+  revision         Int           @default(0)
+  balancesReviewed Boolean       @default(false)
   reviewedBy       String?
   completedOn      String?
   completedBy      String?
@@ -275,7 +281,7 @@ model ExitRequest {
 }
 
 model ExitReceipt {
-  id         String @id
+  id         String      @id
   exitId     String
   exit       ExitRequest @relation(fields: [exitId], references: [id], onDelete: Cascade)
   assetId    String
@@ -287,7 +293,7 @@ model ExitReceipt {
 
 // Unique per physical life even when a contract contains several bundled assets.
 model AssetLifeCompletion {
-  id          String @id
+  id          String   @id
   contractId  String
   contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   assetId     String
@@ -522,4 +528,20 @@ model BundleOfferItem {
 
   @@id([offerId, assetId])
   @@index([assetId])
+}
+
+// Provider-wide monthly rent promotions. Signed contract snapshots do not relate back
+// to mutable rules, so later edits cannot change existing agreements or invoices.
+model DiscountRule {
+  archived      Boolean @default(false)
+  id            String  @id
+  providerId    String
+  name          String
+  minTermMonths Int
+  maxTermMonths Int
+  discountBps   Int
+  enabled       Boolean
+  revision      Int     @default(1)
+
+  @@index([providerId])
 }

@@ -9,6 +9,7 @@ import { EarlyExit } from '@/components/contract/early-exit';
 import { RateLease } from '@/components/contract/rate-lease';
 import { ReminderSettings } from '@/components/contract/reminder-settings';
 import { InvoicesPanel } from '@/components/contract/invoices-panel';
+import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { Badge, textLink } from '@/components/ui';
 import { isoDateSchema } from '@/data/schemas';
 import { loadVatRates } from '@/data/load';
@@ -138,6 +139,14 @@ export default async function ContractPage({
                 </div>
               ))}
             </dl>
+            <DiscountBreakdown
+              price={{
+                ...contract,
+                originalMonthlyNetCents:
+                  contract.originalMonthlyNetCents ?? contract.monthlyNetCents,
+              }}
+              locale={locale}
+            />
             <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">
               {t('contract.rule')}{' '}
               {t('asset.priceListVersion', { version: contract.priceListVersion })}.

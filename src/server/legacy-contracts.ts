@@ -2,6 +2,8 @@ import { withAudit } from './audit';
 import { ApiError } from './api-response';
 import type { PrismaClient } from './prisma-client';
 
+class ParticipantRecoveryRace extends Error {}
+
 /** Explicit operator mapping, never an inference from applicant/display names. */
 export async function mapLegacyParticipants(
   db: PrismaClient,
@@ -37,6 +39,69 @@ export async function mapLegacyParticipants(
       return tx.contract.findUniqueOrThrow({ where: { id: input.contractId } });
     }
   );
+}
+
+/**
+ * Recover participant IDs after an older SQLite table rebuild dropped the nullable fields.
+ * The renter comes only from the audited signing actor, and the provider only from the
+ * immutable ContractProvider row. Human names are never converted to IDs here.
+ */
+export async function restoreParticipantsFromSigningRecords(db: PrismaClient) {
+  const candidates = await db.contract.findMany({
+    where: { renterId: null, providerId: null },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  let restored = 0;
+  for (const { id } of candidates) {
+    const [signings, providerLink] = await Promise.all([
+      db.auditLog.findMany({
+        where: { action: 'contract.signed', entity_type: 'contract', entity_id: id },
+        orderBy: { id: 'asc' },
+        select: { actor: true },
+      }),
+      db.contractProvider.findUnique({ where: { contractId: id }, select: { providerId: true } }),
+    ]);
+    if (!signings.length || !providerLink) continue;
+    const knownUsers = await db.demoUser.findMany({
+      where: { id: { in: signings.map((signing) => signing.actor) } },
+      select: { id: true },
+    });
+    const knownIds = new Set(knownUsers.map((user) => user.id));
+    const renterId = [...signings]
+      .reverse()
+      .find(({ actor }) => knownIds.has(actor) && actor !== providerLink.providerId)?.actor;
+    if (!renterId) continue;
+    const [provider, providerRecord] = await Promise.all([
+      db.demoUser.findUnique({ where: { id: providerLink.providerId }, select: { id: true } }),
+      db.provider.findUnique({ where: { id: providerLink.providerId }, select: { id: true } }),
+    ]);
+    if (!provider || !providerRecord) continue;
+
+    try {
+      await withAudit(
+        db,
+        {
+          actor: 'system:contract-participants',
+          action: 'contract.participants_recovered',
+          entityType: 'contract',
+          entityId: id,
+          details: { renterId, providerId: provider.id, source: 'signing_records' },
+        },
+        async (tx) => {
+          const result = await tx.contract.updateMany({
+            where: { id, renterId: null, providerId: null },
+            data: { renterId, providerId: provider.id },
+          });
+          if (result.count !== 1) throw new ParticipantRecoveryRace();
+        }
+      );
+      restored += 1;
+    } catch (error) {
+      if (!(error instanceof ParticipantRecoveryRace)) throw error;
+    }
+  }
+  return restored;
 }
 
 /** Import exact locked scalar values into lines; no catalogue lookup or re-pricing. */

@@ -3,6 +3,8 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CoefficientTable, PriceList, VatRates } from '@/data/schemas';
+import type { RentalDiscountRule } from '@/domain/discounts';
+import { DiscountBreakdown } from './discount-breakdown';
 import { contractSigningState } from '@/domain/contract-signing';
 import { availableTerms, minDownPaymentCents } from '@/domain/pricing';
 import { listPriceOn } from '@/domain/price-list';
@@ -17,10 +19,12 @@ export function ContractSigning({
   today,
   locale,
   vat,
+  discountRules,
   initialTermMonths = 36,
   initialDownPaymentCents,
 }: {
   assetId: string;
+  discountRules?: readonly RentalDiscountRule[];
   lists: PriceList[];
   table: CoefficientTable;
   today: string;
@@ -47,7 +51,8 @@ export function ContractSigning({
     { assetId, termMonths, downPaymentCents },
     today,
     actor,
-    busy
+    busy,
+    discountRules
   );
   const statusId = useId();
   return (
@@ -125,6 +130,7 @@ export function ContractSigning({
           })}
         </p>
       )}
+      {quote.ok && <DiscountBreakdown price={quote.price} locale={locale} />}
       <p>{t('contract.tax')}</p>
       <p id={statusId} role="status" aria-live="polite">
         {reason ? t(`signing.${reason}`) : t('signing.ready')}

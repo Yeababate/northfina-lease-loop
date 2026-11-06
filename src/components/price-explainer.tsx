@@ -1,5 +1,6 @@
 // "Explain my price" and the side-by-side term comparison. Pure presentation: the numbers
 // come from quoteLease in src/domain/pricing.ts, so what we show is what we charge.
+import type { RentalDiscountRule } from '@/domain/discounts';
 import type { CoefficientTable } from '@/data/schemas';
 import { formatEuro } from '@/domain/money';
 import { quoteLease, type LeaseQuote } from '@/domain/pricing';
@@ -27,6 +28,8 @@ export function PriceExplainer({ quote, nextVatChange, locale, t }: ExplainProps
       label: t('explain.factor', { band: quote.band.band, months: quote.termMonths }),
       value: `× ${formatNumber(quote.factor, locale)}`,
     },
+    { label: t('discount.original'), value: euro(quote.originalMonthlyNetCents) },
+    { label: t('discount.amount'), value: '−' + euro(quote.monthlyDiscountCents) },
     { label: t('explain.monthlyNet'), value: euro(quote.monthlyNetCents) },
     { label: t('explain.vat', { rate }), value: euro(quote.monthlyVatCents) },
     { label: t('explain.monthlyTotal'), value: euro(quote.monthlyGrossCents), strong: true },
@@ -66,6 +69,7 @@ export function PriceExplainer({ quote, nextVatChange, locale, t }: ExplainProps
 
 type CompareProps = {
   table: CoefficientTable;
+  discountRules?: readonly RentalDiscountRule[];
   terms: readonly number[];
   selectedTerm: number;
   listPriceCents: number;
@@ -80,12 +84,16 @@ export function TermComparison(props: CompareProps) {
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
   const quotes = terms.map((termMonths) => ({
     termMonths,
-    result: quoteLease(table, {
-      listPriceCents: props.listPriceCents,
-      downPaymentCents: props.downPaymentCents,
-      termMonths,
-      vatRatePercent: props.vatRatePercent,
-    }),
+    result: quoteLease(
+      table,
+      {
+        listPriceCents: props.listPriceCents,
+        downPaymentCents: props.downPaymentCents,
+        termMonths,
+        vatRatePercent: props.vatRatePercent,
+      },
+      props.discountRules
+    ),
   }));
 
   return (
