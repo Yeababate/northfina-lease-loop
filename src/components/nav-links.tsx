@@ -11,6 +11,8 @@ type NavLinksProps = {
   catalogueLabel: string;
   leasesLabel: string;
   dealsLabel: string;
+  /** "My answers" (#52); only when signed in. */
+  profileLabel?: string;
 };
 
 export function NavLinks({
@@ -19,6 +21,7 @@ export function NavLinks({
   catalogueLabel,
   leasesLabel,
   dealsLabel,
+  profileLabel,
 }: NavLinksProps) {
   const pathname = usePathname();
   const section = pathname.split('/')[2] ?? '';
@@ -27,6 +30,9 @@ export function NavLinks({
     { href: `/${locale}`, text: catalogueLabel, active: section === '' || section === 'items' },
     { href: `/${locale}/leases`, text: leasesLabel, active: section === 'leases' },
     { href: `/${locale}/deals`, text: dealsLabel, active: section === 'deals' },
+    ...(profileLabel
+      ? [{ href: `/${locale}/profile`, text: profileLabel, active: section === 'profile' }]
+      : []),
   ];
 
   return (

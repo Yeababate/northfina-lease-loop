@@ -25,6 +25,7 @@ import { rulesForAsset } from '@/server/discount-rules';
 import { readDemoName } from '@/server/demo-session';
 import { todayIso } from '@/server/today';
 import { currentPrincipal } from '@/server/current-principal';
+import { rememberedSetsFor } from '@/server/catalogue-readiness';
 
 export default async function ApplyPage({
   params,
@@ -49,6 +50,12 @@ export default async function ApplyPage({
   const principal = await currentPrincipal();
   const today = todayIso();
   const demoName = await readDemoName();
+  const remembered = await rememberedSetsFor(
+    db,
+    principal?.id ?? null,
+    questionsFile.questions,
+    today
+  );
   const query = await searchParams;
   const parsed = parseCatalogueQuery(query, {
     today,
@@ -154,6 +161,7 @@ export default async function ApplyPage({
               principal?.id
             )}
             prefill={demoName ? { q_full_name: demoName } : undefined}
+            remembered={remembered}
             links={{
               item: itemHref,
               sign: `/${locale}/items/${asset.id}/sign?${leaseParams}${

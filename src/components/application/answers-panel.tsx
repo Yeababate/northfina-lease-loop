@@ -16,10 +16,14 @@ type AnswersPanelProps = {
   /** Answered question ids, in the order they were asked. */
   answered: readonly string[];
   answers: Answers;
+  /** Answers the user's profile has (#52): pre-filled from it, or saved to it just now. */
+  tags?: Readonly<Record<string, AnswerTag>>;
   locale: Locale;
   t: Translate;
   onChange: (questionId: string) => void;
 };
+
+export type AnswerTag = 'profile' | 'saved';
 
 // Tailwind's lg breakpoint (64rem).
 const WIDE_QUERY = '(min-width: 64rem)';
@@ -98,6 +102,16 @@ export function AnswersPanel(props: AnswersPanelProps) {
                     <dd className="font-semibold break-words">
                       {answerText(question, value, locale, t)}
                     </dd>
+                    {props.tags?.[id] ? (
+                      <dd className="text-xs text-stone-600 dark:text-stone-400">
+                        <span aria-hidden="true">✓ </span>
+                        {t(
+                          props.tags[id] === 'profile'
+                            ? 'remember.fromProfile'
+                            : 'remember.state.saved'
+                        )}
+                      </dd>
+                    ) : null}
                   </div>
                   <button
                     type="button"
