@@ -102,7 +102,7 @@ describe('audited exit requests', () => {
   it('scopes reads and quotes to stable participants rather than the applicant name', async () => {
     expect(await readExitView(db, 'contract', 'renter', on)).toMatchObject({
       role: 'renter',
-      returnQuote: { ok: true, quote: { amountNetCents: 155585 } },
+      returnQuote: { ok: true, quote: { amountNetCents: 68005 } },
     });
     expect(await readExitView(db, 'contract', 'provider', on)).toMatchObject({
       role: 'provider',
@@ -113,6 +113,107 @@ describe('audited exit requests', () => {
     });
     await expect(readExitView(db, 'missing', 'renter', on)).rejects.toMatchObject({
       code: 'CONTRACT_NOT_FOUND',
+    });
+  });
+
+  it('prices new quotes with fair-exit-v2 from the band rate, VAT and market value', async () => {
+    const view = await readExitView(db, 'contract', 'renter', on);
+    expect(view.buyoutQuote).toMatchObject({
+      ok: true,
+      quote: {
+        method: 'fair-exit-v2',
+        amountNetCents: 332525,
+        breakdown: { annualInterestPercent: 7.9, discountCents: 36995, vatRatePercent: 25.5 },
+      },
+    });
+    expect(view.returnQuote).toMatchObject({
+      ok: true,
+      quote: {
+        breakdown: {
+          marketValueCreditCents: 264520,
+          valuedItems: [
+            { assetId: 'ebike-003', basis: 'assumed', condition: 'good', ageMonths: 7 },
+          ],
+          netCents: 68005,
+          vatCents: 17341,
+          grossCents: 85346,
+        },
+      },
+    });
+  });
+
+  it('values an inspected return as inspected', async () => {
+    await db.returnIntake.create({
+      data: {
+        id: 'intake',
+        assetId: 'ebike-003',
+        contractId: 'contract',
+        providerId: 'provider',
+        source: 'receipt',
+        inspections: {
+          create: {
+            id: 'inspection',
+            inspectedOn: on,
+            actor: 'provider',
+            conditionBefore: 'new',
+            condition: 'fair',
+            usageBefore: 0,
+            usageValue: 1500,
+          },
+        },
+      },
+    });
+    try {
+      // 389 000 × 80 % × fair 0.65 × (1 − 2 % for 1 000 km) = 198 234.4 → 198 234.
+      expect((await readExitView(db, 'contract', 'renter', on)).returnQuote).toMatchObject({
+        ok: true,
+        quote: {
+          amountNetCents: 332525 - 198234,
+          breakdown: { valuedItems: [{ basis: 'inspected', condition: 'fair', usageValue: 1500 }] },
+        },
+      });
+    } finally {
+      await db.returnIntake.deleteMany();
+    }
+  });
+
+  it('cannot price a contract whose band is not in its coefficient table', async () => {
+    await db.contract.update({ where: { id: 'contract' }, data: { band: 'Z' } });
+    expect(await readExitView(db, 'contract', 'renter', on)).toMatchObject({
+      returnQuote: { ok: false, reason: 'price_unavailable' },
+      buyoutQuote: { ok: false, reason: 'price_unavailable' },
+    });
+  });
+
+  it('keeps a quote stored under v1 with its v1 method and amount', async () => {
+    const v1 = {
+      contractId: 'contract',
+      kind: 'return',
+      effectiveEndOn: boundary,
+      periodStartOn: on,
+      elapsedMonths: 7,
+      remainingMonths: 29,
+      monthlyRentCents: 10730,
+      amountNetCents: 155585,
+      method: 'half-remaining-rent-v1',
+      contractRevision: 0,
+    };
+    await db.exitRequest.create({
+      data: {
+        id: randomUUID(),
+        contractId: 'contract',
+        openContractId: 'contract',
+        renterId: 'renter',
+        providerId: 'provider',
+        kind: 'return',
+        requestedOn: on,
+        effectiveEndOn: boundary,
+        quoteJson: JSON.stringify(v1),
+      },
+    });
+    expect((await readExitView(db, 'contract', 'renter', on)).request).toMatchObject({
+      status: 'pending',
+      quote: v1,
     });
   });
 
@@ -232,7 +333,7 @@ describe('provider confirmation and completion', () => {
 
   it('completes a buyout only on provider acknowledgment and retains a nonleasable asset', async () => {
     const { exit } = await request('buyout');
-    expect(JSON.parse(exit.quoteJson)).toMatchObject({ amountNetCents: 369520 });
+    expect(JSON.parse(exit.quoteJson)).toMatchObject({ amountNetCents: 332525 });
     expect(await db.asset.findUnique({ where: { id: 'ebike-003' } })).toMatchObject({
       ownerId: 'provider',
     });
@@ -371,4 +472,143 @@ it('API requires a demo sign-in name, validates shape, and returns the common en
     { params: Promise.resolve({ id: 'elsewhere' }) }
   );
   expect(outside.status).toBe(404);
+});
+
+describe('completion guards and worker recovery', () => {
+  it('rejects a missing request, missing receipts, stale revisions and withdrawn requests', async () => {
+    await expect(acknowledgeEarlyExit(db, acknowledgment('missing'), on)).rejects.toMatchObject({
+      code: 'EXIT_NOT_FOUND',
+    });
+    const { exit } = await request();
+    const { assetIds: _assetIds, ...withoutReceipts } = acknowledgment(exit.id);
+    await expect(acknowledgeEarlyExit(db, withoutReceipts, on)).rejects.toMatchObject({
+      code: 'INVALID_RECEIPT',
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id, 10), on)).rejects.toMatchObject({
+      code: 'EXIT_CHANGED',
+    });
+    await withdrawEarlyExit(db, exit.id, 'renter', 0);
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).rejects.toMatchObject({
+      code: 'EXIT_CHANGED',
+    });
+    expect(await db.exitReceipt.count()).toBe(0);
+  });
+
+  it('does not acknowledge receipts against an already completed lease', async () => {
+    const { exit } = await request();
+    await db.contractLifecycle.update({
+      where: { contractId: 'contract' },
+      data: { status: 'completed_buyout' },
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).rejects.toMatchObject({
+      code: 'CONTRACT_COMPLETED',
+    });
+    expect(await db.exitReceipt.count()).toBe(0);
+  });
+
+  it('makes duplicate physical receipts idempotent even with the old revision', async () => {
+    const { exit } = await request();
+    const received = await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    const audits = await db.auditLog.count();
+    expect(await acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).toEqual(received);
+    expect(await db.exitReceipt.count()).toBe(1);
+    expect(await db.auditLog.count()).toBe(audits);
+  });
+
+  it('holds a return while an uncompleted pass-on exists and rolls back its receipt', async () => {
+    const { exit } = await request();
+    await db.endTermChoice.create({
+      data: { contractId: 'contract', kind: 'pass_on', nomineeId: 'other', requestedOn: on },
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), boundary)).rejects.toMatchObject(
+      { code: 'EXIT_CHANGED' }
+    );
+    expect(await db.exitReceipt.count()).toBe(0);
+    expect(await db.exitRequest.findUnique({ where: { id: exit.id } })).toMatchObject({
+      status: 'pending',
+      revision: 0,
+    });
+  });
+
+  it.each(['exit', 'lifecycle'])(
+    'rolls back if the %s completes between the initial check and finalization',
+    async (changed) => {
+      const { exit } = await request();
+      let reads = 0;
+      const racing = (changed === 'exit'
+        ? db.$extends({
+            query: {
+              exitRequest: {
+                async findUniqueOrThrow({ args, query }) {
+                  const row = await query(args);
+                  return ++reads === 2 ? { ...row, status: 'completed' } : row;
+                },
+              },
+            },
+          })
+        : db.$extends({
+            query: {
+              contract: {
+                async findUnique({ args, query }) {
+                  const row = await query(args);
+                  return ++reads === 2 && row
+                    ? { ...row, lifecycle: { status: 'completed_return', revision: 9 } }
+                    : row;
+                },
+              },
+            },
+          })) as unknown as PrismaClient;
+      await expect(
+        acknowledgeEarlyExit(racing, acknowledgment(exit.id), boundary)
+      ).rejects.toMatchObject({ code: changed === 'exit' ? 'EXIT_CHANGED' : 'CONTRACT_COMPLETED' });
+      expect(await db.exitReceipt.count()).toBe(0);
+      expect(await db.assetLifeCompletion.count()).toBe(0);
+    }
+  );
+
+  it('reports a failed worker transaction, preserves legacy scalar leases, and succeeds on retry', async () => {
+    const { exit } = await request();
+    await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    await db.contractLine.deleteMany();
+    const failing = db.$extends({
+      query: {
+        auditLog: {
+          create() {
+            throw new Error('audit unavailable');
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await finalizeDueReturns(failing, boundary)).toEqual({
+        completed: 0,
+        failedIds: [exit.id],
+      });
+      expect(error).toHaveBeenCalled();
+      expect(await db.assetLifeCompletion.count()).toBe(0);
+      expect(await db.exitRequest.findUnique({ where: { id: exit.id } })).toMatchObject({
+        status: 'received',
+      });
+      expect(await finalizeDueReturns(db, boundary)).toEqual({ completed: 1, failedIds: [] });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('ignores a worker race when another finalization has already won', async () => {
+    const { exit } = await request();
+    await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    const racing = db.$extends({
+      query: {
+        exitRequest: {
+          async findUniqueOrThrow({ args, query }) {
+            return { ...(await query(args)), status: 'completed' };
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    expect(await finalizeDueReturns(racing, boundary)).toEqual({ completed: 0, failedIds: [] });
+    expect(await db.auditLog.count({ where: { action: 'exit.return_finalized' } })).toBe(0);
+  });
 });

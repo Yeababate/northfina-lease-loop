@@ -30,6 +30,89 @@ const statuses = async (contractId = 'c1') =>
   );
 
 describe('runReminderPass', () => {
+  it('uses only in-app delivery when requested and falls back to English for an old unsupported locale', async () => {
+    await seedLease(db, { id: 'c1', endOn: '2026-12-05', savedAt });
+    const pref = await db.reminderPreference.findFirstOrThrow();
+    const rules = (JSON.parse(pref.rulesJson) as { channels: string[] }[]).map((rule) => ({
+      ...rule,
+      channels: ['in_app'],
+    }));
+    await db.reminderPreference.update({
+      where: { id: pref.id },
+      data: { locale: 'unknown', rulesJson: JSON.stringify(rules) },
+    });
+    await db.reminderOccurrence.updateMany({ data: { channelsJson: '["in_app"]' } });
+    const contacts = vi.fn(options.contacts);
+    expect(await runReminderPass(db, at('2026-11-05T08:00:00Z'), { contacts })).toMatchObject({
+      notified: 1,
+    });
+    expect(contacts).not.toHaveBeenCalled();
+    expect(await db.notification.findFirst()).toMatchObject({ locale: 'en' });
+    expect(await db.notificationDelivery.findMany()).toMatchObject([
+      { channel: 'in_app', status: 'recorded' },
+    ]);
+  });
+
+  it('cancels orphaned occurrences when their preference row has been removed', async () => {
+    await seedLease(db, { id: 'c1', endOn: '2026-12-05', savedAt });
+    await db.reminderPreference.deleteMany();
+    expect(await runReminderPass(db, at('2026-11-05T08:00:00Z'), options)).toMatchObject({
+      notified: 0,
+      cancelled: 1,
+    });
+    expect(await db.notification.count()).toBe(0);
+  });
+
+  it('rolls back notification artifacts when the occurrence claim is lost at commit', async () => {
+    await seedLease(db, { id: 'c1', endOn: '2026-12-05', savedAt });
+    const racing = db.$extends({
+      query: {
+        reminderOccurrence: {
+          async updateMany({ args, query }) {
+            return args.data.status === 'covered' ? { count: 0 } : query(args);
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    expect(await runReminderPass(racing, at('2026-11-05T08:00:00Z'), options)).toMatchObject({
+      notified: 0,
+      failed: 1,
+    });
+    expect(await db.notification.count()).toBe(0);
+    expect(await db.reminderCoverage.count()).toBe(0);
+    expect(await db.reminderOccurrence.findFirst({ where: { ruleId: 'd30' } })).toMatchObject({
+      status: 'pending',
+      lastErrorCode: 'DELIVERY_FAILED',
+      attempts: 1,
+    });
+  });
+
+  it('does not crash the pass if recording a delivery failure also fails', async () => {
+    await seedLease(db, { id: 'c1', endOn: '2026-12-05', savedAt });
+    const failing = db.$extends({
+      query: {
+        auditLog: {
+          async create({ args, query }) {
+            if (args.data.action === 'reminder.attempt_failed')
+              throw new Error('audit unavailable');
+            return query(args);
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    expect(
+      await runReminderPass(failing, at('2026-11-05T08:00:00Z'), {
+        contacts: async () => {
+          throw new Error('contacts unavailable');
+        },
+      })
+    ).toMatchObject({ notified: 0, failed: 1 });
+    expect(console.error).toHaveBeenCalledWith(
+      'Could not record the reminder failure:',
+      expect.any(Error)
+    );
+    expect(await db.notification.count()).toBe(0);
+  });
   it('does nothing before the first reminder is due', async () => {
     await seedLease(db, { id: 'c1', endOn: '2026-12-05', savedAt });
     expect(await runReminderPass(db, at('2026-11-05T06:59:59.000Z'), options)).toEqual({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { divideRoundHalfUp, toScaledInteger } from './rounding';
+import { divideRoundHalfUp, divideRoundHalfUpBig, toScaledInteger } from './rounding';
 
 describe('divideRoundHalfUp', () => {
   it('rounds exactly half up', () => {
@@ -40,5 +40,25 @@ describe('toScaledInteger', () => {
   it('refuses to drop digits', () => {
     expect(() => toScaledInteger(25.55, 10)).toThrow(RangeError);
     expect(() => toScaledInteger(0.0275845, 1_000_000)).toThrow(RangeError);
+  });
+});
+
+describe('divideRoundHalfUpBig', () => {
+  it('uses the same half-up rule as divideRoundHalfUp', () => {
+    for (const [n, d] of [
+      [7, 2],
+      [5, 3],
+      [2_736_150, 1000],
+      [2_736_500, 1000],
+      [0, 9],
+    ] as const) {
+      expect(divideRoundHalfUpBig(BigInt(n), BigInt(d))).toBe(BigInt(divideRoundHalfUp(n, d)));
+    }
+  });
+
+  it('handles fractions beyond safe integers and rejects invalid input', () => {
+    expect(divideRoundHalfUpBig(10n ** 40n + 5n * 10n ** 20n, 10n ** 21n)).toBe(10n ** 19n + 1n);
+    expect(() => divideRoundHalfUpBig(-1n, 2n)).toThrow(RangeError);
+    expect(() => divideRoundHalfUpBig(1n, 0n)).toThrow(RangeError);
   });
 });

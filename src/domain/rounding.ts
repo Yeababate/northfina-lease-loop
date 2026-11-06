@@ -35,3 +35,16 @@ export function toScaledInteger(value: number, scale: number): number {
   }
   return scaled;
 }
+
+/**
+ * The same half-up rule for exact fractions too large for a safe integer, such as a present
+ * value kept as numerator / denominator (see fair-exit.ts). Returns a bigint; the caller checks
+ * that the rounded cents fit in a safe integer before turning them back into a number.
+ */
+export function divideRoundHalfUpBig(numerator: bigint, denominator: bigint): bigint {
+  if (numerator < 0n) throw new RangeError('numerator must be non-negative');
+  if (denominator <= 0n) throw new RangeError('denominator must be positive');
+  const quotient = numerator / denominator;
+  const remainder = numerator - quotient * denominator;
+  return remainder * 2n >= denominator ? quotient + 1n : quotient;
+}

@@ -53,6 +53,8 @@ export function JoinWaitingList(props: JoinWaitingListProps) {
           minCondition: form.get('condition'),
           preferredTermMonths: Number(form.get('term')),
           neededBy: form.get('neededBy'),
+          // Later messages about the request ("Do you still want this?") use this language.
+          locale,
         }),
       });
       if (response.ok) {

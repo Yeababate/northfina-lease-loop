@@ -1,5 +1,13 @@
 // Remembered answers and readiness through the real routes (#51), on a migrated database.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadQuestions } from '@/data/load';
+import {
+  forgetAll,
+  forgetAnswer,
+  listSavedProfiles,
+  requireProfileKey,
+  savedAnswersFor,
+} from './saved-answers';
 import { loadAssets } from '@/data/load';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { DELETE as forgetAllRoute, GET as listRoute } from '@/app/api/profile/answers/route';
@@ -87,6 +95,44 @@ async function saveAll(name: string, profile: string, answers: Record<string, un
 }
 
 describe('remembered answers', () => {
+  it('ignores malformed legacy profile keys and still supplies implied answers for an empty requested set', async () => {
+    const { questions } = await loadQuestions();
+    await db.savedAnswer.create({
+      data: {
+        id: 'bad-profile',
+        userId: 'cust-aino',
+        profileKey: 'invalid',
+        questionId: 'q_full_name',
+        valueJson: '"Old value"',
+        answeredOn: '2026-11-05',
+      },
+    });
+    expect(await listSavedProfiles(db, 'cust-aino', questions, '2026-11-05')).toEqual([]);
+    expect(
+      await savedAnswersFor(db, 'cust-aino', requireProfileKey('consumer'), questions, '2026-11-05')
+    ).toEqual({ profileKey: 'consumer', answers: { q_customer_type: 'consumer' } });
+    expect(() => requireProfileKey(null)).toThrow('profile must be');
+  });
+
+  it('forgets only the requested set and treats an already absent answer as removed nowhere', async () => {
+    await saveAll('Dual', 'consumer', AINO);
+    await saveAll('Dual', 'sole_trader', { q_full_name: 'Dual Person' });
+    const user = await db.demoUser.findUniqueOrThrow({ where: { canonicalUsername: 'dual' } });
+    const { questions } = await loadQuestions();
+    expect(
+      await forgetAnswer(db, user.id, requireProfileKey('consumer'), 'q_signatory_email', questions)
+    ).toEqual({ removed: [] });
+    expect((await forgetAll(db, user.id, requireProfileKey('consumer'))).count).toBeGreaterThan(0);
+    expect(
+      (await listSavedProfiles(db, user.id, questions, '2026-11-05')).map(
+        (profile) => profile.profileKey
+      )
+    ).toEqual(['sole_trader']);
+    const audit = await db.auditLog.findFirstOrThrow({
+      where: { action: 'saved_answer.all_forgotten' },
+    });
+    expect(audit.entity_id).toBe(`${user.id}:consumer`);
+  });
   it('Aino saves her profile; ebike-003 is then ready', async () => {
     expect((await readiness('Aino', 'ebike-003')).body.data.status).toBe('missing');
     await saveAll('Aino', 'consumer', AINO);

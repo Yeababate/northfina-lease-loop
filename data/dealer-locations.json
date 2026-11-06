@@ -1,0 +1,71 @@
+{
+  "note": "Fictional dealer locations for the nearby-dealer map. Only a city or area name and coordinates rounded to 0.1 degrees (about 5 to 11 km): never a street address.",
+  "dealers": [
+    {
+      "id": "dealer-helsinki",
+      "provider_id": "provider-kettu",
+      "name": "Kettu Mobility Helsinki",
+      "area": "Helsinki",
+      "lat": 60.2,
+      "lon": 24.9
+    },
+    {
+      "id": "dealer-tampere",
+      "provider_id": "provider-kettu",
+      "name": "Kettu Mobility Tampere",
+      "area": "Tampere",
+      "lat": 61.5,
+      "lon": 23.8
+    },
+    {
+      "id": "dealer-turku",
+      "provider_id": "provider-kettu",
+      "name": "Kettu Mobility Turku",
+      "area": "Turku",
+      "lat": 60.5,
+      "lon": 22.3
+    },
+    {
+      "id": "dealer-jyvaskyla",
+      "provider_id": "provider-kettu",
+      "name": "Kettu Mobility Jyväskylä",
+      "area": "Jyväskylä",
+      "lat": 62.2,
+      "lon": 25.7
+    },
+    {
+      "id": "dealer-oulu",
+      "provider_id": "provider-pelto",
+      "name": "Pelto Agri Rental Oulu",
+      "area": "Oulu",
+      "lat": 65.0,
+      "lon": 25.5
+    },
+    {
+      "id": "dealer-kuopio",
+      "provider_id": "provider-pelto",
+      "name": "Pelto Agri Rental Kuopio",
+      "area": "Kuopio",
+      "lat": 62.9,
+      "lon": 27.7
+    }
+  ],
+  "cities": [
+    { "name": "Espoo", "lat": 60.2, "lon": 24.7 },
+    { "name": "Helsinki", "lat": 60.2, "lon": 24.9 },
+    { "name": "Joensuu", "lat": 62.6, "lon": 29.8 },
+    { "name": "Jyväskylä", "lat": 62.2, "lon": 25.7 },
+    { "name": "Kuopio", "lat": 62.9, "lon": 27.7 },
+    { "name": "Lahti", "lat": 61.0, "lon": 25.7 },
+    { "name": "Lappeenranta", "lat": 61.1, "lon": 28.2 },
+    { "name": "Oulu", "lat": 65.0, "lon": 25.5 },
+    { "name": "Pori", "lat": 61.5, "lon": 21.8 },
+    { "name": "Rovaniemi", "lat": 66.5, "lon": 25.7 },
+    { "name": "Seinäjoki", "lat": 62.8, "lon": 22.8 },
+    { "name": "Tallinn", "lat": 59.4, "lon": 24.8 },
+    { "name": "Tampere", "lat": 61.5, "lon": 23.8 },
+    { "name": "Turku", "lat": 60.5, "lon": 22.3 },
+    { "name": "Vaasa", "lat": 63.1, "lon": 21.6 },
+    { "name": "Vantaa", "lat": 60.3, "lon": 25.0 }
+  ]
+}
