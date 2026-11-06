@@ -1,6 +1,6 @@
 import type { AssetCategory, CoefficientTable, SecondLifeRequest } from '@/data/schemas';
 import { quoteLease } from './pricing';
-import type { decideRefurbishment } from './refurbish-decision';
+import { refurbishmentIsWorthIt, type decideRefurbishment } from './refurbish-decision';
 import { meetsCondition } from './refurbishment-rules';
 
 type Option = ReturnType<typeof decideRefurbishment>['options'][number];
@@ -85,11 +85,7 @@ function offerFor(
   let best: Offer | undefined;
   for (const option of options) {
     if (!option.leasable || !meetsCondition(option.after.condition, entry.min_condition)) continue;
-    if (
-      option.marketValueCents === null ||
-      option.netValueAddedCents === null ||
-      option.netValueAddedCents < 0
-    ) {
+    if (!refurbishmentIsWorthIt(option, options) || option.marketValueCents === null) {
       if (rejection === 'condition_too_low') rejection = 'refurbishment_not_worth_it';
       continue;
     }
