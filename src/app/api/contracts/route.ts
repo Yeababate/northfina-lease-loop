@@ -3,10 +3,15 @@
 import { z } from 'zod';
 import { loadCoefficientTable, loadPriceLists, loadQuestions, loadVatRates } from '@/data/load';
 import { centsSchema, isoDateSchema } from '@/data/schemas';
+import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
+import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
 import { db } from '@/server/db';
+import { readDemoNameFromRequest } from '@/server/demo-session';
+import { reminderPreferencesSchema } from '@/server/reminders/preferences';
 import { todayIso } from '@/server/today';
+import { requirePrincipal } from '@/server/mock-users';
 
 /** One answer, as the question types store it. Sizes are capped so a body stays small. */
 const answerSchema = z.union([
@@ -24,23 +29,45 @@ const schema = z.strictObject({
   expectedMonthlyNetCents: centsSchema,
   expectedBuyoutNetCents: centsSchema,
   expectedPriceListVersion: z.number().int().positive(),
+  /** The price preview's rule identity/version prevents signing a stale discount. */
   expectedDiscountRuleId: z.string().min(1).nullable().default(null),
   expectedDiscountRuleRevision: z.number().int().positive().nullable().default(null),
+  /** Language of the contract PDF and of reminder emails; the signing page's language. */
+  locale: z.enum(['en', 'fi', 'sv', 'et']).default('en'),
+  /** Lease-end reminder settings (#10); 30/7/1 days at 09:00 Helsinki time when left out. */
+  reminders: reminderPreferencesSchema.optional(),
 });
 
 export const POST = handleRoute(async (request) => {
-  const input = await readJsonBody(request, schema);
+  const { reminders, ...input } = await readJsonBody(request, schema);
+  const principal = await requirePrincipal(db, request);
+  // Reminders belong to the demo sign-in name, as in src/server/reminders/recipient.ts.
+  const demoName = readDemoNameFromRequest(request);
   const [lists, table, vatRates, questionsFile] = await Promise.all([
     loadPriceLists(),
     loadCoefficientTable(),
     loadVatRates(),
     loadQuestions(),
   ]);
-  const contract = await signApplication(db, input, todayIso(), {
-    lists,
-    table,
-    vatRates,
-    questions: questionsFile.questions,
-  });
+  const contract = await signApplication(
+    db,
+    input,
+    todayIso(),
+    {
+      lists,
+      table,
+      vatRates,
+      questions: questionsFile.questions,
+    },
+    principal.id,
+    demoName
+      ? {
+          recipientId: demoName,
+          locale: input.locale,
+          preferences: reminders ?? defaultReminderPreferences(FALLBACK_TIME_ZONE),
+          now: new Date(),
+        }
+      : undefined
+  );
   return ok(contract, { status: 201 });
 });

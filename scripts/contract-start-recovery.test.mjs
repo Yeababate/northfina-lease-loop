@@ -190,7 +190,9 @@ it('recovers to a separately migrated empty database, preserving money, ids, ass
       { ...snapshot.contracts[0], startOn: '2026-01-31' },
     ]);
     expect(await target.db.invoice.findMany()).toEqual(snapshot.invoices);
-    expect(await target.db.asset.findMany()).toEqual(exported.assets);
+    expect(await target.db.asset.findMany()).toEqual(
+      exported.assets.map((asset) => ({ ...asset, ownerId: null }))
+    );
     expect(await target.db.auditLog.findUnique({ where: { id: exported.audits[0].id } })).toEqual(
       exported.audits[0]
     );
@@ -241,7 +243,7 @@ it('refuses unknown legacy starts and rolls back the import if its audit cannot 
   }
 });
 
-it('upgrades populated contracts and invoices through the generated discount migration without repricing', async () => {
+it('preserves populated contracts and invoices through discount and schema reconciliation migrations', async () => {
   const migrations = path.join(directory, 'discount-upgrade-migrations');
   await mkdir(migrations);
   const migration = '20261105204134_long_term_discounts';
@@ -292,7 +294,10 @@ it('upgrades populated contracts and invoices through the generated discount mig
     )
   );
   sourceDb.close();
-  await cp(path.join(source, migration), path.join(migrations, migration), { recursive: true });
+  for (const entry of await readdir(source)) {
+    if (entry !== 'migration_lock.toml' && entry >= migration)
+      await cp(path.join(source, entry), path.join(migrations, entry), { recursive: true });
+  }
   expect(deploy(targetConfig, targetFile)).toBe('');
   const upgraded = new Database(targetFile, { readonly: true });
   try {
@@ -304,6 +309,8 @@ it('upgrades populated contracts and invoices through the generated discount mig
         discountBps: 0,
         discountRuleId: null,
         discountRuleRevision: null,
+        providerId: null,
+        renterId: null,
       },
     ]);
     for (const [table, rows] of Object.entries(preserved))

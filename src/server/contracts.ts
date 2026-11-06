@@ -6,9 +6,26 @@ import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import { vatCents, vatRateOn } from '@/domain/vat';
 import { ApiError } from './api-response';
 import { getAsset } from './assets';
-import { withAudit, type AuditEntry } from './audit';
+import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
 import type { PrismaClient } from './prisma-client';
+import { renderContractPdf } from './contract-pdf';
+import type { Locale } from '@/i18n/locales';
+import {
+  createReminderPreferencesInTx,
+  validateReminderSetup,
+  type InitialReminders,
+} from './reminders/preferences';
+
+/** Lease-end reminder settings saved with the contract, in the signing transaction (#10). */
+export type SigningReminders = InitialReminders & { now: Date };
+
+export type SigningParticipants = {
+  renterId: string;
+  providerId: string;
+  providerName: string;
+  locale: Locale;
+};
 
 /** No update operation is exposed: signing creates an immutable price snapshot. */
 export async function signContract(
@@ -20,65 +37,167 @@ export async function signContract(
     expectedPriceListVersion: number;
     expectedDiscountRuleId?: string | null;
     expectedDiscountRuleRevision?: number | null;
+    participants?: SigningParticipants;
   },
   signedOn: string,
   lists: readonly PriceList[],
-  table: CoefficientTable
+  table: CoefficientTable,
+  reminders?: SigningReminders
 ) {
-  const id = randomUUID();
-  const entry: AuditEntry = {
-    actor: input.actor,
-    action: 'contract.signed',
-    entityType: 'contract',
-    entityId: id,
+  const pricingInput = {
+    assetId: input.assetId,
+    termMonths: input.termMonths,
+    downPaymentCents: input.downPaymentCents,
+    startOn: input.startOn,
   };
-  return withAudit(db, entry, async (tx) => {
-    const result = priceContract(
-      lists,
-      table,
-      {
-        assetId: input.assetId,
-        termMonths: input.termMonths,
-        downPaymentCents: input.downPaymentCents,
-        startOn: input.startOn,
-      },
-      signedOn,
-      await rulesForAsset(tx, input.assetId)
+  const result = priceContract(
+    lists,
+    table,
+    pricingInput,
+    signedOn,
+    await rulesForAsset(db, input.assetId)
+  );
+  if (!result.ok)
+    throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
+  if (
+    result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+    result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
+    result.price.priceListVersion !== input.expectedPriceListVersion ||
+    result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
+    result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
+  )
+    throw new ApiError(
+      409,
+      'PRICE_CHANGED',
+      'The price changed. Refresh and review before signing'
     );
-    if (!result.ok)
-      throw new ApiError(422, 'INVALID_PRICE', 'This lease cannot be priced', result.reason);
-    if (
-      result.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
-      result.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
-      result.price.priceListVersion !== input.expectedPriceListVersion ||
-      result.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
-      result.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null)
-    )
-      throw new ApiError(
-        409,
-        'PRICE_CHANGED',
-        'The price changed. Refresh and review before signing'
-      );
-    entry.details = result.price;
-    const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
-    if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
-    const reserved = await tx.asset.updateMany({
-      where: { id: input.assetId, status: 'available' },
-      data: { status: 'reserved' },
-    });
-    if (reserved.count !== 1) throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
-    const contract = await tx.contract.create({
-      data: { id, actor: input.actor, ...result.price },
-    });
-    // Record who provides this lease, from current ownership, in the same transaction.
-    // The link never changes, so the provider keeps access after any later sale.
-    const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
-    if (owner)
-      await tx.contractProvider.create({
-        data: { contractId: id, providerId: owner.providerId, assetId: input.assetId },
-      });
-    return contract;
+  const id = randomUUID();
+  const event = reminders && {
+    contractId: id,
+    recipientId: reminders.recipientId,
+    endOn: result.price.endOn,
+  };
+  const reminderSetup =
+    reminders && event ? validateReminderSetup(event, reminders.preferences, reminders.now) : null;
+  const assetSnapshot = await db.asset.findUnique({ where: { id: input.assetId } });
+  if (!assetSnapshot) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  const document = await renderContractPdf({
+    ...result.price,
+    id,
+    actor: input.actor,
+    providerName: input.participants?.providerName ?? '',
+    assetName: `${assetSnapshot.make} ${assetSnapshot.model}`,
+    serialNumber: assetSnapshot.serial_number,
+    locale: input.participants?.locale ?? 'en',
+    originalMonthlyNetCents: result.price.originalMonthlyNetCents,
+    monthlyDiscountCents: result.price.monthlyDiscountCents,
+    discountBps: result.price.discountBps,
+    generatedAt: new Date().toISOString(),
   });
+  return withAudit(
+    db,
+    {
+      actor: input.participants?.renterId ?? input.actor,
+      action: 'contract.signed',
+      entityType: 'contract',
+      entityId: id,
+      details: reminderSetup
+        ? { ...result.price, reminderPreferences: reminderSetup.preferences }
+        : result.price,
+    },
+    async (tx) => {
+      const asset = await tx.asset.findUnique({ where: { id: input.assetId } });
+      if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+      const owner = await tx.assetOwnership.findUnique({ where: { assetId: input.assetId } });
+      if (
+        input.participants &&
+        (asset.ownerId !== input.participants.providerId ||
+          (owner !== null && owner.providerId !== input.participants.providerId))
+      )
+        throw new ApiError(409, 'PROVIDER_CHANGED', 'The provider changed. Review before signing');
+      const currentPrice = priceContract(
+        lists,
+        table,
+        pricingInput,
+        signedOn,
+        await rulesForAsset(tx, input.assetId)
+      );
+      if (!currentPrice.ok)
+        throw new ApiError(
+          422,
+          'INVALID_PRICE',
+          'This lease cannot be priced',
+          currentPrice.reason
+        );
+      if (
+        currentPrice.price.monthlyNetCents !== input.expectedMonthlyNetCents ||
+        currentPrice.price.buyoutNetCents !== input.expectedBuyoutNetCents ||
+        currentPrice.price.priceListVersion !== input.expectedPriceListVersion ||
+        currentPrice.price.discountRuleId !== (input.expectedDiscountRuleId ?? null) ||
+        currentPrice.price.discountRuleRevision !== (input.expectedDiscountRuleRevision ?? null) ||
+        currentPrice.price.originalMonthlyNetCents !== result.price.originalMonthlyNetCents ||
+        currentPrice.price.monthlyDiscountCents !== result.price.monthlyDiscountCents ||
+        currentPrice.price.discountBps !== result.price.discountBps ||
+        currentPrice.price.financedCents !== result.price.financedCents ||
+        currentPrice.price.downPaymentCents !== result.price.downPaymentCents ||
+        currentPrice.price.listPriceCents !== result.price.listPriceCents
+      )
+        throw new ApiError(
+          409,
+          'PRICE_CHANGED',
+          'The price changed. Refresh and review before signing'
+        );
+      const reserved = await tx.asset.updateMany({
+        where: { id: input.assetId, status: 'available' },
+        data: { status: 'reserved' },
+      });
+      if (reserved.count !== 1)
+        throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+      const { assetId, ...linePrice } = currentPrice.price;
+      const contract = await tx.contract.create({
+        data: {
+          id,
+          actor: input.actor,
+          ...currentPrice.price,
+          renterId: input.participants?.renterId ?? null,
+          providerId: input.participants?.providerId ?? null,
+          lines: {
+            create: {
+              id: `${id}:${assetId}`,
+              assetId,
+              listPriceCents: linePrice.listPriceCents,
+              downPaymentCents: linePrice.downPaymentCents,
+              financedCents: linePrice.financedCents,
+              monthlyNetCents: linePrice.monthlyNetCents,
+              buyoutNetCents: linePrice.buyoutNetCents,
+              priceListVersion: linePrice.priceListVersion,
+              coefficientVersion: linePrice.coefficientVersion,
+              coefficientId: linePrice.coefficientId,
+              band: linePrice.band,
+              factor: linePrice.factor,
+            },
+          },
+          lifecycle: { create: {} },
+          document: { create: document },
+        },
+      });
+      // Record who provides this lease, from current ownership, in the same transaction.
+      // The link never changes, so the provider keeps access after any later sale.
+      const recordedProviderId = owner?.providerId ?? asset.ownerId;
+      if (recordedProviderId)
+        await tx.contractProvider.create({
+          data: { contractId: id, providerId: recordedProviderId, assetId: input.assetId },
+        });
+      if (reminders && event && reminderSetup)
+        await createReminderPreferencesInTx(
+          tx,
+          event,
+          { ...reminders, preferences: reminderSetup.preferences },
+          reminderSetup.schedule
+        );
+      return contract;
+    }
+  );
 }
 
 export type SignApplicationInput = {
@@ -93,6 +212,7 @@ export type SignApplicationInput = {
   expectedPriceListVersion: number;
   expectedDiscountRuleId?: string | null;
   expectedDiscountRuleRevision?: number | null;
+  locale?: Locale;
 };
 
 export type SigningData = {
@@ -111,7 +231,9 @@ export async function signApplication(
   db: PrismaClient,
   input: SignApplicationInput,
   signedOn: string,
-  data: SigningData
+  data: SigningData,
+  principalId?: string,
+  reminders?: SigningReminders
 ) {
   const asset = await getAsset(db, input.assetId);
   if (!asset) throw new ApiError(404, 'ASSET_NOT_FOUND', 'Asset not found');
@@ -146,5 +268,34 @@ export async function signApplication(
   if (!check.ok)
     throw new ApiError(422, 'NOT_APPROVED', 'The application is not approved', check.reason);
 
-  return signContract(db, { ...input, actor: check.signerName }, signedOn, data.lists, data.table);
+  let participants: SigningParticipants | undefined;
+  if (principalId) {
+    const [principal, ownedAsset, ownership] = await Promise.all([
+      db.demoUser.findUnique({ where: { id: principalId } }),
+      db.asset.findUnique({ where: { id: input.assetId } }),
+      db.assetOwnership.findUnique({ where: { assetId: input.assetId } }),
+    ]);
+    if (!principal) throw new ApiError(401, 'LOGIN_REQUIRED', 'Select a demo username first');
+    if (!ownedAsset?.ownerId || (ownership !== null && ownership.providerId !== ownedAsset.ownerId))
+      throw new ApiError(422, 'PROVIDER_REQUIRED', 'The item has no configured provider');
+    if (ownedAsset.ownerId === principal.id)
+      throw new ApiError(422, 'OWN_ASSET', 'Choose an item from another provider');
+    const provider = await db.demoUser.findUnique({ where: { id: ownedAsset.ownerId } });
+    if (!provider)
+      throw new ApiError(422, 'PROVIDER_REQUIRED', 'The item has no configured provider');
+    participants = {
+      renterId: principal.id,
+      providerId: provider.id,
+      providerName: provider.displayName,
+      locale: input.locale ?? 'en',
+    };
+  }
+  return signContract(
+    db,
+    { ...input, actor: check.signerName, participants },
+    signedOn,
+    data.lists,
+    data.table,
+    reminders
+  );
 }

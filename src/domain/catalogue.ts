@@ -129,18 +129,33 @@ export function filterCatalogue(
   return matches.sort(comparator(query.sort));
 }
 
-export type CatalogueBadge = 'available' | 'reserved' | 'second_life';
+export type CatalogueBadge = 'available' | 'reserved' | 'being_refurbished' | 'second_life';
 
-/** The badge on a card. Reserved wins: it decides whether the customer can act at all. */
+/**
+ * The badge on a card. Reserved and being refurbished come first: they decide whether the
+ * customer can act at all. "Second life" marks an available item that had earlier leases.
+ */
 export function catalogueBadge(asset: Asset): CatalogueBadge {
   if (asset.status === 'reserved') return 'reserved';
+  if (asset.status === 'returned') return 'being_refurbished';
   if (asset.previous_lives > 0) return 'second_life';
   return 'available';
 }
 
-/** Whether the customer may start pricing and applying for this item. */
+/**
+ * Whether the customer may price and apply for this item. Only `available` items can be
+ * signed (src/server/contracts.ts): a returned item must be inspected, refurbished and
+ * relisted first (src/server/next-life-commands.ts), which makes it available again.
+ */
 export function isLeasable(asset: Asset): boolean {
-  return asset.status !== 'reserved';
+  return asset.status === 'available';
+}
+
+/** Why an item cannot be leased right now, for the message the customer sees; null if it can. */
+export function unavailableReason(asset: Asset): 'reserved' | 'being_refurbished' | null {
+  if (asset.status === 'reserved') return 'reserved';
+  if (asset.status === 'returned') return 'being_refurbished';
+  return null;
 }
 
 function comparator(sort: CatalogueSort) {

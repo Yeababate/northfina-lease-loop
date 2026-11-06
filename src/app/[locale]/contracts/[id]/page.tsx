@@ -8,6 +8,9 @@ import { getT } from '@/i18n/get-t';
 import { intlLocale, isLocale } from '@/i18n/locales';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
+import { currentPrincipal } from '@/server/current-principal';
+import { getParticipantContract } from '@/server/profile';
+import { ApiError } from '@/server/api-response';
 import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { InvoiceList } from '@/components/invoice-list';
 
@@ -18,8 +21,16 @@ export default async function ContractPage({
   const { locale, id } = await params;
   if (!isLocale(locale)) notFound();
   await connection();
-  const contract = await db.contract.findUnique({ where: { id } });
-  if (!contract) notFound();
+  const principal = await currentPrincipal();
+  if (!principal) notFound();
+  const contract = await getParticipantContract(db, principal.id, id).catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  });
+  const document = await db.contractDocument.findUnique({
+    where: { contractId: id },
+    select: { locale: true },
+  });
   const invoices = await db.invoice.findMany({
     where: { contractId: id },
     orderBy: { period: 'asc' },
@@ -41,6 +52,13 @@ export default async function ContractPage({
       <p>{t('contract.period', { start: contract.startOn, end: contract.endOn })}</p>
       <p>{t('asset.priceListVersion', { version: contract.priceListVersion })}</p>
       <p>{t('contract.tax')}</p>
+      <p>
+        {document ? (
+          <a href={`/documents/contracts/${encodeURIComponent(id)}`}>{t('profile.originalPdf')}</a>
+        ) : (
+          t('profile.documentUnavailable')
+        )}
+      </p>
       <form>
         <label>
           {t('contract.invoiceDate')}{' '}

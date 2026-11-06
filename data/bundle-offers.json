@@ -1,0 +1,26 @@
+[
+  {
+    "id": "commuter-office-kit",
+    "name": "Commuter and office kit",
+    "description": "A city e-bike and a light laptop on one lease, for getting to work and working anywhere.",
+    "asset_ids": ["ebike-002", "laptop-001"],
+    "terms": [24, 36],
+    "published": true
+  },
+  {
+    "id": "family-ride-pair",
+    "name": "Family ride pair",
+    "description": "A cargo e-bike for the shopping and a folding e-bike, leased together.",
+    "asset_ids": ["ebike-004", "ebike-006"],
+    "terms": [12, 24, 36],
+    "published": true
+  },
+  {
+    "id": "hay-season-set",
+    "name": "Hay season set",
+    "description": "Mower and bale wrapper for the hay season, with one common lease.",
+    "asset_ids": ["farm-008", "farm-003"],
+    "terms": [36, 48],
+    "published": true
+  }
+]

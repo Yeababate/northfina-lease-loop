@@ -389,3 +389,65 @@ export const co2FactorsSchema = z.strictObject({
   e_bike_avoided_car_km_kg_per_km: z.number().nonnegative(),
 });
 export type Co2Factors = z.infer<typeof co2FactorsSchema>;
+
+// ---------------------------------------------------------------------------
+// data/related-item-rules.json: the adjustable ruleset that ranks related items.
+// Scores and weights are whole numbers so ranking stays exact integer maths.
+// ---------------------------------------------------------------------------
+
+/** A score from 0 (no match) to 100 (best match). */
+const scoreSchema = z.number().int().min(0).max(100);
+
+export const relatedItemRulesSchema = z
+  .strictObject({
+    version: z.number().int().positive(),
+    note: z.string(),
+    /** Share of the total score, in percent. The three must add up to 100. */
+    weights: z.strictObject({ category: scoreSchema, price: scoreSchema, condition: scoreSchema }),
+    /**
+     * Viewed category → candidate category → affinity. A missing pair means 0: such
+     * candidates are left out unless `zero_affinity_fallback` is above 0.
+     */
+    category_affinity: z.partialRecord(
+      assetCategorySchema,
+      z.partialRecord(assetCategorySchema, scoreSchema)
+    ),
+    /** Affinity used for unrelated categories. 0 = never recommend them. */
+    zero_affinity_fallback: scoreSchema,
+    price: z
+      .strictObject({
+        /** Every candidate is compared on this one basis, never list price against rent. */
+        basis: z.literal('monthly_net_rent_same_term_no_down_payment'),
+        /** Price difference (basis points of the viewed item's rent) that still scores 100. */
+        full_score_within_bps: z.number().int().nonnegative(),
+        /** From this difference on, the price score is 0. */
+        zero_score_from_bps: z.number().int().positive(),
+      })
+      .refine((p) => p.full_score_within_bps < p.zero_score_from_bps, {
+        message: 'full_score_within_bps must be below zero_score_from_bps',
+      }),
+    condition_score: z.record(assetConditionSchema, scoreSchema),
+    /** How many related items to show at most. */
+    limit: z.number().int().min(1).max(20),
+  })
+  .refine((r) => r.weights.category + r.weights.price + r.weights.condition === 100, {
+    message: 'weights must add up to 100',
+  });
+export type RelatedItemRules = z.infer<typeof relatedItemRulesSchema>;
+
+// ---------------------------------------------------------------------------
+// data/bundle-offers.json: example provider bundle groupings (which assets belong together
+// in one lease), added to the database by the seed. Bundles carry no prices or discounts.
+// ---------------------------------------------------------------------------
+
+export const bundleOfferSeedSchema = z.strictObject({
+  id: z.string().regex(/^[a-z0-9-]{1,60}$/),
+  name: z.string().min(1).max(80),
+  description: z.string().max(400),
+  asset_ids: z.array(z.string().min(1)).min(2),
+  /** Terms in months the package can be leased for. */
+  terms: z.array(z.number().int().positive()).min(1),
+  published: z.boolean(),
+});
+export type BundleOfferSeed = z.infer<typeof bundleOfferSeedSchema>;
+export const bundleOffersFileSchema = z.array(bundleOfferSeedSchema);

@@ -16,7 +16,11 @@ import { checkApplicationForSigning } from '@/domain/application-signing';
 import type { Answers } from '@/domain/answer-check';
 import { createTestDb } from '../../tests/helpers/test-db';
 import { seedAssets } from './assets';
+import { demoNameCookieHeader } from './demo-cookie';
+import { seedDemoParticipants } from './demo-participants';
 import { signApplication, type SigningData } from './contracts';
+import { rulesForAsset, saveDiscountRule } from './discount-rules';
+import { seedDealerSide } from './providers';
 import type { PrismaClient } from './prisma-client';
 
 const clock = vi.hoisted(() => ({ today: '2026-01-01' }));
@@ -57,26 +61,42 @@ beforeEach(async () => {
   clock.today = '2026-01-01';
   await db.invoice.deleteMany();
   await db.contract.deleteMany();
+  await db.contractProvider.deleteMany();
+  await db.discountRule.deleteMany();
+  await db.assetOwnership.deleteMany();
   await db.auditLog.deleteMany();
   await db.asset.deleteMany();
-  await seedAssets(db, await loadAssets());
+  const assets = await loadAssets();
+  await seedAssets(db, assets);
+  await seedDealerSide(db, assets);
+  await seedDemoParticipants(db);
   await db.auditLog.deleteMany();
 });
 
-function preview(assetId = 'ebike-003', start = '2026-01-31', quotedOn = clock.today) {
+function preview(
+  assetId = 'ebike-003',
+  start = '2026-01-31',
+  quotedOn = clock.today,
+  termMonths = 36,
+  discountRules: Awaited<ReturnType<typeof rulesForAsset>> = []
+) {
   const choices = parseCatalogueQuery(
-    { term: '36', start },
+    { term: String(termMonths), start },
     { today: quotedOn, terms: availableTerms(data.table), defaultTerm: 36 }
   );
   const price = listPriceOn(data.lists, assetId, quotedOn);
   const vat = vatRateOn(data.vatRates.rates, choices.startDate);
   if (!price.ok || !vat.ok) throw new Error('Fixture pricing unavailable');
-  const result = quoteLease(data.table, {
-    listPriceCents: price.priceCents,
-    termMonths: choices.termMonths,
-    downPaymentCents: 0,
-    vatRatePercent: vat.rate.rate_percent,
-  });
+  const result = quoteLease(
+    data.table,
+    {
+      listPriceCents: price.priceCents,
+      termMonths: choices.termMonths,
+      downPaymentCents: 0,
+      vatRatePercent: vat.rate.rate_percent,
+    },
+    discountRules
+  );
   if (!result.ok) throw new Error('Fixture quote unavailable');
   return {
     quote: result.quote,
@@ -91,13 +111,16 @@ function preview(assetId = 'ebike-003', start = '2026-01-31', quotedOn = clock.t
       expectedMonthlyNetCents: result.quote.monthlyNetCents,
       expectedBuyoutNetCents: result.quote.buyoutCents,
       expectedPriceListVersion: price.priceListVersion,
+      expectedDiscountRuleId: result.quote.discountRuleId,
+      expectedDiscountRuleRevision: result.quote.discountRuleRevision,
     },
   };
 }
 const request = (body: unknown) =>
   new Request('http://localhost/api/contracts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // Signing needs a demo sign-in name; Aino is a seeded participant.
+    headers: { 'Content-Type': 'application/json', cookie: demoNameCookieHeader('Aino') },
     body: JSON.stringify(body),
   });
 
@@ -168,6 +191,116 @@ it('connects slider choices, approval, signing, saved start, VAT invoices and ex
   expect((await (await list(request({}), context)).json()).data).toEqual(invoices);
   expect(await db.invoice.count()).toBe(36);
   expect(await db.auditLog.count()).toBe(3);
+});
+
+it('keeps provider discounts consistent from catalogue quote through signed contract and invoices', async () => {
+  await saveDiscountRule(db, 'provider-kettu', {
+    name: 'Long-term 10%',
+    minTermMonths: 36,
+    maxTermMonths: 48,
+    discountBps: 1000,
+    enabled: true,
+  });
+  const rules = await rulesForAsset(db, 'ebike-003');
+  const belowMinimum = preview('ebike-003', '2026-01-31', clock.today, 24, rules).quote;
+  expect(belowMinimum).toMatchObject({
+    discountBps: 0,
+    monthlyDiscountCents: 0,
+    monthlyNetCents: belowMinimum.originalMonthlyNetCents,
+  });
+  for (const term of [36, 48])
+    expect(preview('ebike-003', '2026-01-31', clock.today, term, rules).quote.discountBps).toBe(
+      1000
+    );
+
+  const { quote, input } = preview('ebike-003', '2026-01-31', clock.today, 36, rules);
+  const response = await sign(request(input), undefined);
+  expect(response.status).toBe(201);
+  const contract = (await response.json()).data;
+  expect(contract).toMatchObject({
+    originalMonthlyNetCents: quote.originalMonthlyNetCents,
+    monthlyDiscountCents: quote.monthlyDiscountCents,
+    monthlyNetCents: quote.monthlyNetCents,
+    discountBps: 1000,
+    discountRuleRevision: rules[0]!.revision,
+    buyoutNetCents: quote.buyoutCents,
+  });
+
+  const invoicesResponse = await generate(request({ actor: 'Aino Virtanen' }), {
+    params: Promise.resolve({ id: contract.id }),
+  });
+  expect(invoicesResponse.status).toBe(200);
+  const invoices = (await invoicesResponse.json()).data as {
+    netCents: number;
+    vatCents: number;
+    grossCents: number;
+    vatPercent: number;
+  }[];
+  expect(invoices).toHaveLength(36);
+  expect(invoices[0]).toMatchObject({
+    netCents: quote.monthlyNetCents,
+    vatCents: quote.monthlyVatCents,
+    grossCents: quote.monthlyGrossCents,
+    vatPercent: 25.5,
+  });
+
+  const shortLease = preview('laptop-004', '2026-01-31', clock.today, 24, rules);
+  expect(shortLease.quote).toMatchObject({ discountBps: 0, monthlyDiscountCents: 0 });
+  const shortSigned = await sign(request(shortLease.input), undefined);
+  expect(shortSigned.status).toBe(201);
+  expect((await shortSigned.json()).data).toMatchObject({
+    originalMonthlyNetCents: shortLease.quote.originalMonthlyNetCents,
+    monthlyDiscountCents: 0,
+    monthlyNetCents: shortLease.quote.originalMonthlyNetCents,
+    discountBps: 0,
+    discountRuleId: null,
+  });
+});
+
+it('requires renewed consent when a dealer changes the displayed discount before signing', async () => {
+  const firstRule = await saveDiscountRule(db, 'provider-kettu', {
+    name: 'Long-term offer',
+    minTermMonths: 36,
+    maxTermMonths: 48,
+    discountBps: 1000,
+    enabled: true,
+  });
+  const original = preview(
+    'laptop-004',
+    '2026-01-31',
+    clock.today,
+    36,
+    await rulesForAsset(db, 'laptop-004')
+  );
+  await saveDiscountRule(
+    db,
+    'provider-kettu',
+    {
+      name: 'Long-term offer',
+      minTermMonths: 36,
+      maxTermMonths: 48,
+      discountBps: 500,
+      enabled: true,
+    },
+    { id: firstRule.id, revision: firstRule.revision }
+  );
+
+  const stale = await sign(request(original.input), undefined);
+  expect(stale.status).toBe(409);
+  expect(await stale.json()).toMatchObject({ error: { code: 'PRICE_CHANGED' } });
+  expect(await db.contract.count()).toBe(0);
+  expect(await db.auditLog.count({ where: { action: 'contract.signed' } })).toBe(0);
+
+  const currentRules = await rulesForAsset(db, 'laptop-004');
+  const current = preview('laptop-004', '2026-01-31', clock.today, 36, currentRules);
+  const accepted = await sign(request(current.input), undefined);
+  expect(accepted.status).toBe(201);
+  expect((await accepted.json()).data).toMatchObject({
+    monthlyNetCents: current.quote.monthlyNetCents,
+    monthlyDiscountCents: current.quote.monthlyDiscountCents,
+    discountBps: 500,
+    discountRuleRevision: firstRule.revision + 1,
+  });
 });
 
 it('requires renewed price confirmation after a price-list change before any writes', async () => {
