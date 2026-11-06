@@ -323,6 +323,8 @@ it('preserves populated contracts and invoices through discount and schema recon
     expect(upgraded.prepare('SELECT * FROM Contract').all()).toEqual([
       {
         ...legacy,
+        // Contracts from before fleets lease a single unit.
+        quantity: 1,
         originalMonthlyNetCents: null,
         monthlyDiscountCents: 0,
         discountBps: 0,

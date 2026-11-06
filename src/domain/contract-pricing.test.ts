@@ -183,3 +183,56 @@ describe('invoicePrice', () => {
     expect(() => invoicePrice({ monthlyNetCents: 1 }, vat, 'invalid')).toThrow();
   });
 });
+
+describe('priceContract with a quantity', () => {
+  it('prices 4 × ebike-004 as one lease on the total (scenario 6)', async () => {
+    const [lists, table] = await Promise.all([
+      (await import('@/data/load')).loadPriceLists(),
+      (await import('@/data/load')).loadCoefficientTable(),
+    ]);
+    const one = priceContract(
+      lists,
+      table,
+      { assetId: 'ebike-004', termMonths: 36, downPaymentCents: 0 },
+      '2026-11-05'
+    );
+    const four = priceContract(
+      lists,
+      table,
+      { assetId: 'ebike-004', termMonths: 36, downPaymentCents: 0, quantity: 4 },
+      '2026-11-05'
+    );
+    if (!one.ok || !four.ok) throw new Error('expected prices');
+    expect(four.price.quantity).toBe(4);
+    expect(four.price.listPriceCents).toBe(4 * one.price.listPriceCents); // 4 × 5 490 € = 21 960 €
+    expect(four.price.financedCents).toBe(2_196_000);
+    // The total sits in a higher band, so the lot is cheaper per unit than four single leases.
+    expect(four.price.band).not.toBe(one.price.band);
+    expect(four.price.monthlyNetCents).toBeLessThan(4 * one.price.monthlyNetCents);
+  });
+
+  it('defaults to one and refuses a quantity outside 1–10', async () => {
+    const [lists, table] = await Promise.all([
+      (await import('@/data/load')).loadPriceLists(),
+      (await import('@/data/load')).loadCoefficientTable(),
+    ]);
+    const base = { assetId: 'ebike-004', termMonths: 36, downPaymentCents: 0 };
+    const one = priceContract(lists, table, base, '2026-11-05');
+    expect(one.ok && one.price.quantity).toBe(1);
+    for (const quantity of [0, 11, 1.5])
+      expect(priceContract(lists, table, { ...base, quantity }, '2026-11-05')).toEqual({
+        ok: false,
+        reason: 'invalid_quantity',
+      });
+  });
+});
+
+describe('parseQuantity', () => {
+  it('reads 1–10 and falls back to 1 for anything else', async () => {
+    const { parseQuantity } = await import('./contract-pricing');
+    expect(parseQuantity('4')).toBe(4);
+    expect(parseQuantity(' 10 ')).toBe(10);
+    for (const value of [undefined, '', '0', '11', '2.5', '-3', 'four', ['4']])
+      expect(parseQuantity(value)).toBe(1);
+  });
+});

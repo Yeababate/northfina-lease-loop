@@ -632,5 +632,12 @@
   "passport.relistedPlain": "Taas tarjolla",
   "exit.return.how": "Puolet jäljellä olevista {months} kuukausivuokrasta: {months} × {rent} ÷ 2.",
   "exit.buyout.how": "Jäljellä olevat {months} vuokraa ({months} × {rent}) sekä {buyout} lunastushinta sopimuksen lopussa. Sopimuksen lopussa jää vain lunastushinta.",
-  "footer.demoDate": "Demopäivä: {date}"
+  "footer.demoDate": "Demopäivä: {date}",
+  "signing.invalid_quantity": "Valitse 1–10 tuotetta.",
+  "sign.quantity": "Määrä",
+  "sign.quantityValue": "{count} kpl, yksi sopimus (kaikki summat koskevat kaikkia)",
+  "lease.quantity": "Kuinka monta?",
+  "lease.quantityLess": "Yksi vähemmän",
+  "lease.quantityMore": "Yksi lisää",
+  "lease.quantityNote": "{count} kpl yhdellä sopimuksella: listahinta yhteensä {total}. Isompi sopimus voi saada pienemmän kuukausikertoimen."
 }

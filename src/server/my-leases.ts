@@ -19,6 +19,8 @@ export type LeaseCardView = {
   id: string;
   /** The leased items: one for a single item, several for a bundle. */
   items: { id: string; make: string | null; model: string | null }[];
+  /** Units of the item leased together (a fleet); 1 for a single item. */
+  quantity: number;
   phase: LeasePhase;
   completed: boolean;
   /** An early end the customer asked for, still waiting for the provider. */
@@ -96,6 +98,7 @@ export async function loadMyLeases(
         make: assets.get(id)?.make ?? null,
         model: assets.get(id)?.model ?? null,
       })),
+      quantity: contract.quantity,
       phase: leasePhase(contract, today),
       completed: isCompletedLease(contract),
       endingEarly: endingEarly.has(contract.id),

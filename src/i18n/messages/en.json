@@ -632,5 +632,12 @@
   "passport.relistedPlain": "Back on offer",
   "exit.return.how": "Half of the {months} remaining monthly rents: {months} × {rent} ÷ 2.",
   "exit.buyout.how": "The {months} remaining rents ({months} × {rent}) plus the {buyout} end-of-term buyout. At the end of the lease, this leaves just the buyout.",
-  "footer.demoDate": "Demo date: {date}"
+  "footer.demoDate": "Demo date: {date}",
+  "signing.invalid_quantity": "Choose from 1 to 10 items.",
+  "sign.quantity": "Quantity",
+  "sign.quantityValue": "{count} items, one lease (all amounts are for all of them)",
+  "lease.quantity": "How many?",
+  "lease.quantityLess": "One fewer",
+  "lease.quantityMore": "One more",
+  "lease.quantityNote": "{count} leased together as one lease: {total} list price in total. A bigger lease can get a lower monthly factor."
 }

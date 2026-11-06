@@ -12,7 +12,16 @@ export type PricingInput = {
   downPaymentCents: number;
   /** First day of the lease. Defaults to the signing day; may not be before it. */
   startOn?: string;
+  /**
+   * How many of this item, leased together (a fleet, e.g. 4 × ebike-004). The list price,
+   * down payment, financed amount, rent and buyout are all for the whole lot: the band and
+   * the eligibility rules see the total. Defaults to 1.
+   */
+  quantity?: number;
 };
+
+/** The most units one application can lease. */
+export const MAX_QUANTITY = 10;
 
 /** Prices become binding on signing, using that day's catalogue and coefficients. */
 export function priceContract(
@@ -27,8 +36,13 @@ export function priceContract(
   const startOn = input.startOn ?? signedOn;
   isoDateSchema.parse(startOn);
   if (startOn < signedOn) return { ok: false, reason: 'start_before_signing' } as const;
-  const price = listPriceOn(lists, input.assetId, signedOn);
-  if (!price.ok) return price;
+  const quantity = input.quantity ?? 1;
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY)
+    return { ok: false, reason: 'invalid_quantity' } as const;
+  const unit = listPriceOn(lists, input.assetId, signedOn);
+  if (!unit.ok) return unit;
+  // The whole lot is one lease: every amount below is for `quantity` units together.
+  const price = { ...unit, priceCents: unit.priceCents * quantity };
   if (table.valid_from > signedOn) return { ok: false, reason: 'no_coefficient_on_date' } as const;
   if (input.downPaymentCents > price.priceCents)
     return { ok: false, reason: 'invalid_down_payment' } as const;
@@ -51,6 +65,7 @@ export function priceContract(
     ok: true,
     price: {
       ...input,
+      quantity,
       signedOn,
       startOn,
       endOn: contractEndOn(startOn, input.termMonths),
@@ -94,4 +109,12 @@ export function invoicePrice(
     vatCents,
     totalCents: contract.monthlyNetCents + vatCents,
   } as const;
+}
+
+/** Reads `?qty=` from the address: a whole number from 1 to MAX_QUANTITY, otherwise 1. */
+export function parseQuantity(value: unknown): number {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!/^\d{1,2}$/.test(text)) return 1;
+  const quantity = Number(text);
+  return quantity >= 1 && quantity <= MAX_QUANTITY ? quantity : 1;
 }

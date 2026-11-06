@@ -11,7 +11,7 @@ import { loadCoefficientTable, loadQuestions, loadVatRates } from '@/data/load';
 import { priceLockNote } from '@/domain/application-signing';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
-import { priceContract } from '@/domain/contract-pricing';
+import { parseQuantity, priceContract } from '@/domain/contract-pricing';
 import { isIsoDate } from '@/domain/iso-date';
 import { formatEuro } from '@/domain/money';
 import { availableTerms, DEFAULT_TERM_MONTHS } from '@/domain/pricing';
@@ -57,25 +57,29 @@ export default async function SignPage({
   const downPaymentCents = /^\d{1,12}$/.test(downText) ? Number(downText) : -1;
   const quotedText = typeof query.quoted === 'string' ? query.quoted : '';
   const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
+  const quantity = parseQuantity(query.qty);
+  const itemName =
+    quantity > 1 ? `${quantity} × ${asset.make} ${asset.model}` : `${asset.make} ${asset.model}`;
 
   const leaseParams = new URLSearchParams({
     term: String(termMonths),
     down: String(downPaymentCents),
     start: startDate,
     quoted: quotedOn,
+    ...(quantity > 1 ? { qty: String(quantity) } : {}),
   });
   const applyHref = `/${locale}/items/${asset.id}/apply?${leaseParams}`;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
 
   // Today's price is the one that locks; the quote is only compared with it.
-  const pricing = { assetId: asset.id, termMonths, downPaymentCents, startOn: startDate };
+  const pricing = { assetId: asset.id, termMonths, downPaymentCents, startOn: startDate, quantity };
   const locked = priceContract(lists, table, pricing, today, discountRules);
   const startVat = vatRateOn(vatRates.rates, startDate);
   if (!isLeasable(asset) || !locked.ok || !startVat.ok) {
     return (
       <div className="mx-auto max-w-xl px-4 py-8 sm:px-6">
         <Link href={applyHref} className={textLink}>
-          ← {t('apply.back', { name: `${asset.make} ${asset.model}` })}
+          ← {t('apply.back', { name: itemName })}
         </Link>
         <div className="mt-6">
           <InfoBox>
@@ -139,12 +143,13 @@ export default async function SignPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <Link href={applyHref} className={textLink}>
-        ← {t('apply.back', { name: `${asset.make} ${asset.model}` })}
+        ← {t('apply.back', { name: itemName })}
       </Link>
       <div className="mt-4">
         <ReviewAndSign
           key={JSON.stringify([
             asset.id,
+            quantity,
             termMonths,
             downPaymentCents,
             startDate,
@@ -158,7 +163,8 @@ export default async function SignPage({
           locale={locale}
           lease={{
             assetId: asset.id,
-            itemName: `${asset.make} ${asset.model}`,
+            itemName,
+            quantity,
             termMonths,
             downPaymentCents,
             startOn: startDate,
@@ -172,7 +178,7 @@ export default async function SignPage({
             priceListVersion: price.priceListVersion,
           }}
           storageKey={applicationStorageKey(
-            asset.id,
+            quantity > 1 ? `${asset.id}x${quantity}` : asset.id,
             termMonths,
             downPaymentCents,
             startDate,

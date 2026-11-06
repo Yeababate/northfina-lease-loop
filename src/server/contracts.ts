@@ -49,6 +49,7 @@ export async function signContract(
     termMonths: input.termMonths,
     downPaymentCents: input.downPaymentCents,
     startOn: input.startOn,
+    quantity: input.quantity ?? 1,
   };
   const result = priceContract(
     lists,
@@ -86,7 +87,10 @@ export async function signContract(
     id,
     actor: input.actor,
     providerName: input.participants?.providerName ?? '',
-    assetName: `${assetSnapshot.make} ${assetSnapshot.model}`,
+    assetName:
+      result.price.quantity > 1
+        ? `${result.price.quantity} × ${assetSnapshot.make} ${assetSnapshot.model}`
+        : `${assetSnapshot.make} ${assetSnapshot.model}`,
     serialNumber: assetSnapshot.serial_number,
     locale: input.participants?.locale ?? 'en',
     originalMonthlyNetCents: result.price.originalMonthlyNetCents,
@@ -205,6 +209,8 @@ export type SignApplicationInput = {
   termMonths: number;
   downPaymentCents: number;
   startOn: string;
+  /** Units leased together; 1 when left out. */
+  quantity?: number;
   /** The customer's answers. The application is decided again here, from scratch. */
   answers: Answers;
   expectedMonthlyNetCents: number;

@@ -19,6 +19,8 @@ import { clearAnswers, useCanReadAnswers, useSavedAnswers } from './saved-answer
 export type LeaseSummary = {
   assetId: string;
   itemName: string;
+  /** Units leased together; every amount is for all of them. */
+  quantity: number;
   termMonths: number;
   downPaymentCents: number;
   startOn: string;
@@ -89,6 +91,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assetId: lease.assetId,
+          quantity: lease.quantity,
           termMonths: lease.termMonths,
           downPaymentCents: lease.downPaymentCents,
           startOn: lease.startOn,
@@ -122,6 +125,9 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
 
   const rows: { label: string; value: string; strong?: boolean }[] = [
     ...(check.ok ? [{ label: t('sign.leasedBy'), value: check.signerName }] : []),
+    ...(lease.quantity > 1
+      ? [{ label: t('sign.quantity'), value: t('sign.quantityValue', { count: lease.quantity }) }]
+      : []),
     { label: t('sign.term'), value: t('term.months', { months: lease.termMonths }) },
     { label: t('sign.down'), value: euro(lease.downPaymentCents) },
     { label: t('discount.original'), value: euro(lease.originalMonthlyNetCents) },

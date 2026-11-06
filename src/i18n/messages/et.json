@@ -632,5 +632,12 @@
   "passport.relistedPlain": "Taas pakkumisel",
   "exit.return.how": "Pool järelejäänud {months} kuumaksest: {months} × {rent} ÷ 2.",
   "exit.buyout.how": "Järelejäänud {months} makset ({months} × {rent}) pluss {buyout} väljaostuhind lepingu lõpus. Lepingu lõpus jääb alles ainult väljaostuhind.",
-  "footer.demoDate": "Demokuupäev: {date}"
+  "footer.demoDate": "Demokuupäev: {date}",
+  "signing.invalid_quantity": "Vali 1–10 toodet.",
+  "sign.quantity": "Kogus",
+  "sign.quantityValue": "{count} tk, üks leping (kõik summad on kõigi kohta)",
+  "lease.quantity": "Mitu tükki?",
+  "lease.quantityLess": "Ühe võrra vähem",
+  "lease.quantityMore": "Ühe võrra rohkem",
+  "lease.quantityNote": "{count} tk ühe lepinguga: hinnakirja hind kokku {total}. Suurem leping võib saada väiksema kuuteguri."
 }

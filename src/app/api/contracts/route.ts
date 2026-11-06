@@ -7,6 +7,7 @@ import { FALLBACK_TIME_ZONE } from '@/domain/local-time';
 import { defaultReminderPreferences } from '@/domain/reminder-preferences';
 import { handleRoute, ok, readJsonBody } from '@/server/api-response';
 import { signApplication } from '@/server/contracts';
+import { MAX_QUANTITY } from '@/domain/contract-pricing';
 import { db } from '@/server/db';
 import { loadPricingLists } from '@/server/price-lists';
 import { reminderPreferencesSchema } from '@/server/reminders/preferences';
@@ -24,6 +25,8 @@ const schema = z.strictObject({
   assetId: z.string().min(1),
   termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(48)]),
   downPaymentCents: centsSchema,
+  /** Units of the item leased together (a fleet), 1–10. Amounts are for all of them. */
+  quantity: z.number().int().min(1).max(MAX_QUANTITY).default(1),
   startOn: isoDateSchema,
   answers: z.record(z.string().regex(/^q_[a-z0-9_]+$/), answerSchema),
   expectedMonthlyNetCents: centsSchema,

@@ -12,6 +12,7 @@ import { loadCoefficientTable, loadQuestions, loadVatRates } from '@/data/load';
 import { isLeasable, parseCatalogueQuery } from '@/domain/catalogue';
 import { unavailableMessage } from '@/components/unavailable-message';
 import { isIsoDate } from '@/domain/iso-date';
+import { parseQuantity } from '@/domain/contract-pricing';
 import { formatEuro } from '@/domain/money';
 import { listPriceOn } from '@/domain/price-list';
 import { availableTerms, DEFAULT_TERM_MONTHS, quoteLease } from '@/domain/pricing';
@@ -59,6 +60,8 @@ export default async function ApplyPage({
   const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
   const downText = typeof query.down === 'string' ? query.down : '0';
   const downPaymentCents = /^\d{1,12}$/.test(downText) ? Number(downText) : -1;
+  // A fleet (e.g. 4 × ebike-004) is one lease on the total: the questions see the total.
+  const quantity = parseQuantity(query.qty);
 
   const price = listPriceOn(priceLists, asset.id, today);
   const vat = vatRateOn(vatRates.rates, startDate);
@@ -67,7 +70,7 @@ export default async function ApplyPage({
       ? quoteLease(
           table,
           {
-            listPriceCents: price.priceCents,
+            listPriceCents: price.priceCents * quantity,
             downPaymentCents,
             termMonths,
             vatRatePercent: vat.rate.rate_percent,
@@ -80,9 +83,11 @@ export default async function ApplyPage({
     term: String(termMonths),
     down: String(downPaymentCents),
     start: startDate,
+    ...(quantity > 1 ? { qty: String(quantity) } : {}),
   }).toString();
   const itemHref = `/${locale}/items/${asset.id}?${new URLSearchParams({ term: String(termMonths), start: startDate })}`;
-  const name = `${asset.make} ${asset.model}`;
+  const name =
+    quantity > 1 ? `${quantity} × ${asset.make} ${asset.model}` : `${asset.make} ${asset.model}`;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
 
   return (
@@ -113,7 +118,7 @@ export default async function ApplyPage({
             coefficientTable={table}
             monthlyRentWithVatCents={quote.quote.monthlyGrossCents}
             storageKey={applicationStorageKey(
-              asset.id,
+              quantity > 1 ? `${asset.id}x${quantity}` : asset.id,
               termMonths,
               downPaymentCents,
               startDate,

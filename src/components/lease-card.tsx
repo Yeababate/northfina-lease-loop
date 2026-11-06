@@ -33,6 +33,7 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
   const name = lease.items
     .map((item) => (item.make && item.model ? `${item.make} ${item.model}` : item.id))
     .join(' + ');
+  const title = lease.quantity > 1 ? `${lease.quantity} × ${name}` : name;
   const headingId = `lease-${lease.id}`;
   const contractHref = `/${locale}/contracts/${encodeURIComponent(lease.id)}`;
 
@@ -81,7 +82,7 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
         <div className="flex flex-wrap items-center gap-3">
           <Heading id={headingId} className="text-xl font-semibold">
             <Link href={contractHref} className="hover:underline">
-              {name}
+              {title}
             </Link>
           </Heading>
           <Badge tone={statusTone[status]}>{t(`leases.status.${status}`)}</Badge>

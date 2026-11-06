@@ -75,9 +75,10 @@ export default async function ContractPage({
         : null,
       loadLeaseActivity(db, id, { id: principal.id, displayName: principal.displayName }),
     ]);
-  const name = assets
+  const itemNames = assets
     .map((asset, index) => (asset ? `${asset.make} ${asset.model}` : assetIds[index]))
     .join(' + ');
+  const name = contract.quantity > 1 ? `${contract.quantity} × ${itemNames}` : itemNames;
   const grossToday = invoicePrice(contract, vat, today);
   const query = await searchParams;
   const vatDate = isoDateSchema.safeParse(query.invoiceDate ?? today);

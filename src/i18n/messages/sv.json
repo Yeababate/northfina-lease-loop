@@ -632,5 +632,12 @@
   "passport.relistedPlain": "Erbjuds igen",
   "exit.return.how": "Hälften av de {months} återstående månadshyrorna: {months} × {rent} ÷ 2.",
   "exit.buyout.how": "De {months} återstående hyrorna ({months} × {rent}) plus inlösenpriset {buyout} vid avtalets slut. Vid avtalets slut återstår bara inlösenpriset.",
-  "footer.demoDate": "Demodatum: {date}"
+  "footer.demoDate": "Demodatum: {date}",
+  "signing.invalid_quantity": "Välj 1–10 produkter.",
+  "sign.quantity": "Antal",
+  "sign.quantityValue": "{count} st, ett avtal (alla belopp gäller alla)",
+  "lease.quantity": "Hur många?",
+  "lease.quantityLess": "En färre",
+  "lease.quantityMore": "En till",
+  "lease.quantityNote": "{count} st på ett avtal: listpris totalt {total}. Ett större avtal kan få en lägre månadsfaktor."
 }

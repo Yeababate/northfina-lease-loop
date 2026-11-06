@@ -61,6 +61,8 @@ model Contract {
   endOn                   String
   signedOn                String
   termMonths              Int
+  /// Units leased together (a fleet); every amount on the contract is for all of them.
+  quantity                Int                   @default(1)
   downPaymentCents        Int
   listPriceCents          Int
   priceListVersion        Int

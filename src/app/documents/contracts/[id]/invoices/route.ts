@@ -23,9 +23,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const assetIds =
       contract.lines.length > 0 ? contract.lines.map((line) => line.assetId) : [contract.assetId];
     const assets = await Promise.all(assetIds.map((assetId) => getAsset(db, assetId)));
-    const itemName = assets
+    const names = assets
       .map((asset, index) => (asset ? `${asset.make} ${asset.model}` : assetIds[index]))
       .join(' + ');
+    const itemName = contract.quantity > 1 ? `${contract.quantity} × ${names}` : names;
 
     const bytes = await renderInvoicePdf({
       contractId: id,

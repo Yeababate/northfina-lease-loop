@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
 import { dealTiers, percentText, termDiscounts } from '@/domain/deals';
+import { MAX_QUANTITY } from '@/domain/contract-pricing';
 import { downPaymentIsAdjustable } from '@/domain/down-payment';
 import type { RentalDiscountRule } from '@/domain/discounts';
 import { downPaymentAtStep } from '@/domain/dealer-discount';
@@ -51,11 +52,16 @@ type LeaseCalculatorProps = {
 const DOWN_PAYMENT_STEP_CENTS = 100;
 
 export function LeaseCalculator(props: LeaseCalculatorProps) {
-  const { locale, table, listPriceCents, vatRatePercent } = props;
+  const { locale, table, vatRatePercent } = props;
   const t = getT(locale);
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
   const termId = useId();
   const downId = useId();
+  const quantityId = useId();
+
+  // Several of the same item (a fleet) are one lease on the total, as when signing.
+  const [quantity, setQuantity] = useState(1);
+  const listPriceCents = props.listPriceCents * quantity;
 
   const terms = availableTerms(table);
   const minDown = minDownPaymentCents(table, listPriceCents);
@@ -94,6 +100,7 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
     down: String(downPaymentCents),
     start: props.startDate,
     quoted: props.quotedOn,
+    ...(quantity > 1 ? { qty: String(quantity) } : {}),
   })}`;
 
   return (
@@ -128,6 +135,40 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
                 {t('lease.needsDown', { max: euro(maximumFinanced), down: euro(minDown) })}
               </p>
             ) : null}
+
+            <div>
+              <div className="flex items-center justify-between gap-4 font-semibold">
+                <span id={quantityId}>{t('lease.quantity')}</span>
+                <div role="group" aria-labelledby={quantityId} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label={t('lease.quantityLess')}
+                    disabled={quantity <= 1}
+                    onClick={() => setQuantity((n) => Math.max(1, n - 1))}
+                    className="size-8 rounded-full border border-stone-400 text-lg leading-none disabled:opacity-40 dark:border-stone-600"
+                  >
+                    −
+                  </button>
+                  <output aria-live="polite" className="w-6 text-center tabular-nums">
+                    {quantity}
+                  </output>
+                  <button
+                    type="button"
+                    aria-label={t('lease.quantityMore')}
+                    disabled={quantity >= MAX_QUANTITY}
+                    onClick={() => setQuantity((n) => Math.min(MAX_QUANTITY, n + 1))}
+                    className="size-8 rounded-full border border-stone-400 text-lg leading-none disabled:opacity-40 dark:border-stone-600"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              {quantity > 1 ? (
+                <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">
+                  {t('lease.quantityNote', { count: quantity, total: euro(listPriceCents) })}
+                </p>
+              ) : null}
+            </div>
 
             {bestTier ? (
               <p
