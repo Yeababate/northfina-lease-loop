@@ -14,6 +14,8 @@ type NavLinksProps = {
   /** "My answers" (#52); only when signed in. */
   profileLabel?: string;
   dealersLabel: string;
+  /** The audit trail (RULES.md §7): who did what and when. */
+  auditLabel: string;
 };
 
 export function NavLinks({
@@ -24,6 +26,7 @@ export function NavLinks({
   dealsLabel,
   profileLabel,
   dealersLabel,
+  auditLabel,
 }: NavLinksProps) {
   const pathname = usePathname();
   const section = pathname.split('/')[2] ?? '';
@@ -36,11 +39,12 @@ export function NavLinks({
       ? [{ href: `/${locale}/profile`, text: profileLabel, active: section === 'profile' }]
       : []),
     { href: `/${locale}/dealers`, text: dealersLabel, active: section === 'dealers' },
+    { href: `/${locale}/audit`, text: auditLabel, active: section === 'audit' },
   ];
 
   return (
     <nav aria-label={label}>
-      <ul className="flex gap-6">
+      <ul className="flex flex-wrap gap-x-6 gap-y-1">
         {links.map((link) => (
           <li key={link.href}>
             <Link
