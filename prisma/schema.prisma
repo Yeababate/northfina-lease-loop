@@ -578,3 +578,21 @@ model DiscountRule {
 
   @@index([providerId])
 }
+
+// Remembered application answers (#51), so a user never has to give the same answer twice.
+// One row per question in one profile set: `profileKey` is `consumer`, `sole_trader` or
+// `company:<business id>` (src/domain/answer-scope.ts). `valueJson` is personal data: audit
+// rows name the question only, never the value. `answeredOn` is the ISO day it was given.
+model SavedAnswer {
+  id         String   @id
+  userId     String
+  profileKey String
+  questionId String
+  valueJson  String
+  answeredOn String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, profileKey, questionId])
+  @@index([userId])
+}

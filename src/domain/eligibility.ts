@@ -55,15 +55,15 @@ export type DecisionInput = {
 };
 
 /** Rule min_age: consumers and sole traders must be 18 or older on the contract start date. */
-const MIN_AGE = 18;
+export const MIN_AGE = 18;
 /** Rule residency: country codes we lease to. */
-const ALLOWED_COUNTRIES = ['FI', 'SE', 'EE'];
+export const ALLOWED_COUNTRIES: readonly string[] = ['FI', 'SE', 'EE'];
 /**
  * Rule affordability: rent with VAT at most 30 % of monthly net income, i.e.
  * rent × 10 ≤ income × 3, compared in whole cents so nothing is rounded.
  */
-const AFFORDABILITY_NUMERATOR = 3;
-const AFFORDABILITY_DENOMINATOR = 10;
+export const AFFORDABILITY_NUMERATOR = 3;
+export const AFFORDABILITY_DENOMINATOR = 10;
 
 const asString = (value: AnswerValue | undefined) => (typeof value === 'string' ? value : null);
 
