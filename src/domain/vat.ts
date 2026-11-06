@@ -41,3 +41,24 @@ export function vatCents(netCents: number, ratePercent: number): number {
   const rateTenthsOfPercent = toScaledInteger(ratePercent, 10);
   return divideRoundHalfUp(netCents * rateTenthsOfPercent, 1000);
 }
+
+/** What a customer needs to know about VAT on `isoDate`: today's rate and the next change. */
+export type VatOutlook = {
+  /** The rate on `isoDate`, or null when no rate covers that day. */
+  currentPercent: number | null;
+  /** The next scheduled rate that differs from today's, or null when none is scheduled. */
+  next: { ratePercent: number; validFrom: string } | null;
+};
+
+/**
+ * The VAT rate on `isoDate` and the next scheduled change after it, for the "VAT is added to
+ * each invoice" note. Rates come from data/vat-rates.json, so the note never hardcodes them.
+ */
+export function vatOutlookOn(rates: readonly VatRate[], isoDate: string): VatOutlook {
+  const current = vatRateOn(rates, isoDate);
+  const next = nextVatChangeAfter(rates, isoDate);
+  return {
+    currentPercent: current.ok ? current.rate.rate_percent : null,
+    next: next ? { ratePercent: next.rate_percent, validFrom: next.valid_from } : null,
+  };
+}

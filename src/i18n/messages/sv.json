@@ -175,7 +175,6 @@
   "decision.manual.text": "Vissa ansökningar granskas alltid av en person. Det är normalt och betyder inte att svaret är nej. Vi mejlar dig på {email} inom 2 arbetsdagar.",
   "decision.why": "Varför",
   "decision.checked": "Vad vi kontrollerade",
-  "decision.seeAnswers": "Visa mina svar",
   "decision.backToCatalogue": "Tillbaka till sortimentet",
   "decision.changeLease": "Ändra avtalstid eller handpenning",
   "check.passed": "Godkänt",
@@ -695,5 +694,8 @@
   "asset.unavailableDetailsOf": "Detaljer och väntelista för {name}",
   "signatory.replaceStart": "Välj ett startdatum tidigast idag och granska erbjudandet. Varan förblir reserverad. Nya datum och priser fastställs vid underskrift.",
   "signatory.startDate": "Hyresavtalets startdatum",
-  "signatory.reviewDates": "Granska uppdaterat erbjudande"
+  "signatory.reviewDates": "Granska uppdaterat erbjudande",
+  "vatNote.change": "Nettopriserna är exklusive moms. Moms läggs till på varje faktura enligt den momssats som gäller på fakturadagen: {now} % nu, {next} % från och med {date}.",
+  "vatNote.same": "Nettopriserna är exklusive moms. Moms läggs till på varje faktura enligt den momssats som gäller på fakturadagen: {now} % nu.",
+  "vatNote.unknown": "Nettopriserna är exklusive moms. Moms läggs till på varje faktura enligt den momssats som gäller på fakturadagen."
 }

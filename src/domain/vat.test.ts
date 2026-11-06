@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadVatRates } from '@/data/load';
 import type { VatRate } from '@/data/schemas';
-import { nextVatChangeAfter, vatCents, vatRateOn } from './vat';
+import { nextVatChangeAfter, vatCents, vatOutlookOn, vatRateOn } from './vat';
 
 let rates: VatRate[];
 beforeAll(async () => {
@@ -90,5 +90,37 @@ describe('vatCents', () => {
 
   it('is zero on zero', () => {
     expect(vatCents(0, 25.5)).toBe(0);
+  });
+});
+
+describe('vatOutlookOn', () => {
+  it('gives 25.5 % now and 26 % from 1 Jan 2027 during 2026', () => {
+    expect(vatOutlookOn(rates, '2026-11-05')).toEqual({
+      currentPercent: 25.5,
+      next: { ratePercent: 26, validFrom: '2027-01-01' },
+    });
+  });
+
+  it('still announces the change on the last day of the old rate', () => {
+    expect(vatOutlookOn(rates, '2026-12-31')).toEqual({
+      currentPercent: 25.5,
+      next: { ratePercent: 26, validFrom: '2027-01-01' },
+    });
+  });
+
+  it('has no next change once the new rate applies', () => {
+    expect(vatOutlookOn(rates, '2027-01-01')).toEqual({ currentPercent: 26, next: null });
+  });
+
+  it('has no current rate before the first rate or with no rates', () => {
+    expect(vatOutlookOn(rates, '2012-06-01')).toEqual({
+      currentPercent: null,
+      next: { ratePercent: 24, validFrom: '2013-01-01' },
+    });
+    expect(vatOutlookOn([], '2026-11-05')).toEqual({ currentPercent: null, next: null });
+  });
+
+  it('throws on a date that is not YYYY-MM-DD', () => {
+    expect(() => vatOutlookOn(rates, '2026-11-5')).toThrow(RangeError);
   });
 });
