@@ -29,7 +29,6 @@ type LeaseCalculatorProps = {
   table: CoefficientTable;
   discountRules?: readonly RentalDiscountRule[];
   listPriceCents: number;
-  providerName?: string;
   /** VAT rate on the lease start date. */
   vatRatePercent: number;
   /** The whole VAT table, so totals use the rate on each invoice date. */
@@ -117,7 +116,6 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
           {t('lease.choose')}
         </h2>
 
-        {props.providerName && <p>{t('discount.itemProvider', { name: props.providerName })}</p>}
         {tooCheap ? (
           <p role="alert">{t('lease.tooCheap', { min: euro(minimumFinanced) })}</p>
         ) : (

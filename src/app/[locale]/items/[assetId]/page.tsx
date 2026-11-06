@@ -51,12 +51,6 @@ export default async function ItemPage({
   ]);
   if (!asset) notFound();
   const discountRules = await rulesForAsset(db, assetId);
-  // Main's dealer record for the item (AssetOwnership → Provider), shown by the calculator
-  // with its discounts. Named apart from `provider`, the owner's ratings further down.
-  const ownership = await db.assetOwnership.findUnique({ where: { assetId } });
-  const discountProvider = ownership
-    ? await db.provider.findUnique({ where: { id: ownership.providerId } })
-    : null;
 
   const t = getT(locale);
   const today = todayIso();
@@ -138,7 +132,6 @@ export default async function ItemPage({
             locale={locale}
             table={table}
             discountRules={discountRules}
-            providerName={discountProvider?.displayName}
             listPriceCents={price.priceCents}
             vatRatePercent={vat.rate.rate_percent}
             vatRates={vatRates}
