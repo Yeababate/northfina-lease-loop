@@ -48,3 +48,30 @@ it('holds the last curve point and reports a price below the finance floor', () 
     )
   ).toMatchObject({ ok: false, reason: 'below_minimum', priceCents: 25_500 });
 });
+
+it('rejects mismatched usage units before offering a next-life price', () => {
+  const wrongUnit = { ...bike, usage: { unit: 'engine_hours' as const, value: 100 } };
+  expect(marketValueCents(wrongUnit, curves)).toEqual({ ok: false, reason: 'usage_unit_mismatch' });
+  expect(nextLifeListPriceCents(wrongUnit, curves, table)).toEqual({
+    ok: false,
+    reason: 'usage_unit_mismatch',
+  });
+});
+
+it('uses the first curve point for a new item and accepts the finance floor itself', () => {
+  const fresh = {
+    ...bike,
+    ageMonths: 0,
+    condition: 'new' as const,
+    usage: { unit: 'km' as const, value: 0 },
+  };
+  expect(marketValueCents(fresh, curves)).toMatchObject({
+    ok: true,
+    priceCents: 389_000,
+    breakdown: { curvePercent: 100 },
+  });
+  const floor = Math.min(...table.bands.map((band) => band.min_financed_cents));
+  expect(
+    nextLifeListPriceCents({ ...fresh, firstLeaseListPriceCents: floor }, curves, table)
+  ).toMatchObject({ ok: true, priceCents: floor });
+});

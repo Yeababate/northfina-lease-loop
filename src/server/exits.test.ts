@@ -473,3 +473,142 @@ it('API requires a demo sign-in name, validates shape, and returns the common en
   );
   expect(outside.status).toBe(404);
 });
+
+describe('completion guards and worker recovery', () => {
+  it('rejects a missing request, missing receipts, stale revisions and withdrawn requests', async () => {
+    await expect(acknowledgeEarlyExit(db, acknowledgment('missing'), on)).rejects.toMatchObject({
+      code: 'EXIT_NOT_FOUND',
+    });
+    const { exit } = await request();
+    const { assetIds: _assetIds, ...withoutReceipts } = acknowledgment(exit.id);
+    await expect(acknowledgeEarlyExit(db, withoutReceipts, on)).rejects.toMatchObject({
+      code: 'INVALID_RECEIPT',
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id, 10), on)).rejects.toMatchObject({
+      code: 'EXIT_CHANGED',
+    });
+    await withdrawEarlyExit(db, exit.id, 'renter', 0);
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).rejects.toMatchObject({
+      code: 'EXIT_CHANGED',
+    });
+    expect(await db.exitReceipt.count()).toBe(0);
+  });
+
+  it('does not acknowledge receipts against an already completed lease', async () => {
+    const { exit } = await request();
+    await db.contractLifecycle.update({
+      where: { contractId: 'contract' },
+      data: { status: 'completed_buyout' },
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).rejects.toMatchObject({
+      code: 'CONTRACT_COMPLETED',
+    });
+    expect(await db.exitReceipt.count()).toBe(0);
+  });
+
+  it('makes duplicate physical receipts idempotent even with the old revision', async () => {
+    const { exit } = await request();
+    const received = await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    const audits = await db.auditLog.count();
+    expect(await acknowledgeEarlyExit(db, acknowledgment(exit.id), on)).toEqual(received);
+    expect(await db.exitReceipt.count()).toBe(1);
+    expect(await db.auditLog.count()).toBe(audits);
+  });
+
+  it('holds a return while an uncompleted pass-on exists and rolls back its receipt', async () => {
+    const { exit } = await request();
+    await db.endTermChoice.create({
+      data: { contractId: 'contract', kind: 'pass_on', nomineeId: 'other', requestedOn: on },
+    });
+    await expect(acknowledgeEarlyExit(db, acknowledgment(exit.id), boundary)).rejects.toMatchObject(
+      { code: 'EXIT_CHANGED' }
+    );
+    expect(await db.exitReceipt.count()).toBe(0);
+    expect(await db.exitRequest.findUnique({ where: { id: exit.id } })).toMatchObject({
+      status: 'pending',
+      revision: 0,
+    });
+  });
+
+  it.each(['exit', 'lifecycle'])(
+    'rolls back if the %s completes between the initial check and finalization',
+    async (changed) => {
+      const { exit } = await request();
+      let reads = 0;
+      const racing = (changed === 'exit'
+        ? db.$extends({
+            query: {
+              exitRequest: {
+                async findUniqueOrThrow({ args, query }) {
+                  const row = await query(args);
+                  return ++reads === 2 ? { ...row, status: 'completed' } : row;
+                },
+              },
+            },
+          })
+        : db.$extends({
+            query: {
+              contract: {
+                async findUnique({ args, query }) {
+                  const row = await query(args);
+                  return ++reads === 2 && row
+                    ? { ...row, lifecycle: { status: 'completed_return', revision: 9 } }
+                    : row;
+                },
+              },
+            },
+          })) as unknown as PrismaClient;
+      await expect(
+        acknowledgeEarlyExit(racing, acknowledgment(exit.id), boundary)
+      ).rejects.toMatchObject({ code: changed === 'exit' ? 'EXIT_CHANGED' : 'CONTRACT_COMPLETED' });
+      expect(await db.exitReceipt.count()).toBe(0);
+      expect(await db.assetLifeCompletion.count()).toBe(0);
+    }
+  );
+
+  it('reports a failed worker transaction, preserves legacy scalar leases, and succeeds on retry', async () => {
+    const { exit } = await request();
+    await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    await db.contractLine.deleteMany();
+    const failing = db.$extends({
+      query: {
+        auditLog: {
+          create() {
+            throw new Error('audit unavailable');
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await finalizeDueReturns(failing, boundary)).toEqual({
+        completed: 0,
+        failedIds: [exit.id],
+      });
+      expect(error).toHaveBeenCalled();
+      expect(await db.assetLifeCompletion.count()).toBe(0);
+      expect(await db.exitRequest.findUnique({ where: { id: exit.id } })).toMatchObject({
+        status: 'received',
+      });
+      expect(await finalizeDueReturns(db, boundary)).toEqual({ completed: 1, failedIds: [] });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('ignores a worker race when another finalization has already won', async () => {
+    const { exit } = await request();
+    await acknowledgeEarlyExit(db, acknowledgment(exit.id), on);
+    const racing = db.$extends({
+      query: {
+        exitRequest: {
+          async findUniqueOrThrow({ args, query }) {
+            return { ...(await query(args)), status: 'completed' };
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    expect(await finalizeDueReturns(racing, boundary)).toEqual({ completed: 0, failedIds: [] });
+    expect(await db.auditLog.count({ where: { action: 'exit.return_finalized' } })).toBe(0);
+  });
+});

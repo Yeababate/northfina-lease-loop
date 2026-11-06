@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { loadVatRates } from '@/data/load';
-import { endOfTermOptions } from './end-of-term';
+import { endOfTermBuyout, endOfTermOptions } from './end-of-term';
 import { previewEarlyExit } from './early-exit';
 
 it('opens the last 30 days and quotes exactly the locked net buyout plus the daily VAT', async () => {
@@ -40,4 +40,24 @@ it('opens the last 30 days and quotes exactly the locked net buyout plus the dai
     },
   });
   expect(endOfTermOptions(lease, '2027-01-02', vat).available).toBe(false);
+});
+
+it('keeps free return and pass-on available when no VAT rate can price a buyout', async () => {
+  const vat = { ...(await loadVatRates()), rates: [] };
+  expect(endOfTermBuyout(58_350, '2027-01-01', vat)).toMatchObject({ ok: false });
+  const lease = { endOn: '2027-01-01', status: 'active', buyoutNetCents: 58_350 };
+  expect(endOfTermOptions(lease, '2027-01-01', vat)).toMatchObject({
+    available: true,
+    options: {
+      end_buyout: null,
+      end_return: { grossCents: 0 },
+      pass_on: { requiresNewContract: true },
+    },
+  });
+  expect(
+    endOfTermOptions({ ...lease, status: 'completed_buyout' }, '2027-01-01', vat)
+  ).toMatchObject({
+    available: false,
+    options: null,
+  });
 });

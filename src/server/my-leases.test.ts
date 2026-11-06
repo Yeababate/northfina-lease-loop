@@ -51,6 +51,61 @@ beforeEach(async () => {
 });
 
 describe('loadMyLeases', () => {
+  it('sorts legacy leases without lines or documents, breaking equal start dates by id', async () => {
+    const signed = await signContract(db, ebike, '2026-11-05', lists, table);
+    await db.contractLine.deleteMany();
+    await db.contractDocument.deleteMany();
+    await db.contractLifecycle.deleteMany();
+    await db.contract.create({
+      data: { ...signed, id: '000-first', startOn: '2026-11-06', endOn: '2029-11-06' },
+    });
+    await db.contract.create({
+      data: { ...signed, id: '000-second', startOn: '2026-11-06', endOn: '2029-11-06' },
+    });
+    const result = await loadMyLeases(db, 'cust-aino', '2026-12-01', { ...vat, rates: [] }, null);
+    expect(result.current.map((card) => card.id)).toEqual(['000-first', '000-second', signed.id]);
+    expect(result.current[0]).toMatchObject({
+      items: [{ id: ebike.assetId, make: 'Nordvolt' }],
+      hasDocument: false,
+      monthlyGrossCents: null,
+      nextInvoice: null,
+    });
+  });
+
+  it('shows the pending company signatory without losing the locked quote', async () => {
+    const signed = await signContract(
+      db,
+      { ...ebike, awaitingSignatory: 'signer@example.com' },
+      '2026-11-05',
+      lists,
+      table
+    );
+    const result = await loadMyLeases(db, 'cust-aino', '2026-11-05', vat, null);
+    expect(result.current[0]).toMatchObject({
+      id: signed.id,
+      awaitingSignatory: 'signer@example.com',
+      monthlyNetCents: 10730,
+    });
+  });
+
+  it('keeps a historical lease visible when its item details cannot be loaded', async () => {
+    const signed = await signContract(db, ebike, '2026-11-05', lists, table);
+    const unavailable = db.$extends({
+      query: { asset: { findUnique: async () => null } },
+    }) as unknown as PrismaClient;
+    const result = await loadMyLeases(
+      unavailable,
+      'cust-aino',
+      '2026-11-05',
+      vat,
+      await loadImpactInputs()
+    );
+    expect(result.current[0]).toMatchObject({
+      id: signed.id,
+      items: [{ id: ebike.assetId, make: null, model: null }],
+    });
+    expect(result.impact).toBeNull();
+  });
   it('shows only your own leases, with what the card needs', async () => {
     const signed = await signContract(db, ebike, '2026-11-05', lists, table);
     const result = await loadMyLeases(db, 'cust-aino', '2026-12-10', vat, null);

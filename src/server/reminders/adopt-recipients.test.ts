@@ -23,6 +23,12 @@ beforeEach(async () => {
 const savedAt = new Date('2026-11-01');
 
 describe('adoptNamedReminderRecipients', () => {
+  it('leaves invalid legacy names untouched without writing an adoption audit', async () => {
+    await seedLease(db, { id: 'invalid', endOn: '2030-12-05', recipientId: '   ', savedAt });
+    expect(await adoptNamedReminderRecipients(db)).toBe(0);
+    expect(await db.reminderPreference.count({ where: { recipientId: '   ' } })).toBe(1);
+    expect(await db.auditLog.count({ where: { action: 'reminder.recipient_adopted' } })).toBe(0);
+  });
   it('moves reminders saved under a typed name to that person’s id, whatever the capitals', async () => {
     await seedLease(db, { id: 'c1', endOn: '2030-12-05', recipientId: '  AINO ', savedAt });
     // A due reminder, so a notification exists under the old name too.

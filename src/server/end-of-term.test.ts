@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import * as dataLoad from '@/data/load';
 import {
   loadAssets,
   loadCoefficientTable,
@@ -15,7 +16,10 @@ import {
   completeEndTermBuyout,
   getPassOnPrice,
   readEndTermView,
+  withdrawEndTerm,
+  completePassOnInTx,
 } from './end-of-term';
+import { withAudit } from './audit';
 import { finalizeDueReturns, recordReceipt } from './next-life-commands';
 import { runLifecycleTick } from './lifecycle-worker';
 import type { PrismaClient } from './prisma-client';
@@ -42,6 +46,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await cleanup();
 });
+afterEach(() => vi.restoreAllMocks());
 beforeEach(async () => {
   await db.returnIntake.deleteMany();
   await db.contractProvider.deleteMany();
@@ -196,5 +201,188 @@ it('keeps an offered lease active until the nominated renter signs a new contrac
   expect(await db.auditLog.findFirst({ where: { entity_id: next.id } })).toMatchObject({
     action: 'contract.signed',
     details_json: expect.stringContaining(contractId),
+  });
+});
+
+it('scopes the ending view to both participants and handles legacy leases without lifecycle rows', async () => {
+  await db.contractLifecycle.delete({ where: { contractId } });
+  expect(await readEndTermView(db, contractId, 'renter', notice)).toMatchObject({
+    role: 'renter',
+    available: true,
+    buyout: { netCents: 58_350 },
+  });
+  expect(await readEndTermView(db, contractId, 'provider', notice)).toMatchObject({
+    role: 'provider',
+  });
+  await expect(readEndTermView(db, contractId, 'outsider', notice)).rejects.toMatchObject({
+    code: 'NOT_PARTICIPANT',
+  });
+  await expect(readEndTermView(db, 'missing', 'renter', notice)).rejects.toMatchObject({
+    code: 'CONTRACT_NOT_FOUND',
+  });
+  await db.contractLine.deleteMany({ where: { contractId } });
+  await chooseEndTerm(db, { ...renter, kind: 'end_buyout' }, notice);
+  await completeEndTermBuyout(db, contractId, 'provider', 73_521, endOn);
+  expect(await db.assetLifeCompletion.count({ where: { contractId } })).toBe(1);
+});
+
+it('keeps free endings visible when tax data is unavailable', async () => {
+  const vat = await loadVatRates();
+  vi.spyOn(dataLoad, 'loadVatRates').mockResolvedValue({ ...vat, rates: [] });
+  expect(await readEndTermView(db, contractId, 'renter', notice)).toMatchObject({
+    buyout: null,
+    options: { end_buyout: null, end_return: { grossCents: 0 } },
+  });
+  await expect(chooseEndTerm(db, { ...renter, kind: 'end_buyout' }, notice)).rejects.toMatchObject({
+    code: 'END_TERM_NOT_AVAILABLE',
+  });
+});
+
+it('rejects a non-renter, an early request, and a lease without a provider without auditing a choice', async () => {
+  await expect(
+    chooseEndTerm(db, { ...renter, userId: 'provider', kind: 'end_return' }, notice)
+  ).rejects.toMatchObject({ code: 'NOT_RENTER' });
+  await expect(
+    chooseEndTerm(db, { ...renter, kind: 'end_return' }, '2026-11-01')
+  ).rejects.toMatchObject({ code: 'END_TERM_NOT_AVAILABLE' });
+  await db.contract.update({ where: { id: contractId }, data: { providerId: null } });
+  await expect(chooseEndTerm(db, { ...renter, kind: 'end_return' }, notice)).rejects.toMatchObject({
+    code: 'END_TERM_NOT_AVAILABLE',
+  });
+  expect(await db.endTermChoice.count()).toBe(0);
+  expect(await db.auditLog.count()).toBe(0);
+});
+
+it.each([undefined, 'renter', 'provider', 'missing'])(
+  'rejects invalid pass-on nominee %s',
+  async (nomineeId) => {
+    await expect(
+      chooseEndTerm(db, { ...renter, kind: 'pass_on', nomineeId }, notice)
+    ).rejects.toMatchObject({ code: 'INVALID_NOMINEE' });
+    expect(await db.endTermChoice.count()).toBe(0);
+    expect(await db.auditLog.count()).toBe(0);
+  }
+);
+
+it('does not offer an entire bundle to a single pass-on nominee', async () => {
+  const line = await db.contractLine.findFirstOrThrow({ where: { contractId } });
+  await db.asset.update({
+    where: { id: 'ebike-004' },
+    data: { ownerId: 'provider', status: 'reserved' },
+  });
+  await db.contractLine.create({ data: { ...line, id: 'second-line', assetId: 'ebike-004' } });
+  await expect(
+    chooseEndTerm(db, { ...renter, kind: 'pass_on', nomineeId: 'nominee' }, notice)
+  ).rejects.toMatchObject({ code: 'INVALID_NOMINEE' });
+});
+
+it('rejects a second ending without changing the first', async () => {
+  const first = await chooseEndTerm(db, { ...renter, kind: 'end_return' }, notice);
+  await expect(chooseEndTerm(db, { ...renter, kind: 'end_buyout' }, notice)).rejects.toMatchObject({
+    code: 'ENDING_ALREADY_CHOSEN',
+  });
+  expect(await db.endTermChoice.findUnique({ where: { contractId } })).toEqual(first);
+  expect(await db.auditLog.count()).toBe(1);
+});
+
+it('withdraws only a pending choice owned by the renter', async () => {
+  await chooseEndTerm(db, { ...renter, kind: 'end_return' }, notice);
+  await expect(withdrawEndTerm(db, contractId, 'outsider')).rejects.toMatchObject({
+    code: 'NOT_RENTER',
+  });
+  expect(await withdrawEndTerm(db, contractId, 'renter')).toEqual({ withdrawn: true });
+  await expect(withdrawEndTerm(db, contractId, 'renter')).rejects.toMatchObject({
+    code: 'END_TERM_CHANGED',
+  });
+  expect(await db.endTermChoice.count()).toBe(0);
+  expect(await db.auditLog.count({ where: { action: 'end_term.withdrawn' } })).toBe(1);
+});
+
+it('cannot withdraw a received return or choose another ending after receipt', async () => {
+  await chooseEndTerm(db, { ...renter, kind: 'end_return' }, notice);
+  await recordReceipt(db, 'provider', contractId, notice);
+  await expect(withdrawEndTerm(db, contractId, 'renter')).rejects.toMatchObject({
+    code: 'END_TERM_CHANGED',
+  });
+  await db.endTermChoice.delete({ where: { contractId } });
+  await expect(chooseEndTerm(db, { ...renter, kind: 'end_buyout' }, notice)).rejects.toMatchObject({
+    code: 'ENDING_ALREADY_CHOSEN',
+  });
+});
+
+it('checks payment authority, the chosen ending, and the completion date before transferring ownership', async () => {
+  await expect(
+    completeEndTermBuyout(db, contractId, 'renter', 73_521, endOn)
+  ).rejects.toMatchObject({ code: 'NOT_PROVIDER' });
+  await expect(
+    completeEndTermBuyout(db, contractId, 'provider', 73_521, endOn)
+  ).rejects.toMatchObject({ code: 'END_TERM_CHANGED' });
+  await chooseEndTerm(db, { ...renter, kind: 'end_return' }, notice);
+  await expect(
+    completeEndTermBuyout(db, contractId, 'provider', 73_521, endOn)
+  ).rejects.toMatchObject({ code: 'END_TERM_CHANGED' });
+  await withdrawEndTerm(db, contractId, 'renter');
+  await chooseEndTerm(db, { ...renter, kind: 'end_buyout' }, notice);
+  await expect(
+    completeEndTermBuyout(db, contractId, 'provider', 73_521, notice)
+  ).rejects.toMatchObject({ code: 'END_TERM_CHANGED' });
+  await completeEndTermBuyout(db, contractId, 'provider', 73_521, endOn);
+  await expect(
+    completeEndTermBuyout(db, contractId, 'provider', 73_521, endOn)
+  ).rejects.toMatchObject({ code: 'END_TERM_CHANGED' });
+  expect(await db.assetLifeCompletion.count()).toBe(1);
+});
+
+it('refuses a pass-on before its date, after completion, or when ownership changes', async () => {
+  await chooseEndTerm(db, { ...renter, kind: 'pass_on', nomineeId: 'nominee' }, notice);
+  await expect(
+    getPassOnPrice(db, contractId, assetId, 'nominee', notice, signing)
+  ).rejects.toMatchObject({ code: 'PASS_ON_UNAVAILABLE' });
+  await db.asset.update({ where: { id: assetId }, data: { ownerId: 'outsider' } });
+  await expect(
+    getPassOnPrice(db, contractId, assetId, 'nominee', endOn, signing)
+  ).rejects.toMatchObject({ code: 'PASS_ON_UNAVAILABLE' });
+  await db.asset.update({ where: { id: assetId }, data: { ownerId: 'provider' } });
+  await db.endTermChoice.update({ where: { contractId }, data: { completedOn: endOn } });
+  await expect(
+    getPassOnPrice(db, contractId, assetId, 'nominee', endOn, signing)
+  ).rejects.toMatchObject({ code: 'PASS_ON_UNAVAILABLE' });
+});
+
+it('reports an unfinanceable pass-on price without ending the existing lease', async () => {
+  await chooseEndTerm(db, { ...renter, kind: 'pass_on', nomineeId: 'nominee' }, notice);
+  await db.contract.update({ where: { id: contractId }, data: { listPriceCents: 1 } });
+  await expect(
+    getPassOnPrice(db, contractId, assetId, 'nominee', endOn, signing)
+  ).rejects.toMatchObject({ code: 'INVALID_NEXT_LIFE_PRICE' });
+  expect(await db.contractLifecycle.findUnique({ where: { contractId } })).toMatchObject({
+    status: 'active',
+  });
+});
+
+it('rolls back all pass-on writes if another operation has already completed the lease', async () => {
+  await chooseEndTerm(db, { ...renter, kind: 'pass_on', nomineeId: 'nominee' }, notice);
+  await db.contractLifecycle.update({
+    where: { contractId },
+    data: { status: 'completed_return' },
+  });
+  await expect(
+    withAudit(
+      db,
+      { actor: 'nominee', action: 'contract.signed', entityType: 'contract', entityId: contractId },
+      (tx) =>
+        completePassOnInTx(tx, {
+          contractId,
+          nextContractId: 'next',
+          assetId,
+          endOn,
+          today: endOn,
+          priceCents: 100_000,
+        })
+    )
+  ).rejects.toMatchObject({ code: 'CONTRACT_COMPLETED' });
+  expect(await db.assetLifeCompletion.count()).toBe(0);
+  expect(await db.endTermChoice.findUnique({ where: { contractId } })).toMatchObject({
+    completedOn: null,
   });
 });

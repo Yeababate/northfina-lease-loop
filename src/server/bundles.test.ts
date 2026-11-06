@@ -250,6 +250,37 @@ describe('bundle API routes', () => {
 });
 
 describe('bundle edge cases', () => {
+  it('rolls back an edit when another update wins after the revision was checked', async () => {
+    await createBundleOffer(db, input, { ...options, id: 'kit' });
+    const racing = db.$extends({
+      query: { bundleOffer: { updateMany: async () => ({ count: 0 }) } },
+    }) as unknown as PrismaClient;
+    await expect(
+      updateBundleOffer(racing, 'kit', { ...input, name: 'Changed', expectedRevision: 1 }, options)
+    ).rejects.toMatchObject({ code: 'BUNDLE_CHANGED' });
+    expect(await getBundleOffer(db, 'kit', { providerId: KETTU })).toMatchObject({
+      name: input.name,
+      revision: 1,
+      assetIds: input.assetIds,
+    });
+    expect(await db.auditLog.count({ where: { action: 'bundle_offer.updated' } })).toBe(0);
+  });
+
+  it.each(['created', 'updated'])(
+    'reports a %s bundle that disappears before the response can be read',
+    async (operation) => {
+      if (operation === 'updated') await createBundleOffer(db, input, { ...options, id: 'kit' });
+      const disappearing = db.$extends({
+        query: { bundleOffer: { findMany: async () => [] } },
+      }) as unknown as PrismaClient;
+      const result =
+        operation === 'created'
+          ? createBundleOffer(disappearing, input, { ...options, id: 'kit' })
+          : updateBundleOffer(disappearing, 'kit', { ...input, expectedRevision: 1 }, options);
+      await expect(result).rejects.toThrow(`${operation} bundle offer disappeared`);
+      expect(await db.auditLog.count({ where: { action: `bundle_offer.${operation}` } })).toBe(1);
+    }
+  );
   it('finds no bundle for an unknown id, or for another provider viewing a draft', async () => {
     expect(await getBundleOffer(db, 'nope', { providerId: KETTU })).toBeNull();
     await createBundleOffer(db, { ...input, published: false }, { ...options, id: 'draft' });
