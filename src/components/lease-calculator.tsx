@@ -5,6 +5,7 @@
 // when the contract is signed, so the preview and the contract cannot disagree.
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
+import { dealTiers, percentText, termDiscounts } from '@/domain/deals';
 import type { RentalDiscountRule } from '@/domain/discounts';
 import { downPaymentAtStep } from '@/domain/dealer-discount';
 import { DiscountBreakdown } from './discount-breakdown';
@@ -60,6 +61,14 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
   const [downStep, setDownStep] = useState(0);
   const downPaymentCents = downPaymentAtStep(minDown, maxDown, downStep);
   const termMonths = terms[termIndex] ?? terms[0] ?? 0;
+  // Long-term discounts, worked out with the same rule choice as the price itself.
+  const discountByTerm = new Map(
+    termDiscounts(props.discountRules ?? [], terms).map((row) => [row.termMonths, row.discountBps])
+  );
+  const tiers = dealTiers(props.discountRules ?? [], terms);
+  const bestTier = tiers.toSorted((a, b) => b.discountBps - a.discountBps)[0];
+  const currentBps = discountByTerm.get(termMonths) ?? 0;
+  const percent = (bps: number) => percentText(bps, intlLocale[locale]);
 
   const result = quoteLease(
     table,
@@ -116,6 +125,29 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
               </p>
             ) : null}
 
+            {bestTier ? (
+              <p
+                aria-live="polite"
+                className="flex gap-2 rounded-xl bg-green-50 px-4 py-2.5 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
+              >
+                <span aria-hidden="true">🏷</span>
+                <span>
+                  {currentBps > 0
+                    ? t('deals.hintApplied', { percent: percent(currentBps) })
+                    : bestTier.toTermMonths === null
+                      ? t('deals.hintFrom', {
+                          months: bestTier.fromTermMonths,
+                          percent: percent(bestTier.discountBps),
+                        })
+                      : t('deals.hintRange', {
+                          from: bestTier.fromTermMonths,
+                          to: bestTier.toTermMonths,
+                          percent: percent(bestTier.discountBps),
+                        })}
+                </span>
+              </p>
+            ) : null}
+
             <div>
               <div className="flex justify-between font-semibold">
                 <label htmlFor={termId}>{t('lease.term')}</label>
@@ -128,14 +160,31 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
                 max={terms.length - 1}
                 step={1}
                 value={termIndex}
-                aria-valuetext={t('term.months', { months: termMonths })}
+                aria-valuetext={
+                  currentBps > 0
+                    ? `${t('term.months', { months: termMonths })}, ${t('deals.mark', { percent: percent(currentBps) })}`
+                    : t('term.months', { months: termMonths })
+                }
                 onChange={(event) => setTermIndex(Number(event.target.value))}
                 className="mt-2 w-full accent-blue-600"
               />
               <div aria-hidden="true" className="flex justify-between text-sm text-stone-600">
-                {terms.map((months) => (
-                  <span key={months}>{months}</span>
-                ))}
+                {terms.map((months) => {
+                  const bps = discountByTerm.get(months) ?? 0;
+                  return (
+                    <span
+                      key={months}
+                      className="flex flex-col items-center first:items-start last:items-end"
+                    >
+                      <span>{months}</span>
+                      {bps > 0 ? (
+                        <span className="text-xs font-semibold text-green-700 dark:text-green-400">
+                          {t('deals.mark', { percent: percent(bps) })}
+                        </span>
+                      ) : null}
+                    </span>
+                  );
+                })}
               </div>
             </div>
 

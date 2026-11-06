@@ -7,6 +7,8 @@ import {
   type CatalogueItem,
 } from '@/domain/catalogue';
 import { formatEuro } from '@/domain/money';
+import type { BestDeal } from '@/domain/deals';
+import { percentText } from '@/domain/deals';
 import { averageText } from '@/domain/rating-display';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
@@ -26,11 +28,13 @@ type AssetCardProps = {
   href: string;
   /** Who leases it out and their rating; left out when the item has no owner. */
   provider?: ProviderBadge;
+  /** The best long-term discount on this item, if its provider offers one. */
+  deal?: BestDeal;
   locale: Locale;
   t: Translate;
 };
 
-export function AssetCard({ item, href, provider, locale, t }: AssetCardProps) {
+export function AssetCard({ item, href, provider, deal, locale, t }: AssetCardProps) {
   const { asset, listPriceCents } = item;
   const headingId = `asset-${asset.id}`;
   const badge = catalogueBadge(asset);
@@ -60,6 +64,16 @@ export function AssetCard({ item, href, provider, locale, t }: AssetCardProps) {
       </div>
       {provider ? <ProviderLine provider={provider} locale={locale} t={t} /> : null}
       <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">{facts.join(' · ')}</p>
+      {deal && isLeasable(asset) ? (
+        <p className="mt-2">
+          <Badge tone="green">
+            {t('deals.badge', {
+              percent: percentText(deal.discountBps, intlLocale[locale]),
+              months: deal.fromTermMonths,
+            })}
+          </Badge>
+        </p>
+      ) : null}
 
       <div className="mt-auto pt-4">
         <div className="flex items-baseline justify-between gap-3 border-t border-stone-200 pt-3 dark:border-stone-800">

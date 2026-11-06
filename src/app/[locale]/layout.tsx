@@ -46,7 +46,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
               label={t('nav.main')}
               catalogueLabel={t('nav.catalogue')}
               leasesLabel={t('nav.myLeases')}
-              discountsLabel={t('discount.manage')}
+              dealsLabel={t('deals.nav')}
             />
             <div className="ml-auto flex items-center gap-6">
               <LanguageSwitcher current={locale} label={t('nav.language')} />
@@ -76,6 +76,19 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
         <main id="main" className="flex-1">
           {children}
         </main>
+
+        {/* Dealer tools stay reachable for the demo, but out of the customer's main menu. */}
+        <footer className="border-t border-stone-200 dark:border-stone-800">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 text-sm text-stone-600 sm:px-6 dark:text-stone-400">
+            <span>{t('footer.forDealers')}</span>
+            <Link
+              href={`/${locale}/discounts`}
+              className="underline underline-offset-2 hover:text-stone-900 dark:hover:text-white"
+            >
+              {t('discount.manage')}
+            </Link>
+          </div>
+        </footer>
       </body>
     </html>
   );
