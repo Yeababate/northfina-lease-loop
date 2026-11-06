@@ -36,7 +36,11 @@ export function ProfileQuestion(props: ProfileQuestionProps) {
   const text = questionText(question, locale);
 
   return (
-    <li className="rounded-2xl border border-stone-300 p-5 dark:border-stone-700">
+    // A card in a two-column grid from md; the open editor spans both columns so the field
+    // keeps its width. The answer row sits at the bottom so cards in a row line up.
+    <li
+      className={`flex flex-col rounded-2xl border border-stone-300 p-4 dark:border-stone-700 ${editing ? 'md:col-span-2' : ''}`}
+    >
       <h3 id={headingId} className="font-semibold">
         {editing && question.type !== 'choice' ? <label htmlFor={inputId}>{text}</label> : text}
       </h3>
@@ -64,7 +68,7 @@ export function ProfileQuestion(props: ProfileQuestionProps) {
       {editing ? (
         <Editor {...props} headingId={headingId} inputId={inputId} />
       ) : (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
           <p
             className={saved === undefined ? 'text-stone-600 dark:text-stone-400' : 'font-semibold'}
           >

@@ -49,7 +49,7 @@ export function FlagsBanner(props: FlagsBannerProps) {
   return (
     <section
       aria-labelledby="profile-flags"
-      className="mt-6 rounded-2xl bg-blue-50 px-5 py-4 text-stone-800 dark:bg-blue-950/60 dark:text-stone-200"
+      className="mt-6 rounded-2xl bg-blue-50 first:mt-0 px-5 py-4 text-stone-800 dark:bg-blue-950/60 dark:text-stone-200"
     >
       <h2 id="profile-flags" className="font-semibold">
         {t('flags.title')}

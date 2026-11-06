@@ -8,6 +8,7 @@ import {
   type ImpactEstimateResult,
 } from '@/domain/co2-impact';
 import { invoicePrice } from '@/domain/contract-pricing';
+import { isLeaseLife } from '@/domain/passport';
 import { leaseMonthOn, nextInvoiceOn, previousDay } from '@/domain/lease-overview';
 import { isCompletedLease, leasePhase, type LeasePhase } from '@/domain/profile-leases';
 import { AWAITING_SIGNATURE } from '@/domain/signatory';
@@ -85,7 +86,8 @@ export async function loadMyLeases(
   const cards = contracts.map((contract): LeaseCardView => {
     const lineIds =
       contract.lines.length > 0 ? contract.lines.map((line) => line.assetId) : [contract.assetId];
-    if (impactInputs) {
+    // An application still waiting for its company signatory has no impact yet.
+    if (impactInputs && isLeaseLife(contract.lifecycle?.status)) {
       for (const id of lineIds) {
         const asset = assets.get(id);
         if (asset) estimates.push(estimateForAsset(asset, contract.termMonths, impactInputs));

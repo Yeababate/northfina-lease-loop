@@ -35,7 +35,12 @@ import { estimateForAsset, loadImpactInputs } from '@/server/impact';
 import { loadPassport } from '@/server/passport';
 import { relatedItemsFor } from '@/server/related-items';
 import { secondLifeNote } from '@/server/waiting-list';
-import { readDemoName } from '@/server/demo-session';
+import { currentPrincipal } from '@/server/current-principal';
+import { placementBlocksViewer } from '@/server/waiting-list-placement';
+import { rememberedSetsFor } from '@/server/catalogue-readiness';
+import { chooseProfileSet } from '@/domain/remembered-answers';
+import { priceBasis } from '@/domain/application-terms';
+import { loadQuestions } from '@/data/load';
 import { contractEndOn } from '@/domain/contract-period';
 import { providerReputationForAsset, type ProviderReputation } from '@/server/reputation';
 import { todayIso } from '@/server/today';
@@ -71,7 +76,14 @@ export default async function ItemPage({
   const price = listPriceOn(priceLists, asset.id, today, assetPriceOverride(assetRow));
   const vat = vatRateOn(vatRates.rates, startDate);
   const nextVat = nextVatChangeAfter(vatRates.rates, startDate);
-  const signedIn = (await readDemoName()) !== null;
+  const principal = await currentPrincipal();
+  const signedIn = principal !== null;
+  if (await placementBlocksViewer(db, asset.id, principal?.id ?? null, today))
+    asset.status = 'reserved';
+  const sets = principal
+    ? await rememberedSetsFor(db, principal.id, (await loadQuestions()).questions, today)
+    : null;
+  const basis = priceBasis(chooseProfileSet(sets ?? [], {})?.answers ?? {});
   const [related, bundles, provider, passport, nextLife] = await Promise.all([
     relatedItemsFor(
       db,
@@ -182,6 +194,7 @@ export default async function ItemPage({
             summary={summary}
             afterApply={leftExtras}
             liveReadiness={signedIn}
+            priceBasis={basis}
             readinessHint={
               signedIn ? null : (
                 <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">

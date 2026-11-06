@@ -1,16 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import type { CoefficientTable, PriceList, Question, VatRates } from '@/data/schemas';
 import type { Answers } from '@/domain/answer-check';
+import { applicationTerms } from '@/domain/application-terms';
+import { claimPlacement } from './waiting-list-placement';
 import { checkApplicationForSigning } from '@/domain/application-signing';
 import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import type { PriceSource } from '@/domain/price-list';
 import { vatCents, vatRateOn } from '@/domain/vat';
-import { AWAITING_SIGNATURE } from '@/domain/signatory';
+import { AWAITING_SIGNATURE, passOnHandoverTiming } from '@/domain/signatory';
 import { ApiError } from './api-response';
 import { assetPriceOverride, toAsset } from './assets';
 import { withAudit } from './audit';
 import { rulesForAsset } from './discount-rules';
-import { completePassOnInTx, getPassOnPrice } from './end-of-term';
+import { completePassOnInTx, getPassOnPrice, linkPendingPassOnInTx } from './end-of-term';
 import type { PrismaClient } from './prisma-client';
 import { renderContractPdf } from './contract-pdf';
 import type { Locale } from '@/i18n/locales';
@@ -56,6 +58,8 @@ export async function signContract(
      * is saved waiting for that person: reserved and priced, but not active until they sign.
      */
     awaitingSignatory?: string;
+    usagePurpose?: string | null;
+    vatRegistered?: boolean | null;
   },
   signedOn: string,
   lists: readonly PriceList[],
@@ -139,6 +143,8 @@ export async function signContract(
   });
   const signingDetails: Record<string, unknown> = {
     ...result.price,
+    usagePurpose: input.usagePurpose ?? null,
+    vatRegistered: input.vatRegistered ?? null,
     ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
     ...(passOnId && { passOnContractId: passOnId }),
     ...(input.awaitingSignatory && { awaitingSignatory: input.awaitingSignatory }),
@@ -215,7 +221,13 @@ export async function signContract(
           'PRICE_CHANGED',
           'The price changed. Refresh and review before signing'
         );
-      if (passOnId && currentPassOn) {
+      if (
+        passOnId &&
+        currentPassOn &&
+        passOnHandoverTiming(Boolean(input.awaitingSignatory)) === 'at_signatory_signature'
+      ) {
+        await linkPendingPassOnInTx(tx, passOnId, id);
+      } else if (passOnId && currentPassOn) {
         await completePassOnInTx(tx, {
           contractId: passOnId,
           nextContractId: id,
@@ -225,6 +237,16 @@ export async function signContract(
           priceCents: currentPassOn.priceCents,
         });
       } else {
+        if (asset.status !== 'available')
+          throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+        await claimPlacement(
+          tx,
+          asset,
+          input.participants?.renterId ?? null,
+          input.termMonths,
+          currentPrice.price.monthlyNetCents,
+          signedOn
+        );
         const reserved = await tx.asset.updateMany({
           where: { id: input.assetId, status: 'available' },
           data: { status: 'reserved' },
@@ -263,6 +285,8 @@ export async function signContract(
             },
           },
           signatoryEmail: input.awaitingSignatory ?? null,
+          usagePurpose: input.usagePurpose ?? null,
+          vatRegistered: input.vatRegistered ?? null,
           lifecycle: {
             create: input.awaitingSignatory ? { status: AWAITING_SIGNATURE } : {},
           },
@@ -436,6 +460,7 @@ export async function signApplication(
             : 'Company',
         participants,
         awaitingSignatory,
+        ...applicationTerms(input.answers, asset.category),
         quoteId: savedQuote?.id,
         quotedPriceListVersion: savedQuote?.priceListVersion,
       },

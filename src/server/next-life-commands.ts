@@ -23,6 +23,7 @@ import { withAudit, type TransactionClient } from './audit';
 import { completeEndTermReturnInTx } from './end-of-term';
 import { loadIntake, sequencedId } from './next-life-reads';
 import { priceNextLife } from './next-life-pricing';
+import { checkPlacementBudget, placementForRelisting } from './waiting-list-placement';
 import type { PrismaClient } from './prisma-client';
 
 type Event = {
@@ -337,7 +338,7 @@ export async function relist(
   db: PrismaClient,
   providerId: string,
   intakeId: string,
-  input: { expectedRevision: number },
+  input: { expectedRevision: number; waitingListEntryId?: string; renterId?: string },
   today: string
 ) {
   await finalizeDueReturns(db, today);
@@ -351,10 +352,21 @@ export async function relist(
     db,
     { providerId, intakeId, expectedRevision: input.expectedRevision, action: 'return.relisted' },
     async (tx, { asset, facts, intake }, details) => {
-      const view = deriveNextLife(facts, rules);
+      const placement = await placementForRelisting(
+        tx,
+        {
+          assetId: asset.id,
+          intakeId,
+          providerId,
+          entryId: input.waitingListEntryId,
+          renterId: input.renterId,
+        },
+        today
+      );
+      const view = deriveNextLife(facts, rules, placement?.minimum);
       if (!view.canRelist)
         throw new ApiError(409, 'NOT_READY', 'This item cannot be relisted yet', view.blockers);
-      if (await hasWaitingListReservation(tx, asset.id, today))
+      if (!placement && (await hasWaitingListReservation(tx, asset.id, today)))
         throw new ApiError(
           409,
           'ASSET_ALREADY_OFFERED',
@@ -368,6 +380,17 @@ export async function relist(
           'This item cannot be priced for its next lease',
           price.reason
         );
+      if (placement) {
+        checkPlacementBudget(placement, price.priceCents, table);
+        await tx.waitingListEntry.update({
+          where: { id: placement.id },
+          data: { participantId: placement.participantId },
+        });
+        Object.assign(details, {
+          waitingListEntryId: placement.id,
+          renterId: placement.participantId,
+        });
+      }
       const released = await tx.asset.updateMany({
         where: { id: asset.id, status: 'returned' },
         data: {
