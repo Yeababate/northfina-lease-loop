@@ -564,5 +564,19 @@
   "activity.event.rated": "Avtalet betygsatt",
   "activity.event.ratingEdited": "Betyget ändrat",
   "activity.detail.signed": "{months} månader · {amount} i månaden + moms",
-  "activity.detail.exit": "{amount} exkl. moms · avtalet slutar {date}"
+  "activity.detail.exit": "{amount} exkl. moms · avtalet slutar {date}",
+  "explain.totalGross": "Total kostnad inkl. moms",
+  "explain.ifKept": "Om du behåller den i slutet (exkl. moms)",
+  "explain.vsBuying": "Jämfört med att köpa den i dag (exkl. moms)",
+  "compare.basis": "Samma produkt, handpenning {down}. Välj ett kort för att byta.",
+  "compare.perMonth": "i månaden + moms",
+  "compare.totalLabel": "hyra totalt + handpenning, exkl. moms",
+  "compare.lowestMonthly": "Lägst per månad",
+  "compare.lowestTotal": "Lägst totalt",
+  "compare.yourChoice": "Ditt val",
+  "compare.moreMonthly": "{amount} mer i månaden",
+  "compare.lessMonthly": "{amount} mindre i månaden",
+  "compare.moreTotal": "{amount} mer totalt",
+  "compare.lessTotal": "{amount} mindre totalt",
+  "compare.notPossible": "Inte möjligt med den här handpenningen"
 }

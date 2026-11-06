@@ -9,7 +9,8 @@ import { dealTiers, percentText, termDiscounts } from '@/domain/deals';
 import type { RentalDiscountRule } from '@/domain/discounts';
 import { downPaymentAtStep } from '@/domain/dealer-discount';
 import { DiscountBreakdown } from './discount-breakdown';
-import type { CoefficientTable } from '@/data/schemas';
+import type { CoefficientTable, VatRates } from '@/data/schemas';
+import { breakdown } from '@/domain/price-breakdown';
 import { formatEuro } from '@/domain/money';
 import {
   availableTerms,
@@ -31,6 +32,8 @@ type LeaseCalculatorProps = {
   providerName?: string;
   /** VAT rate on the lease start date. */
   vatRatePercent: number;
+  /** The whole VAT table, so totals use the rate on each invoice date. */
+  vatRates: VatRates;
   nextVatChange: VatChange | null;
   initialTerm: number;
   startDate: string;
@@ -248,12 +251,14 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
                   selectedTerm={termMonths}
                   listPriceCents={listPriceCents}
                   downPaymentCents={downPaymentCents}
-                  vatRatePercent={vatRatePercent}
+                  vat={props.vatRates}
+                  startOn={props.startDate}
+                  onSelect={(months) => setTermIndex(Math.max(0, terms.indexOf(months)))}
                   locale={locale}
                   t={t}
                 />
                 <PriceExplainer
-                  quote={result.quote}
+                  breakdown={breakdown(result.quote, props.vatRates, props.startDate)}
                   nextVatChange={props.nextVatChange}
                   locale={locale}
                   t={t}

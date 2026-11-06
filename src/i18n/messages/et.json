@@ -564,5 +564,19 @@
   "activity.event.rated": "Lepingut hinnatud",
   "activity.event.ratingEdited": "Hinnangut muudetud",
   "activity.detail.signed": "{months} kuud · {amount} kuus + km",
-  "activity.detail.exit": "{amount} km-ta · leping lõpeb {date}"
+  "activity.detail.exit": "{amount} km-ta · leping lõpeb {date}",
+  "explain.totalGross": "Kogumaksumus km-ga",
+  "explain.ifKept": "Kui jätad toote lõpus endale (km-ta)",
+  "explain.vsBuying": "Võrreldes täna ostmisega (km-ta)",
+  "compare.basis": "Sama toode, sissemakse {down}. Vahetamiseks vali kaart.",
+  "compare.perMonth": "kuus + km",
+  "compare.totalLabel": "rent kokku + sissemakse, km-ta",
+  "compare.lowestMonthly": "Väikseim kuumakse",
+  "compare.lowestTotal": "Väikseim kogusumma",
+  "compare.yourChoice": "Sinu valik",
+  "compare.moreMonthly": "{amount} rohkem kuus",
+  "compare.lessMonthly": "{amount} vähem kuus",
+  "compare.moreTotal": "{amount} rohkem kokku",
+  "compare.lessTotal": "{amount} vähem kokku",
+  "compare.notPossible": "Selle sissemaksega pole võimalik"
 }

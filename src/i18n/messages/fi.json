@@ -564,5 +564,19 @@
   "activity.event.rated": "Sopimus arvioitu",
   "activity.event.ratingEdited": "Arviota muokattu",
   "activity.detail.signed": "{months} kk · {amount} kuukaudessa + ALV",
-  "activity.detail.exit": "{amount} veroton · sopimus päättyy {date}"
+  "activity.detail.exit": "{amount} veroton · sopimus päättyy {date}",
+  "explain.totalGross": "Kokonaishinta sis. ALV",
+  "explain.ifKept": "Jos lunastat tuotteen lopussa (veroton)",
+  "explain.vsBuying": "Verrattuna ostamiseen tänään (veroton)",
+  "compare.basis": "Sama tuote, käsiraha {down}. Vaihda valitsemalla kortti.",
+  "compare.perMonth": "kuukaudessa + ALV",
+  "compare.totalLabel": "vuokrat yhteensä + käsiraha, veroton",
+  "compare.lowestMonthly": "Pienin kuukausierä",
+  "compare.lowestTotal": "Pienin kokonaishinta",
+  "compare.yourChoice": "Valintasi",
+  "compare.moreMonthly": "{amount} enemmän kuussa",
+  "compare.lessMonthly": "{amount} vähemmän kuussa",
+  "compare.moreTotal": "{amount} enemmän yhteensä",
+  "compare.lessTotal": "{amount} vähemmän yhteensä",
+  "compare.notPossible": "Ei saatavilla tällä käsirahalla"
 }

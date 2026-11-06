@@ -141,6 +141,7 @@ export default async function ItemPage({
             providerName={discountProvider?.displayName}
             listPriceCents={price.priceCents}
             vatRatePercent={vat.rate.rate_percent}
+            vatRates={vatRates}
             nextVatChange={
               nextVat ? { ratePercent: nextVat.rate_percent, validFrom: nextVat.valid_from } : null
             }
