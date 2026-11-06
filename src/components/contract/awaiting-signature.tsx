@@ -9,6 +9,10 @@ import { useState } from 'react';
 import { formatIsoDate } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import type { Locale } from '@/i18n/locales';
+import { formatEuro } from '@/domain/money';
+import { intlLocale } from '@/i18n/locales';
+import type { PriceLockNote } from '@/domain/application-signing';
+import type { SignatoryOfferSnapshot } from '@/server/signatory';
 import { primaryButton, secondaryButton } from '../ui';
 
 type AwaitingSignatureProps = {
@@ -17,30 +21,47 @@ type AwaitingSignatureProps = {
   signatoryEmail: string;
   companyName: string;
   sentOn: string;
+  today: string;
+  startOn: string;
   /** Who is looking: the applicant who sent it, or the signatory who must sign. */
   viewer: 'applicant' | 'signatory';
+  currentOffer?:
+    | { snapshot: SignatoryOfferSnapshot; note: PriceLockNote; offerChanged: boolean }
+    | { unavailable: true };
 };
 
 export function AwaitingSignature(props: AwaitingSignatureProps) {
   const { contractId, locale, signatoryEmail, companyName, viewer } = props;
   const t = getT(locale);
   const router = useRouter();
+  const [dateDirty, setDateDirty] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [consentedOffer, setConsentedOffer] = useState<string | null>(null);
+  const [problemCode, setProblemCode] = useState<string | null>(null);
+  const offer = props.currentOffer && 'snapshot' in props.currentOffer ? props.currentOffer : null;
+  const offerKey = offer ? JSON.stringify(offer.snapshot) : '';
+  const consented = offerKey !== '' && consentedOffer === offerKey;
   const path = `/${locale}/contracts/${encodeURIComponent(contractId)}`;
 
   async function sign() {
+    setProblemCode(null);
     setBusy(true);
-    setProblem(false);
     try {
+      if (!offer || !consented) return;
       const response = await fetch(`/api/contracts/${encodeURIComponent(contractId)}/signature`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expected: offer.snapshot }),
       });
       if (response.ok) router.refresh();
-      else setProblem(true);
+      else {
+        const result = await response.json();
+        setProblemCode(result.error?.code ?? 'generic');
+        if (result.error?.code === 'PRICE_CHANGED') setConsentedOffer(null);
+      }
     } catch {
-      setProblem(true);
+      setProblemCode('generic');
     } finally {
       setBusy(false);
     }
@@ -80,12 +101,100 @@ export function AwaitingSignature(props: AwaitingSignatureProps) {
       </ol>
       {viewer === 'signatory' ? (
         <div className="mt-4">
-          <button type="button" disabled={busy} onClick={sign} className={primaryButton}>
+          <form method="get" className="mb-4 space-y-2">
+            <p>{t('signatory.replaceStart')}</p>
+            <label htmlFor="signatory-start">{t('signatory.startDate')}</label>
+            <input
+              id="signatory-start"
+              name="startOn"
+              type="date"
+              required
+              min={props.today}
+              onChange={() => {
+                setConsentedOffer(null);
+                setDateDirty(true);
+              }}
+              defaultValue={props.startOn < props.today ? props.today : props.startOn}
+              className="mx-2 rounded border p-2"
+            />
+            <button type="submit" className={secondaryButton}>
+              {t('signatory.reviewDates')}
+            </button>
+          </form>
+          {offer ? (
+            <div className="mb-4 rounded-xl border border-stone-300 bg-white p-4 text-sm dark:border-stone-700 dark:bg-stone-900">
+              <h3 className="font-semibold">{t('signatory.currentOffer')}</h3>
+              <p>
+                {t('signatory.startDate')}: {formatIsoDate(offer.snapshot.startOn, locale)}
+              </p>
+              <p className="mt-2">
+                {t('discount.original')}:{' '}
+                {formatEuro(offer.snapshot.originalMonthlyNetCents, intlLocale[locale])}
+              </p>
+              <p>
+                {t('discount.amount')} ({offer.snapshot.discountBps / 100}%): −
+                {formatEuro(offer.snapshot.monthlyDiscountCents, intlLocale[locale])}
+              </p>
+              <p className="font-semibold">
+                {t('sign.monthlyNet')}:{' '}
+                {formatEuro(offer.snapshot.monthlyNetCents, intlLocale[locale])}
+              </p>
+              <p>
+                {t('lease.withVat', {
+                  amount: formatEuro(offer.snapshot.monthlyGrossCents, intlLocale[locale]),
+                  rate: offer.snapshot.vatPercent,
+                })}
+              </p>
+              <p>
+                {t('sign.buyout')}: {formatEuro(offer.snapshot.buyoutNetCents, intlLocale[locale])}
+              </p>
+              {offer.offerChanged ? (
+                <p className="mt-2">
+                  {t(
+                    offer.note.direction === 'lower'
+                      ? 'signatory.priceChangedLower'
+                      : offer.note.direction === 'higher'
+                        ? 'signatory.priceChangedHigher'
+                        : 'signatory.priceChangedSame',
+                    {
+                      quoted: formatIsoDate(props.sentOn, locale),
+                      difference: formatEuro(offer.note.differenceCents, intlLocale[locale]),
+                    }
+                  )}
+                </p>
+              ) : null}
+              <div className="mt-4 flex items-start gap-3">
+                <input
+                  id="signatory-offer-consent"
+                  type="checkbox"
+                  checked={consented}
+                  disabled={dateDirty}
+                  onChange={(event) => setConsentedOffer(event.target.checked ? offerKey : null)}
+                  className="mt-1 size-4 accent-blue-600"
+                />
+                <label htmlFor="signatory-offer-consent">{t('signatory.confirmCurrent')}</label>
+              </div>
+            </div>
+          ) : (
+            <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-400">
+              {t('signatory.priceUnavailable')}
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={busy || dateDirty || !offer || !consented}
+            onClick={sign}
+            className={`${primaryButton} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
             {busy ? t('sign.signing') : t('signatory.signButton', { company: companyName })}
           </button>
-          {problem ? (
+          {problemCode ? (
             <p role="alert" className="mt-2 font-medium text-red-700 dark:text-red-400">
-              {t('signatory.problem')}
+              {problemCode === 'PRICE_CHANGED'
+                ? t('signatory.stale')
+                : problemCode === 'INVALID_PRICE'
+                  ? t('signatory.priceUnavailable')
+                  : t('signatory.problem')}
             </p>
           ) : null}
         </div>

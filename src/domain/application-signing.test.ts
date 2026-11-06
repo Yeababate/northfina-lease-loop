@@ -116,7 +116,12 @@ describe('priceLockNote', () => {
         { priceListVersion: 1, monthlyNetCents: 10_730 },
         { priceListVersion: 1, monthlyNetCents: 10_730 }
       )
-    ).toEqual({ listChanged: false, direction: 'same', differenceCents: 0 });
+    ).toEqual({
+      listChanged: false,
+      direction: 'same',
+      differenceCents: 0,
+      reasonCode: 'unchanged',
+    });
   });
 
   it('explains a cheaper price after the list changed (scenario card 2)', () => {
@@ -125,7 +130,12 @@ describe('priceLockNote', () => {
         { priceListVersion: 1, monthlyNetCents: 10_000 },
         { priceListVersion: 2, monthlyNetCents: 9_200 }
       )
-    ).toEqual({ listChanged: true, direction: 'lower', differenceCents: 800 });
+    ).toEqual({
+      listChanged: true,
+      direction: 'lower',
+      differenceCents: 800,
+      reasonCode: 'cheaper_at_signing',
+    });
   });
 
   it('explains a dearer price, and a new list that kept the price', () => {
@@ -134,13 +144,23 @@ describe('priceLockNote', () => {
         { priceListVersion: 1, monthlyNetCents: 10_730 },
         { priceListVersion: 2, monthlyNetCents: 11_267 }
       )
-    ).toEqual({ listChanged: true, direction: 'higher', differenceCents: 537 });
+    ).toEqual({
+      listChanged: true,
+      direction: 'higher',
+      differenceCents: 537,
+      reasonCode: 'more_expensive_at_signing',
+    });
     expect(
       priceLockNote(
         { priceListVersion: 1, monthlyNetCents: 50_000 },
         { priceListVersion: 2, monthlyNetCents: 50_000 }
       )
-    ).toEqual({ listChanged: true, direction: 'same', differenceCents: 0 });
+    ).toEqual({
+      listChanged: true,
+      direction: 'same',
+      differenceCents: 0,
+      reasonCode: 'unchanged',
+    });
   });
 });
 
@@ -168,6 +188,11 @@ it('requires new consent for every change to the displayed lease offer', () => {
     { monthlyGrossCents: 13520 },
     { discountRuleId: 'new-rule' },
     { discountRuleRevision: 2 },
+    { coefficientVersion: 2 },
+    { coefficientId: 'new-coefficients' },
+    { band: 'new-band' },
+    { factor: 0.03 },
+    { financedCents: 388999 },
   ])
     expect(signingOfferKey({ ...offer, ...patch })).not.toBe(accepted);
 });

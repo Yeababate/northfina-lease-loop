@@ -1,12 +1,15 @@
 // One lease on "My leases" (wireframe 6): photo, name and status, then progress, rent, next
-// invoice, end date and buyout, with links to the contract PDF, invoices and early end.
+// invoice, end date and buyout, with links to the contract PDF, invoices and early end. A
+// completed lease ends with its own rating line, so the rating sits with the lease it is about.
 import Link from 'next/link';
+import type { LeaseRatingPrompt } from '@/domain/lease-rating-prompt';
 import { formatEuro } from '@/domain/money';
 import { formatIsoDate } from '@/i18n/format';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import type { LeaseCardView } from '@/server/my-leases';
-import { Badge, PhotoPlaceholder, textLink, type BadgeTone } from './ui';
+import { Stars } from './reviews';
+import { Badge, PhotoPlaceholder, secondaryButton, textLink, type BadgeTone } from './ui';
 
 type Status = 'active' | 'upcoming' | 'ended' | 'ending_early' | 'awaiting_signature';
 const statusTone: Record<Status, BadgeTone> = {
@@ -21,11 +24,19 @@ type LeaseCardProps = {
   lease: LeaseCardView;
   /** 2 for current leases right under the page title, 3 under the "Past leases" heading. */
   headingLevel: 2 | 3;
+  /** The customer's own rating of this lease, or an invitation to rate it (src/domain). */
+  rating?: LeaseRatingPrompt;
   locale: Locale;
   t: Translate;
 };
 
-export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
+export function LeaseCard({
+  lease,
+  headingLevel,
+  rating = { kind: 'none' },
+  locale,
+  t,
+}: LeaseCardProps) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
   const date = (iso: string) => formatIsoDate(iso, locale);
@@ -123,15 +134,44 @@ export function LeaseCard({ lease, headingLevel, locale, t }: LeaseCardProps) {
               </Link>
             </li>
           ) : null}
-          {lease.completed ? (
-            <li>
-              <Link href={`${contractHref}#rate`} className={textLink}>
-                {t('leases.rate')}
-              </Link>
-            </li>
-          ) : null}
         </ul>
+        <LeaseRatingLine rating={rating} href={`${contractHref}#rate`} t={t} />
       </div>
     </article>
+  );
+}
+
+/** The rating of a completed lease: your stars with a link to edit them, or a call to rate. */
+function LeaseRatingLine({
+  rating,
+  href,
+  t,
+}: {
+  rating: LeaseRatingPrompt;
+  href: string;
+  t: Translate;
+}) {
+  if (rating.kind === 'none') return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-stone-200 pt-4 text-sm dark:border-stone-700">
+      {rating.kind === 'rated' ? (
+        <>
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{t('leases.rating.yours')}</span>
+            <Stars filled={rating.stars} label={t('rating.starsOf', { stars: rating.stars })} />
+          </p>
+          <Link href={href} className={textLink}>
+            {t('rating.edit')}
+          </Link>
+        </>
+      ) : (
+        <>
+          <p className="font-semibold">{t('leases.rating.invite')}</p>
+          <Link href={href} className={secondaryButton}>
+            {t('leases.rate')}
+          </Link>
+        </>
+      )}
+    </div>
   );
 }

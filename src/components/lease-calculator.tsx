@@ -3,7 +3,6 @@
 // "Choose your lease": term and down payment sliders with a live monthly price. Every number
 // comes from quoteLease (src/domain/pricing.ts), the same tested function the server will use
 // when the contract is signed, so the preview and the contract cannot disagree.
-import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
 import { dealTiers, percentText, termDiscounts } from '@/domain/deals';
 import { downPaymentIsAdjustable } from '@/domain/down-payment';
@@ -23,13 +22,17 @@ import { formatIsoDate, formatNumber } from '@/i18n/format';
 import { getT } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
 import { PriceExplainer, TermComparison, type VatChange } from './price-explainer';
-import { primaryButton } from './ui';
+import { StartApplicationButton } from './start-application-button';
+import type { PriceSource } from '@/domain/price-list';
 
 type LeaseCalculatorProps = {
   locale: Locale;
   table: CoefficientTable;
   discountRules?: readonly RentalDiscountRule[];
   listPriceCents: number;
+  assetId: string;
+  priceListVersion: number;
+  priceSource: PriceSource;
   /** VAT rate on the lease start date. */
   vatRatePercent: number;
   /** The whole VAT table, so totals use the rate on each invoice date. */
@@ -89,22 +92,24 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
   const maximumFinanced = Math.max(...table.bands.map((b) => b.max_financed_cents));
   const tooCheap = listPriceCents < minimumFinanced;
 
-  const applyHref = `${props.applyPath}?${new URLSearchParams({
-    term: String(termMonths),
-    down: String(downPaymentCents),
-    start: props.startDate,
-    quoted: props.quotedOn,
-  })}`;
-
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
       <div>
         {props.summary}
         {result.ok ? (
           <>
-            <Link href={applyHref} className={`${primaryButton} mt-4 w-full`}>
-              {t('item.apply')}
-            </Link>
+            <StartApplicationButton
+              locale={locale}
+              assetId={props.assetId}
+              applyPath={props.applyPath}
+              quotedOn={props.quotedOn}
+              startOn={props.startDate}
+              priceListVersion={props.priceListVersion}
+              priceSource={props.priceSource}
+              coefficientId={table.id}
+              coefficientVersion={table.version}
+              quote={result.quote}
+            />
             <p className="mt-3 text-sm text-stone-600 dark:text-stone-400">{t('item.applyNote')}</p>
           </>
         ) : null}
