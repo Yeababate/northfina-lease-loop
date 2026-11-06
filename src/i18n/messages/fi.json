@@ -578,5 +578,11 @@
   "compare.lessMonthly": "{amount} vähemmän kuussa",
   "compare.moreTotal": "{amount} enemmän yhteensä",
   "compare.lessTotal": "{amount} vähemmän yhteensä",
-  "compare.notPossible": "Ei saatavilla tällä käsirahalla"
+  "compare.notPossible": "Ei saatavilla tällä käsirahalla",
+  "lease.noDownNeeded": "Käsirahaa ei tarvita",
+  "reminders.endsOn": "Sopimuksesi päättyy {date}.",
+  "reminders.willRemind": "Muistutamme sinua:",
+  "reminders.dateTime": "{date} klo {time}",
+  "reminders.daysBeforeShort": "{days} päivää ennen",
+  "reminders.onLastDay": "viimeisenä päivänä"
 }

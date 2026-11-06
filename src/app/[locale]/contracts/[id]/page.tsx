@@ -175,6 +175,7 @@ export default async function ContractPage({
                     preferences: reminders.preferences,
                     schedule: reminders.schedule,
                   }}
+                  lastDay={previousDay(contract.lifecycle?.actualEndOn ?? contract.endOn)}
                 />
               ) : (
                 <p className="text-sm">{t('reminders.none')}</p>
