@@ -578,5 +578,6 @@
   "compare.lessMonthly": "{amount} vähem kuus",
   "compare.moreTotal": "{amount} rohkem kokku",
   "compare.lessTotal": "{amount} vähem kokku",
-  "compare.notPossible": "Selle sissemaksega pole võimalik"
+  "compare.notPossible": "Selle sissemaksega pole võimalik",
+  "lease.noDownNeeded": "Sissemakset pole vaja"
 }

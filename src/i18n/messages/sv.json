@@ -578,5 +578,6 @@
   "compare.lessMonthly": "{amount} mindre i månaden",
   "compare.moreTotal": "{amount} mer totalt",
   "compare.lessTotal": "{amount} mindre totalt",
-  "compare.notPossible": "Inte möjligt med den här handpenningen"
+  "compare.notPossible": "Inte möjligt med den här handpenningen",
+  "lease.noDownNeeded": "Ingen handpenning behövs"
 }

@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
 import { dealTiers, percentText, termDiscounts } from '@/domain/deals';
+import { downPaymentIsAdjustable } from '@/domain/down-payment';
 import type { RentalDiscountRule } from '@/domain/discounts';
 import { downPaymentAtStep } from '@/domain/dealer-discount';
 import { DiscountBreakdown } from './discount-breakdown';
@@ -61,7 +62,9 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
   const maxDown = maxDownPaymentCents(table, listPriceCents);
   const [termIndex, setTermIndex] = useState(() => Math.max(0, terms.indexOf(props.initialTerm)));
   const [downStep, setDownStep] = useState(0);
-  const downPaymentCents = downPaymentAtStep(minDown, maxDown, downStep);
+  // A tiny range (e.g. €0–€3 on a €303 item) gets no slider: the down payment is fixed.
+  const adjustableDown = downPaymentIsAdjustable(minDown, maxDown);
+  const downPaymentCents = adjustableDown ? downPaymentAtStep(minDown, maxDown, downStep) : minDown;
   const termMonths = terms[termIndex] ?? terms[0] ?? 0;
   // Long-term discounts, worked out with the same rule choice as the price itself.
   const discountByTerm = new Map(
@@ -189,32 +192,41 @@ export function LeaseCalculator(props: LeaseCalculatorProps) {
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between font-semibold">
-                <label htmlFor={downId}>{t('lease.downPayment')}</label>
-                <output htmlFor={downId} className="tabular-nums">
-                  {euro(downPaymentCents)}
-                </output>
+            {adjustableDown ? (
+              <div>
+                <div className="flex justify-between font-semibold">
+                  <label htmlFor={downId}>{t('lease.downPayment')}</label>
+                  <output htmlFor={downId} className="tabular-nums">
+                    {euro(downPaymentCents)}
+                  </output>
+                </div>
+                <input
+                  id={downId}
+                  type="range"
+                  min={0}
+                  max={Math.ceil((maxDown - minDown) / DOWN_PAYMENT_STEP_CENTS)}
+                  step={1}
+                  value={downStep}
+                  aria-valuetext={euro(downPaymentCents)}
+                  onChange={(event) => setDownStep(Number(event.target.value))}
+                  className="mt-2 w-full accent-blue-600"
+                />
+                <div className="flex justify-between gap-2 text-sm text-stone-600 dark:text-stone-400">
+                  <span aria-hidden="true">{euro(minDown)}</span>
+                  {result.ok ? (
+                    <span>{t('lease.financed', { amount: euro(result.quote.financedCents) })}</span>
+                  ) : null}
+                  <span aria-hidden="true">{euro(maxDown)}</span>
+                </div>
               </div>
-              <input
-                id={downId}
-                type="range"
-                min={0}
-                max={Math.ceil((maxDown - minDown) / DOWN_PAYMENT_STEP_CENTS)}
-                step={1}
-                value={downStep}
-                aria-valuetext={euro(downPaymentCents)}
-                onChange={(event) => setDownStep(Number(event.target.value))}
-                className="mt-2 w-full accent-blue-600"
-              />
-              <div className="flex justify-between gap-2 text-sm text-stone-600 dark:text-stone-400">
-                <span aria-hidden="true">{euro(minDown)}</span>
-                {result.ok ? (
-                  <span>{t('lease.financed', { amount: euro(result.quote.financedCents) })}</span>
-                ) : null}
-                <span aria-hidden="true">{euro(maxDown)}</span>
+            ) : (
+              <div className="flex justify-between gap-4 font-semibold">
+                <span>{t('lease.downPayment')}</span>
+                <span className="text-right font-normal text-stone-700 dark:text-stone-300">
+                  {minDown === 0 ? t('lease.noDownNeeded') : euro(minDown)}
+                </span>
               </div>
-            </div>
+            )}
 
             {result.ok ? (
               <>

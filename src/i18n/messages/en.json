@@ -578,5 +578,6 @@
   "compare.lessMonthly": "{amount} less a month",
   "compare.moreTotal": "{amount} more in total",
   "compare.lessTotal": "{amount} less in total",
-  "compare.notPossible": "Not available with this down payment"
+  "compare.notPossible": "Not available with this down payment",
+  "lease.noDownNeeded": "No down payment needed"
 }

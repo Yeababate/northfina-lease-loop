@@ -578,5 +578,6 @@
   "compare.lessMonthly": "{amount} vähemmän kuussa",
   "compare.moreTotal": "{amount} enemmän yhteensä",
   "compare.lessTotal": "{amount} vähemmän yhteensä",
-  "compare.notPossible": "Ei saatavilla tällä käsirahalla"
+  "compare.notPossible": "Ei saatavilla tällä käsirahalla",
+  "lease.noDownNeeded": "Käsirahaa ei tarvita"
 }
