@@ -35,6 +35,8 @@ You should see the asset catalogue in English. Switch to Finnish, Swedish or Est
 | `npm run db:reset`      | Wipe the local database and seed it again                      |
 | `npm run db:studio`     | Browse the database in your browser                            |
 
+Run `npm test -- tests/scenarios` to exercise the judging cards and data-pack traps against temporary SQLite.
+
 ---
 
 ## 15-minute tour
