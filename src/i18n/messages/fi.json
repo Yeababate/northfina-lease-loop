@@ -412,6 +412,8 @@
   "leases.endEarly": "Päätä leasing etuajassa",
   "leases.endingEarlyLink": "Varhainen päättäminen pyydetty",
   "leases.rate": "Arvioi tämä leasing",
+  "leases.rating.yours": "Antamasi arvio",
+  "leases.rating.invite": "Tämä leasing on päättynyt. Miten se sujui?",
   "leases.empty.title": "Sinulla ei ole vielä leasingeja",
   "leases.empty.body": "Aloita selaamalla valikoimaa.",
   "leases.browse": "Selaa valikoimaa",
