@@ -4,6 +4,7 @@ import {
   type ExitKind,
   type ExitQuote,
 } from '@/domain/early-exit';
+import { exitCharge, exitPriceChange, repriceExitRequest } from '@/domain/exit-settlement';
 import { ApiError } from './api-response';
 import { withAudit } from './audit';
 import { loadExitPricing } from './exit-pricing';
@@ -46,11 +47,33 @@ export async function readExitView(
     role: context.renterId === userId ? ('renter' as const) : ('provider' as const),
     assetIds,
     status: context.status,
-    request: latest ? { ...latest, quote: storedQuote(latest.quoteJson) } : null,
+    request: latest ? requestView(latest, latest === pending) : null,
     ordinaryRentAndTax: 'provider_review_required' as const,
     returnQuote: previewEarlyExit(context, 'return', userId, today, pricing),
     buyoutQuote: previewEarlyExit(context, 'buyout', userId, today, pricing),
   };
+
+  /**
+   * An open request is only indicative until completion, so it is re-priced with current data
+   * (an inspection after the request, for example). A completed one shows its frozen net plus
+   * VAT at the rate on the invoice date; the app issues no separate exit invoice yet, so
+   * today stands in for that date.
+   */
+  function requestView(row: (typeof requests)[number], open: boolean) {
+    const quote = storedQuote(row.quoteJson);
+    const current = open ? repriceExitRequest(context, quote, pricing) : null;
+    const currentQuote = current?.ok ? current.quote : null;
+    const charge = quote.frozenOn
+      ? exitCharge(quote.amountNetCents, pricing.vatRates, today)
+      : null;
+    return {
+      ...row,
+      quote,
+      currentQuote,
+      priceChange: currentQuote ? exitPriceChange(quote, currentQuote) : null,
+      charge: charge?.ok ? charge.charge : null,
+    };
+  }
 }
 
 export async function requestEarlyExit(

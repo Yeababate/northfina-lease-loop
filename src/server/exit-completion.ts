@@ -1,19 +1,32 @@
 import { randomUUID } from 'node:crypto';
 import { returnCanComplete } from '@/domain/early-exit';
+import { freezeExitQuote, repriceExitRequest } from '@/domain/exit-settlement';
 import { isoDateSchema } from '@/data/schemas';
 import { ApiError } from './api-response';
 import { withAudit, type TransactionClient } from './audit';
 import type { PrismaClient } from './prisma-client';
-import { assertOwnedAssets, exitInclude, loadExitContract } from './exit-data';
+import { assertOwnedAssets, exitInclude, loadExitContract, storedQuote } from './exit-data';
+import { loadExitPricing } from './exit-pricing';
 
-async function finish(tx: TransactionClient, exitId: string, today: string, actor: string) {
+/**
+ * Completion is the binding step of an early exit: the price is re-priced one last time with
+ * current data (an inspection, for example) and its net amount and breakdown are frozen in
+ * quoteJson. Both quotes go into the audit details of the surrounding withAudit.
+ */
+async function finish(
+  tx: TransactionClient,
+  exitId: string,
+  today: string,
+  actor: string,
+  audit: Record<string, unknown>
+) {
   const request = await tx.exitRequest.findUniqueOrThrow({
     where: { id: exitId },
     include: exitInclude,
   });
   if (request.status === 'completed')
     throw new ApiError(409, 'EXIT_CHANGED', 'The exit was already completed');
-  const { context, assetIds } = await loadExitContract(tx, request.contractId);
+  const { contract, context, assetIds } = await loadExitContract(tx, request.contractId);
   if (context.status !== 'active')
     throw new ApiError(409, 'CONTRACT_COMPLETED', 'This lease is already complete');
   const endTerm = await tx.endTermChoice.findUnique({ where: { contractId: request.contractId } });
@@ -32,6 +45,16 @@ async function finish(tx: TransactionClient, exitId: string, today: string, acto
     return request;
   }
   await assertOwnedAssets(tx, assetIds, request.providerId);
+  const indicative = storedQuote(request.quoteJson);
+  const priced = repriceExitRequest(
+    context,
+    indicative,
+    await loadExitPricing(tx, contract, assetIds)
+  );
+  if (!priced.ok)
+    throw new ApiError(422, 'EXIT_PRICE_UNAVAILABLE', 'The exit cannot be priced right now');
+  const frozen = freezeExitQuote(priced.quote, today);
+  Object.assign(audit, { indicativeQuote: indicative, frozenQuote: frozen });
   for (const assetId of assetIds) {
     await tx.assetLifeCompletion.create({
       data: {
@@ -64,6 +87,7 @@ async function finish(tx: TransactionClient, exitId: string, today: string, acto
     data: {
       status: 'completed',
       openContractId: null,
+      quoteJson: JSON.stringify(frozen),
       completedOn: today,
       completedBy: actor,
       revision: { increment: 1 },
@@ -107,6 +131,12 @@ export async function acknowledgeEarlyExit(
   ) {
     return existing;
   }
+  // withAudit serializes details after the work, so finish() can add the frozen quote.
+  const details: Record<string, unknown> = {
+    assetIds: receiptIds,
+    balancesReviewed: true,
+    quote: JSON.parse(existing.quoteJson),
+  };
   return withAudit(
     db,
     {
@@ -114,11 +144,7 @@ export async function acknowledgeEarlyExit(
       action: existing.kind === 'return' ? 'exit.return_received' : 'exit.buyout_paid',
       entityType: 'exit',
       entityId: input.exitId,
-      details: {
-        assetIds: receiptIds,
-        balancesReviewed: true,
-        quote: JSON.parse(existing.quoteJson),
-      },
+      details,
     },
     async (tx) => {
       const request = await tx.exitRequest.findUniqueOrThrow({
@@ -159,7 +185,7 @@ export async function acknowledgeEarlyExit(
           revision: { increment: 1 },
         },
       });
-      return finish(tx, request.id, today, input.userId);
+      return finish(tx, request.id, today, input.userId, details);
     }
   );
 }
@@ -193,6 +219,7 @@ export async function finalizeDueReturns(db: PrismaClient, today: string) {
     )
       continue;
     try {
+      const details: Record<string, unknown> = {};
       const result = await withAudit(
         db,
         {
@@ -200,8 +227,9 @@ export async function finalizeDueReturns(db: PrismaClient, today: string) {
           action: 'exit.return_finalized',
           entityType: 'exit',
           entityId: request.id,
+          details,
         },
-        (tx) => finish(tx, request.id, today, 'system:lifecycle')
+        (tx) => finish(tx, request.id, today, 'system:lifecycle', details)
       );
       if (result.status === 'completed') completed++;
     } catch (error) {
