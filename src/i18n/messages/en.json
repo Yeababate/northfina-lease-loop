@@ -846,5 +846,13 @@
   "dealers.howTitle": "How we work out the distance",
   "dealers.how.straight": "Distance is a straight line between town centres, not a driving route.",
   "dealers.how.rounded": "Positions are rounded to 0.1 degrees, so distances are rounded to the nearest 5 km.",
-  "dealers.how.private": "No street addresses are stored or shown. Ask the dealer where to pick up your item."
+  "dealers.how.private": "No street addresses are stored or shown. Ask the dealer where to pick up your item.",
+  "pricing.monthlyNet": "{amount} / month, VAT excluded",
+  "pricing.monthlyGross": "{amount} / month, VAT included",
+  "pricing.registeredNote": "VAT-registered business: the net rent is shown first. VAT is still included in the amount payable.",
+  "applicationTerms.usage": "Declared use",
+  "applicationTerms.deliveryCheck": "Delivery use declared: check mileage, battery and safety condition at return. Valuation uses the inspected readings; there is no automatic delivery surcharge.",
+  "sign.error.ASSET_ALREADY_OFFERED": "This item is reserved for another waiting-list customer. Please choose another item.",
+  "sign.error.OFFER_CHANGED": "This waiting-list offer changed. Open your waiting-list request and review the item and lease term again.",
+  "sign.error.PLACEMENT_REQUIRED": "This offer has expired or is no longer available to you. Check its status in your waiting-list request."
 }

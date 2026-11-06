@@ -85,7 +85,7 @@ export default async function WaitingListEntryPage({
         {expected ? <p className="mt-1 font-medium">{expected}</p> : null}
         {entry.offeredAssetId && entry.status !== 'expired' ? (
           <Link
-            href={`/${locale}/items/${encodeURIComponent(entry.offeredAssetId)}`}
+            href={`/${locale}/items/${encodeURIComponent(entry.offeredAssetId)}?term=${entry.preferredTermMonths}`}
             className={`${textLink} mt-2 inline-block`}
           >
             {t('waitlist.entry.seeItem')}

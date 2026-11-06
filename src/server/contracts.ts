@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { CoefficientTable, PriceList, Question, VatRates } from '@/data/schemas';
 import type { Answers } from '@/domain/answer-check';
+import { applicationTerms } from '@/domain/application-terms';
+import { claimPlacement } from './waiting-list-placement';
 import { checkApplicationForSigning } from '@/domain/application-signing';
 import { priceContract, type PricingInput } from '@/domain/contract-pricing';
 import type { PriceSource } from '@/domain/price-list';
@@ -56,6 +58,8 @@ export async function signContract(
      * is saved waiting for that person: reserved and priced, but not active until they sign.
      */
     awaitingSignatory?: string;
+    usagePurpose?: string | null;
+    vatRegistered?: boolean | null;
   },
   signedOn: string,
   lists: readonly PriceList[],
@@ -139,6 +143,8 @@ export async function signContract(
   });
   const signingDetails: Record<string, unknown> = {
     ...result.price,
+    usagePurpose: input.usagePurpose ?? null,
+    vatRegistered: input.vatRegistered ?? null,
     ...(reminderSetup && { reminderPreferences: reminderSetup.preferences }),
     ...(passOnId && { passOnContractId: passOnId }),
     ...(input.awaitingSignatory && { awaitingSignatory: input.awaitingSignatory }),
@@ -225,6 +231,16 @@ export async function signContract(
           priceCents: currentPassOn.priceCents,
         });
       } else {
+        if (asset.status !== 'available')
+          throw new ApiError(409, 'ASSET_UNAVAILABLE', 'Asset is unavailable');
+        await claimPlacement(
+          tx,
+          asset,
+          input.participants?.renterId ?? null,
+          input.termMonths,
+          currentPrice.price.monthlyNetCents,
+          signedOn
+        );
         const reserved = await tx.asset.updateMany({
           where: { id: input.assetId, status: 'available' },
           data: { status: 'reserved' },
@@ -263,6 +279,8 @@ export async function signContract(
             },
           },
           signatoryEmail: input.awaitingSignatory ?? null,
+          usagePurpose: input.usagePurpose ?? null,
+          vatRegistered: input.vatRegistered ?? null,
           lifecycle: {
             create: input.awaitingSignatory ? { status: AWAITING_SIGNATURE } : {},
           },
@@ -436,6 +454,7 @@ export async function signApplication(
             : 'Company',
         participants,
         awaitingSignatory,
+        ...applicationTerms(input.answers, asset.category),
         quoteId: savedQuote?.id,
         quotedPriceListVersion: savedQuote?.priceListVersion,
       },

@@ -124,6 +124,14 @@ export default async function ContractPage({
   const facts = [
     { label: t('contractPage.reference'), value: contract.id, wide: true },
     { label: t('contractPage.starts'), value: date(contract.startOn) },
+    ...(contract.usagePurpose
+      ? [
+          {
+            label: t('applicationTerms.usage'),
+            value: t(`option.${contract.usagePurpose}` as Parameters<typeof t>[0]),
+          },
+        ]
+      : []),
     {
       label: phase === 'ended' ? t('leases.ended') : t('leases.ends'),
       value: date(previousDay(contract.lifecycle?.actualEndOn ?? contract.endOn)),
@@ -186,6 +194,9 @@ export default async function ContractPage({
               </p>
             ) : null}
             <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">
+              {contract.usagePurpose === 'delivery' ? (
+                <span className="block mb-2">{t('applicationTerms.deliveryCheck')}</span>
+              ) : null}
               {t('contract.rule')}{' '}
               {contract.priceSource === 'next_life'
                 ? t('asset.nextLifePrice')

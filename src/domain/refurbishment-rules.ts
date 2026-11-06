@@ -14,8 +14,8 @@ export const CONDITION_ORDER: readonly AssetCondition[] = [
 
 /**
  * A generic catalogue listing needs at least this condition (data pack note). Placing a fair
- * item directly with a waiting-list entry that accepts fair is not implemented, so fair
- * returns are never relisted silently.
+ * item with an identified waiting-list customer may instead use that customer's minimum.
+ * Public listings always require good condition.
  */
 export const LISTING_MIN_CONDITION = 'good';
 

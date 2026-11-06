@@ -47,9 +47,9 @@ The valuation applies the interpolated residual curve, condition after refurbish
 
 ## Waiting-list offers
 
-Eligible offers meet the category, condition, monthly net rent budget, and deadline. The matcher compares each leaseable refurbishment option that adds at least as much market value as it costs and offers the least costly option that qualifies. It ranks by earliest deadline, then lower refurbishment cost, then `signed_up_on`, then entry ID. The data pack has no work durations, so the planned ready date is today or the current lease's end, whichever is later.
+Eligible offers meet the category, condition, monthly net rent budget, and deadline. Mandatory work on an already acceptable item is viable when the resulting market value covers its cost; it need not increase resale value. Optional upgrades must recover at least as much as that mandatory-work baseline (or the untreated item when no acceptable baseline exists). The matcher offers the least costly viable option that qualifies. It ranks by earliest deadline, then lower refurbishment cost, then `signed_up_on`, then entry ID. The data pack has no work durations, so the planned ready date is today or the current lease's end, whichever is later.
 
-An active offer holds the asset for that entry through `needed_by`. The item stays in the returns workflow so its work can be recorded. Public relisting is blocked during the hold.
+An active offer holds the asset for that entry through `needed_by`. The item stays in the returns workflow so its work can be recorded. Public relisting is blocked during the hold. The provider can prepare a placement for the identified recipient with `waitingListEntryId` on the relist command. That placement may use the recipient’s minimum condition, including fair, but still requires all mandatory work. Imported entries first need a `renterId`; existing customer entries cannot be reassigned. Only that customer can sign, within the offer deadline, term and net budget. Signing consumes the hold atomically with reserving the asset.
 
 ## Rules for `ask_when` in questions.json
 

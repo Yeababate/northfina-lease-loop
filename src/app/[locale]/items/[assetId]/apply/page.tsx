@@ -1,3 +1,4 @@
+import { placementBlocksViewer } from '@/server/waiting-list-placement';
 // Application and decision for one item and lease choice. The term, down payment and start
 // date come from the item page's URL; the server re-prices them, so a hand-edited URL can
 // never get a price the calculator would not give.
@@ -49,6 +50,8 @@ export default async function ApplyPage({
   const t = getT(locale);
   const principal = await currentPrincipal();
   const today = todayIso();
+  if (await placementBlocksViewer(db, asset.id, principal?.id ?? null, today))
+    asset.status = 'reserved';
   const demoName = await readDemoName();
   const remembered = await rememberedSetsFor(
     db,
@@ -153,6 +156,7 @@ export default async function ApplyPage({
             }}
             coefficientTable={table}
             monthlyRentWithVatCents={quote.monthlyGrossCents}
+            monthlyNetCents={quote.monthlyNetCents}
             storageKey={applicationStorageKey(
               asset.id,
               termMonths,

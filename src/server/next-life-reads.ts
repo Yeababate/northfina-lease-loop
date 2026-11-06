@@ -10,6 +10,7 @@ import {
   usageUnitSchema,
 } from '@/data/schemas';
 import { deriveNextLife, type NextLifeFacts } from '@/domain/next-life';
+import { returnCheckFocus } from '@/domain/application-terms';
 import { ApiError } from './api-response';
 import type { TransactionClient } from './audit';
 import type { PrismaClient } from './prisma-client';
@@ -87,7 +88,13 @@ function summary(bundle: IntakeBundle, view: ReturnType<typeof deriveNextLife>) 
       status: asset.status,
     },
     lease: contract
-      ? { contractId: contract.id, startOn: contract.startOn, endOn: contract.endOn }
+      ? {
+          contractId: contract.id,
+          startOn: contract.startOn,
+          endOn: contract.endOn,
+          usagePurpose: contract.usagePurpose,
+          inspectionFocus: returnCheckFocus(contract.usagePurpose),
+        }
       : null,
     receivedOn: intake.receivedOn,
     completedOn: intake.completedOn,
