@@ -1,0 +1,45 @@
+// "Join the waiting list" (a customer asks for a used item like one they cannot lease now).
+// The request goes into the same list the second-life matching ranks (./matchmaking.ts), so
+// it must make sense for that: a budget, the worst condition accepted, an offered lease
+// length, and a date that is not in the past.
+import type { AssetCondition } from '@/data/schemas';
+import { isIsoDate } from './iso-date';
+import { CONDITION_ORDER } from './refurbishment-rules';
+
+/** €10,000 a month: anything above is a typo, not a budget. */
+export const MAX_WAITING_BUDGET_CENTS = 1_000_000;
+
+export type WaitingListRequestInput = {
+  maxMonthlyNetRentCents: number;
+  minCondition: AssetCondition;
+  preferredTermMonths: number;
+  neededBy: string;
+};
+
+export type WaitingListProblem = 'budget' | 'term' | 'needed_by';
+
+export function checkWaitingListRequest(
+  input: WaitingListRequestInput,
+  context: { today: string; terms: readonly number[] }
+): { ok: true } | { ok: false; problems: WaitingListProblem[] } {
+  const problems: WaitingListProblem[] = [];
+  if (
+    !Number.isSafeInteger(input.maxMonthlyNetRentCents) ||
+    input.maxMonthlyNetRentCents <= 0 ||
+    input.maxMonthlyNetRentCents > MAX_WAITING_BUDGET_CENTS
+  )
+    problems.push('budget');
+  if (!context.terms.includes(input.preferredTermMonths)) problems.push('term');
+  if (!isIsoDate(input.neededBy) || input.neededBy < context.today) problems.push('needed_by');
+  return problems.length === 0 ? { ok: true } : { ok: false, problems };
+}
+
+/**
+ * The conditions someone joining from an item may ask for: that item's own condition and
+ * anything worse, best first. A "good" item will not become "like new" without refurbishment,
+ * so asking for better from its page would promise something it is not.
+ */
+export function conditionsUpTo(itemCondition: AssetCondition): AssetCondition[] {
+  const rank = CONDITION_ORDER.indexOf(itemCondition);
+  return CONDITION_ORDER.slice(0, rank + 1).toReversed();
+}

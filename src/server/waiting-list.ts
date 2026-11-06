@@ -6,7 +6,7 @@ import {
   loadSecondLifeDemand,
   loadVatRates,
 } from '@/data/load';
-import { secondLifeRequestSchema } from '@/data/schemas';
+import { assetConditionSchema, secondLifeRequestSchema } from '@/data/schemas';
 import type { WaitingListEntry } from '@/generated/prisma/client';
 import { marketValueCents } from '@/domain/market-value';
 import { rankWaitingList, type WaitingEntry } from '@/domain/matchmaking';
@@ -103,6 +103,31 @@ async function proposeMatches(
     (asset.status !== 'returned' && !isOnHold(facts))
   )
     throw new ApiError(409, 'MATCH_NOT_READY', 'Inspect the returned item before matching it');
+  return computeMatches(
+    db,
+    { asset, facts, current, hoursSinceService: facts.inspection.hoursSinceService },
+    today,
+    data
+  );
+}
+
+/**
+ * The refurbishment decision and waiting-list ranking for a returned item in a given state.
+ * Shared by the provider's match proposal (after inspection) and the customer-facing preview
+ * on the item page (secondLifePreview), so both always tell the same story.
+ */
+async function computeMatches(
+  db: Reader,
+  state: {
+    asset: Awaited<ReturnType<typeof loadIntake>>['asset'];
+    facts: Awaited<ReturnType<typeof loadIntake>>['facts'];
+    current: NonNullable<ReturnType<typeof currentState>>;
+    hoursSinceService: number | null;
+  },
+  today: string,
+  data: Awaited<ReturnType<typeof loadMatchData>>
+) {
+  const { asset, facts, current } = state;
   // The pack does not include lead times. Work can be planned for today, or the old lease end if later.
   const readyOn = facts.lease && facts.lease.endOn > today ? facts.lease.endOn : today;
   const vat = vatRateOn(data.vat.rates, readyOn);
@@ -124,7 +149,7 @@ async function proposeMatches(
       ...current,
       category: facts.category,
       usageUnit: facts.usageUnit,
-      hoursSinceService: facts.inspection.hoursSinceService,
+      hoursSinceService: state.hoursSinceService,
     },
     rules,
     ({ condition, usageValue }) => {
@@ -232,4 +257,106 @@ export async function assignWaitingListEntry(
       return { entryId, assetId: proposal.assetId, status: 'offered', offer } as const;
     }
   );
+}
+
+/**
+ * Read-only: what happens next to a returned item, for its page (scenario card 9). Uses the
+ * inspection when there is one, otherwise the condition and usage recorded at return. Null
+ * when the item has no open return, or it cannot be priced yet.
+ */
+export async function secondLifePreview(db: PrismaClient, assetId: string, today: string) {
+  const intake = await db.returnIntake.findFirst({
+    where: { assetId, relistedOn: null },
+    orderBy: { id: 'desc' },
+  });
+  if (!intake) return null;
+  const { asset, facts } = await loadIntake(db, intake.providerId, intake.id).catch(() => ({
+    asset: null,
+    facts: null,
+  }));
+  if (!asset || !facts || facts.relistedOn) return null;
+  const current = currentState(facts) ?? {
+    condition: assetConditionSchema.parse(asset.condition),
+    usageValue: asset.usage_value,
+  };
+  try {
+    const matches = await computeMatches(
+      db,
+      { asset, facts, current, hoursSinceService: facts.inspection?.hoursSinceService ?? null },
+      today,
+      await loadMatchData()
+    );
+    return { ...matches, fromCondition: current.condition };
+  } catch (error) {
+    if (error instanceof ApiError) return null;
+    throw error;
+  }
+}
+
+export type SecondLifeNote = {
+  /** The condition and counter it came back with (or was inspected at). */
+  fromCondition: string;
+  recommendation: { optionId: string | null; reason: string };
+  /** What is done for the first person in line, or null when nobody fits. */
+  plan: {
+    toCondition: string;
+    work: { id: string; costCents: number }[];
+    costCents: number;
+    priceCents: number | null;
+  } | null;
+  winner: { id: string; who: string; termMonths: number; monthlyNetCents: number } | null;
+  /** Same-category people who did not get it, and why. */
+  others: { id: string; who: string; reason: string }[];
+};
+
+/** The second-life preview as plain data for the item page's read-only note (card 9). */
+export async function secondLifeNote(
+  db: PrismaClient,
+  assetId: string,
+  today: string
+): Promise<SecondLifeNote | null> {
+  const preview = await secondLifePreview(db, assetId, today);
+  if (!preview) return null;
+  const who = new Map(
+    (await db.waitingListEntry.findMany({ select: { id: true, who: true } })).map((row) => [
+      row.id,
+      row.who,
+    ])
+  );
+  const winner = preview.ranked[0];
+  const option = winner?.option ?? null;
+  return {
+    fromCondition: preview.fromCondition,
+    recommendation: preview.decision.recommendation,
+    plan: option
+      ? {
+          toCondition: option.after.condition,
+          work: option.work.map((step) => ({ id: step.action.id, costCents: step.costCents })),
+          costCents: option.costCents,
+          priceCents: option.marketValueCents,
+        }
+      : null,
+    winner: winner
+      ? {
+          id: winner.entry.id,
+          who: winner.entry.who,
+          termMonths: winner.entry.preferred_term_months,
+          monthlyNetCents: winner.monthlyNetCents,
+        }
+      : null,
+    others: [
+      ...preview.ranked.slice(1).map((offer) => ({
+        id: offer.entry.id,
+        who: offer.entry.who,
+        reason: `lost:${offer.rankReason}`,
+      })),
+      ...preview.rejected
+        .filter((rejected) => rejected.reason !== 'wrong_category')
+        .map((rejected) => ({
+          id: rejected.entryId,
+          who: who.get(rejected.entryId) ?? rejected.entryId,
+          reason: rejected.reason,
+        })),
+    ],
+  };
 }

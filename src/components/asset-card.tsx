@@ -93,11 +93,21 @@ export function AssetCard({ item, href, provider, deal, locale, t }: AssetCardPr
             {t('asset.viewAndPrice')}
           </Link>
         ) : (
-          <p className="mt-3 py-2.5 text-center text-sm text-stone-600 dark:text-stone-400">
-            {unavailableReason(asset) === 'being_refurbished'
-              ? t('asset.refurbishingNote')
-              : t('asset.reservedNote')}
-          </p>
+          <>
+            <p className="mt-3 text-center text-sm text-stone-600 dark:text-stone-400">
+              {unavailableReason(asset) === 'being_refurbished'
+                ? t('asset.refurbishingNote')
+                : t('asset.reservedNote')}
+            </p>
+            {/* Still worth opening: its next life, and joining the waiting list for one. */}
+            <Link
+              href={href}
+              aria-label={t('asset.unavailableDetailsOf', { name: `${asset.make} ${asset.model}` })}
+              className={`${secondaryButton} mt-2 w-full`}
+            >
+              {t('asset.unavailableDetails')}
+            </Link>
+          </>
         )}
       </div>
     </article>

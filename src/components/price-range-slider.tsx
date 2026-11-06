@@ -1,18 +1,14 @@
 'use client';
 
-// A two-handle price slider from €0 to €15,000+, built from two native range inputs laid on
+// A two-handle price slider from €0 to the top of the chosen categories' prices (or
+// €6,000+ with none chosen, see priceSlider), built from two native range inputs laid on
 // one track, so each handle keeps the browser's keyboard and screen-reader support.
 //
 // The inputs are named `min` and `max`, so the filter form submits them even without
 // JavaScript. With JavaScript, the ends of the slider are left out of the URL (they mean
 // "no limit"), and the form applies when a handle is let go, not on every pixel.
 import { useEffect, useRef, useState } from 'react';
-import {
-  normalisePriceRange,
-  PRICE_SLIDER_MAX_EUROS,
-  PRICE_SLIDER_STEP_EUROS,
-  priceFilterKind,
-} from '@/domain/catalogue';
+import { normalisePriceRange, priceFilterKind, type PriceSlider } from '@/domain/catalogue';
 import { formatWholeEuros } from '@/domain/money';
 import type { Translate } from '@/i18n/get-t';
 import { intlLocale, type Locale } from '@/i18n/locales';
@@ -20,14 +16,16 @@ import { intlLocale, type Locale } from '@/i18n/locales';
 type PriceRangeSliderProps = {
   minEuros: number | null;
   maxEuros: number | null;
+  /** The range for the chosen categories (priceSlider in src/domain/catalogue.ts). */
+  slider: PriceSlider;
   locale: Locale;
   t: Translate;
 };
 
-const TOP = PRICE_SLIDER_MAX_EUROS;
-const STEP = PRICE_SLIDER_STEP_EUROS;
-
-export function PriceRangeSlider({ minEuros, maxEuros, locale, t }: PriceRangeSliderProps) {
+export function PriceRangeSlider({ minEuros, maxEuros, slider, locale, t }: PriceRangeSliderProps) {
+  const TOP = slider.topEuros;
+  const STEP = slider.stepEuros;
+  const snap = (euros: number) => Math.min(TOP, Math.max(0, Math.round(euros / STEP) * STEP));
   // Snap URL values onto the slider's steps; the URL itself is already normalised.
   const [low, setLow] = useState(() => snap(minEuros ?? 0));
   const [high, setHigh] = useState(() => snap(maxEuros ?? TOP));
@@ -54,12 +52,14 @@ export function PriceRangeSlider({ minEuros, maxEuros, locale, t }: PriceRangeSl
       inputs.forEach((input) => input.removeEventListener('change', apply));
       form.removeEventListener('formdata', tidy);
     };
-  }, []);
+  }, [TOP]);
 
   const euros = (value: number) => formatWholeEuros(value, intlLocale[locale]);
   const highText = (value: number) =>
-    value >= TOP ? t('filters.priceNoLimit', { amount: euros(TOP) }) : euros(value);
-  const range = normalisePriceRange(low, high);
+    value >= TOP && slider.openEnded
+      ? t('filters.priceNoLimit', { amount: euros(TOP) })
+      : euros(value);
+  const range = normalisePriceRange(low, high, TOP);
   const summary = {
     any: () => t('filters.priceAny'),
     from: () => t('filters.priceFromOnly', { min: euros(low) }),
@@ -119,8 +119,4 @@ export function PriceRangeSlider({ minEuros, maxEuros, locale, t }: PriceRangeSl
       </p>
     </fieldset>
   );
-}
-
-function snap(euros: number): number {
-  return Math.min(TOP, Math.max(0, Math.round(euros / STEP) * STEP));
 }

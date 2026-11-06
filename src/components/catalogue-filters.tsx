@@ -6,7 +6,7 @@ import Form from 'next/form';
 import Link from 'next/link';
 import type { FormEvent } from 'react';
 import type { AssetCategory, AssetCondition } from '@/data/schemas';
-import type { CatalogueQuery, CatalogueSort } from '@/domain/catalogue';
+import type { CatalogueQuery, CatalogueSort, PriceSlider } from '@/domain/catalogue';
 import type { MessageKey } from '@/i18n/get-t';
 import { getT } from '@/i18n/get-t';
 import type { Locale } from '@/i18n/locales';
@@ -24,13 +24,15 @@ type CatalogueFiltersProps = {
   today: string;
   /** Kept while browsing one provider's deals (from the Deals page). */
   provider?: string;
+  /** The price slider's range for the chosen categories. */
+  slider: PriceSlider;
 };
 
 const fieldClass =
   'w-full rounded-lg border border-stone-400 bg-white px-3 py-2 text-stone-900 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100';
 
 export function CatalogueFilters(props: CatalogueFiltersProps) {
-  const { locale, query, categories, conditions, terms, today } = props;
+  const { locale, query, categories, conditions, terms, today, slider } = props;
   const t = getT(locale);
 
   // Free-text fields wait for Enter or the button; choices apply as soon as they change.
@@ -79,9 +81,10 @@ export function CatalogueFilters(props: CatalogueFiltersProps) {
 
       <PriceRangeSlider
         // A new URL (for example "Clear all filters") resets the handles.
-        key={`${query.minPriceEuros}-${query.maxPriceEuros}`}
+        key={`${query.minPriceEuros}-${query.maxPriceEuros}-${slider.topEuros}`}
         minEuros={query.minPriceEuros}
         maxEuros={query.maxPriceEuros}
+        slider={slider}
         locale={locale}
         t={t}
       />

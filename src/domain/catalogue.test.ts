@@ -9,7 +9,8 @@ import {
   normalisePriceRange,
   parseCatalogueQuery,
   priceFilterKind,
-  PRICE_SLIDER_MAX_EUROS,
+  PRICE_SLIDER_DEFAULT_TOP_EUROS,
+  priceSlider,
   type CatalogueItem,
   type CatalogueQuery,
 } from './catalogue';
@@ -99,16 +100,16 @@ describe('parseCatalogueQuery', () => {
 
 describe('normalisePriceRange', () => {
   it('reads €0 as no lower limit and the top of the slider as no upper limit', () => {
-    expect(normalisePriceRange(0, PRICE_SLIDER_MAX_EUROS)).toEqual({
+    expect(normalisePriceRange(0, PRICE_SLIDER_DEFAULT_TOP_EUROS)).toEqual({
       minPriceEuros: null,
       maxPriceEuros: null,
     });
   });
 
   it('keeps a limit just below the top of the slider', () => {
-    expect(normalisePriceRange(100, PRICE_SLIDER_MAX_EUROS - 100)).toEqual({
+    expect(normalisePriceRange(100, PRICE_SLIDER_DEFAULT_TOP_EUROS - 100)).toEqual({
       minPriceEuros: 100,
-      maxPriceEuros: 14_900,
+      maxPriceEuros: 5_900,
     });
   });
 
@@ -117,8 +118,8 @@ describe('normalisePriceRange', () => {
   });
 
   it('reads a minimum above the slider as the top of the slider', () => {
-    expect(normalisePriceRange(20_000, null).minPriceEuros).toBe(PRICE_SLIDER_MAX_EUROS);
-    expect(normalisePriceRange(PRICE_SLIDER_MAX_EUROS, null).minPriceEuros).toBe(15_000);
+    expect(normalisePriceRange(20_000, null).minPriceEuros).toBe(PRICE_SLIDER_DEFAULT_TOP_EUROS);
+    expect(normalisePriceRange(PRICE_SLIDER_DEFAULT_TOP_EUROS, null).minPriceEuros).toBe(6_000);
   });
 
   it('swaps a range given the wrong way round, and keeps an equal one', () => {
@@ -126,10 +127,12 @@ describe('normalisePriceRange', () => {
     expect(normalisePriceRange(3890, 3890)).toEqual({ minPriceEuros: 3890, maxPriceEuros: 3890 });
   });
 
-  it('is applied when reading the URL', () => {
+  it('reads €0 as no minimum, and keeps the maximum for the page to fit to its categories', () => {
+    // The slider's top depends on the chosen categories, so a €15,000 maximum (fine for farm
+    // machines) is not thrown away while reading the URL; the page applies priceSlider's top.
     expect(parseCatalogueQuery({ min: '0', max: '15000' }, options)).toMatchObject({
       minPriceEuros: null,
-      maxPriceEuros: null,
+      maxPriceEuros: 15_000,
     });
   });
 });
@@ -251,5 +254,53 @@ describe('filterCatalogue: items without a price', () => {
       expect(sorted[0]?.asset.id).toBe(c.asset.id);
       expect(ids(sorted.slice(1))).toEqual(ids(filterCatalogue(unpriced, query({ sort: 'name' }))));
     }
+  });
+});
+
+describe('priceSlider', () => {
+  const item = (id: string, category: 'e_bike' | 'laptop' | 'farm_machine', cents: number | null) =>
+    ({ asset: { id, category }, listPriceCents: cents }) as unknown as CatalogueItem;
+  const items = [
+    item('e1', 'e_bike', 576_400),
+    item('e2', 'e_bike', 30_300),
+    item('l1', 'laptop', 321_100),
+    item('f1', 'farm_machine', 26_000_000),
+    item('f2', 'farm_machine', null),
+  ];
+
+  it('defaults to €0–€6,000+ with no category chosen', () => {
+    expect(priceSlider(items, [])).toEqual({ topEuros: 6_000, stepEuros: 100, openEnded: true });
+  });
+
+  it('fits the most expensive item in the chosen categories, rounded up to a step', () => {
+    expect(priceSlider(items, ['e_bike'])).toEqual({
+      topEuros: 5_800,
+      stepEuros: 100,
+      openEnded: false,
+    });
+    expect(priceSlider(items, ['laptop'])).toMatchObject({ topEuros: 3_300 });
+    expect(priceSlider(items, ['e_bike', 'laptop'])).toMatchObject({ topEuros: 5_800 });
+  });
+
+  it('uses €1,000 steps for the farm machines’ large range', () => {
+    expect(priceSlider(items, ['farm_machine'])).toEqual({
+      topEuros: 260_000,
+      stepEuros: 1_000,
+      openEnded: false,
+    });
+  });
+
+  it('falls back to the default when nothing in the categories is priced', () => {
+    expect(priceSlider([item('f2', 'farm_machine', null)], ['farm_machine'])).toMatchObject({
+      topEuros: 6_000,
+      openEnded: true,
+    });
+  });
+});
+
+describe('normalisePriceRange with a category top', () => {
+  it('treats the category top as "no upper limit"', () => {
+    expect(normalisePriceRange(null, 260_000, 260_000).maxPriceEuros).toBeNull();
+    expect(normalisePriceRange(null, 100_000, 260_000).maxPriceEuros).toBe(100_000);
   });
 });

@@ -271,6 +271,10 @@ model WaitingListEntry {
   offeredIntakeId        String?
   offeredOn              String?
   offerJson              String?
+  /// The signed-in customer who joined from the app; null for the data pack's entries.
+  participantId          String?
+
+  @@index([participantId])
 }
 
 model ReturnInspection {
