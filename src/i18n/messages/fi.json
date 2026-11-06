@@ -669,5 +669,7 @@
   "waitlist.mineRow": "{kind} · enintään {budget} kuukaudessa · {condition} tai parempi · {months} kk · viimeistään {date}",
   "waitlist.status.waiting": "Jonossa",
   "waitlist.status.offered": "Tarjottu sinulle",
-  "waitlist.status.expired": "Vanhentunut"
+  "waitlist.status.expired": "Vanhentunut",
+  "asset.unavailableDetails": "Tiedot ja jonoon liittyminen",
+  "asset.unavailableDetailsOf": "Tiedot ja jonoon liittyminen: {name}"
 }

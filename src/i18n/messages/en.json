@@ -669,5 +669,7 @@
   "waitlist.mineRow": "{kind} · up to {budget} a month · {condition} or better · {months} months · by {date}",
   "waitlist.status.waiting": "Waiting",
   "waitlist.status.offered": "Offered to you",
-  "waitlist.status.expired": "Expired"
+  "waitlist.status.expired": "Expired",
+  "asset.unavailableDetails": "Details and waiting list",
+  "asset.unavailableDetailsOf": "Details and waiting list for {name}"
 }

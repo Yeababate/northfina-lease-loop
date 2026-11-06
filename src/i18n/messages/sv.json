@@ -669,5 +669,7 @@
   "waitlist.mineRow": "{kind} · upp till {budget} i månaden · {condition} eller bättre · {months} månader · senast {date}",
   "waitlist.status.waiting": "Väntar",
   "waitlist.status.offered": "Erbjuden dig",
-  "waitlist.status.expired": "Utgången"
+  "waitlist.status.expired": "Utgången",
+  "asset.unavailableDetails": "Detaljer och väntelista",
+  "asset.unavailableDetailsOf": "Detaljer och väntelista för {name}"
 }

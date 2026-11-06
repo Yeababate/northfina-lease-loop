@@ -669,5 +669,7 @@
   "waitlist.mineRow": "{kind} · kuni {budget} kuus · {condition} või parem · {months} kuud · hiljemalt {date}",
   "waitlist.status.waiting": "Ootab",
   "waitlist.status.offered": "Sulle pakutud",
-  "waitlist.status.expired": "Aegunud"
+  "waitlist.status.expired": "Aegunud",
+  "asset.unavailableDetails": "Üksikasjad ja ootejärjekord",
+  "asset.unavailableDetailsOf": "Üksikasjad ja ootejärjekord: {name}"
 }
