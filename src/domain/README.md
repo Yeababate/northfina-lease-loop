@@ -108,6 +108,11 @@ one transaction. The public API reruns application eligibility and derives the
 signer from approved answers. The name alone cannot authorise signing; customer
 authentication remains outside this MVP.
 
+Issue #45 saves the catalogue offer before the application, compares it with the
+signing-date price and requires renewed consent for a changed offer. A company
+contract remains provisional until its named signatory reviews and accepts the
+current price. See [Persisted offers and signature price locks](../../docs/persisted-quotes.md).
+
 ## Monthly invoices
 
 `invoices.ts` schedules exactly `termMonths` full rental invoices in advance.

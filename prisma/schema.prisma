@@ -53,7 +53,12 @@ model AuditLog {
 // Immutable signing snapshot; later catalogue changes never update this row.
 model Contract {
   invoices                Invoice[]
+  quote                   Quote?                @relation(fields: [quoteId], references: [id], onDelete: Restrict)
   id                      String                @id
+  quoteId                 String?               @unique
+  /// The initial offer's version and the version locked on the final signature. Null on legacy rows.
+  quotedPriceListVersion  Int?
+  lockedPriceListVersion  Int?
   actor                   String
   renterId                String?
   providerId              String?
@@ -94,6 +99,40 @@ model Contract {
   @@index([assetId])
   @@index([renterId])
   @@index([providerId])
+}
+
+// Immutable server-calculated offer saved when a renter starts an application.
+// `requestKey` makes a retry of that transition return the same quote row.
+model Quote {
+  id                       String    @id
+  requestKey               String    @unique
+  renterId                 String
+  assetId                  String
+  termMonths               Int
+  downPaymentCents         Int
+  startOn                  String
+  quotedOn                 String
+  priceSource              String
+  priceListVersion         Int
+  coefficientVersion       Int
+  coefficientId            String
+  band                     String
+  factor                   Float
+  listPriceCents           Int
+  financedCents            Int
+  monthlyNetCents          Int
+  originalMonthlyNetCents  Int
+  monthlyDiscountCents     Int
+  discountBps              Int
+  discountRuleId           String?
+  discountRuleRevision     Int?
+  buyoutNetCents           Int
+  vatPercent               Float
+  monthlyGrossCents        Int
+  createdAt                DateTime  @default(now())
+  contract                 Contract?
+
+  @@index([renterId, assetId])
 }
 
 // Mock accounts are selected by username; lifecycle relationships use stable IDs.

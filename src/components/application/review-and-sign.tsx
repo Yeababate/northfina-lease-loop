@@ -33,6 +33,11 @@ export type LeaseSummary = {
   priceListVersion: number;
   priceSource: PriceSource;
   listPriceCents: number;
+  coefficientVersion: number;
+  coefficientId: string;
+  band: string;
+  factor: number;
+  financedCents: number;
 };
 
 type ReviewAndSignProps = {
@@ -46,6 +51,7 @@ type ReviewAndSignProps = {
   /** "Why this price?" and the VAT note, rendered on the server. */
   explanations: ReactNode;
   applyHref: string;
+  quoteId?: string;
 };
 
 const SIGN_ERRORS = [
@@ -54,6 +60,8 @@ const SIGN_ERRORS = [
   'NOT_APPROVED',
   'SIGNATORY_REQUIRED',
   'LOGIN_REQUIRED',
+  'QUOTE_NOT_FOUND',
+  'QUOTE_MISMATCH',
 ];
 
 export function ReviewAndSign(props: ReviewAndSignProps) {
@@ -101,6 +109,7 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           termMonths: lease.termMonths,
           downPaymentCents: lease.downPaymentCents,
           startOn: lease.startOn,
+          ...(props.quoteId ? { quoteId: props.quoteId } : {}),
           locale,
           answers,
           expectedMonthlyNetCents: lease.monthlyNetCents,
@@ -110,6 +119,11 @@ export function ReviewAndSign(props: ReviewAndSignProps) {
           expectedListPriceCents: lease.listPriceCents,
           expectedDiscountRuleId: lease.discountRuleId,
           expectedDiscountRuleRevision: lease.discountRuleRevision,
+          expectedCoefficientVersion: lease.coefficientVersion,
+          expectedCoefficientId: lease.coefficientId,
+          expectedBand: lease.band,
+          expectedFactor: lease.factor,
+          expectedFinancedCents: lease.financedCents,
         }),
       });
       const result: { success: boolean; data?: { id: string }; error?: { code: string } } =

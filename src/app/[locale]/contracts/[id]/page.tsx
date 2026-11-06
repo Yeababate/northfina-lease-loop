@@ -14,7 +14,7 @@ import { LeaseActivity } from '@/components/contract/lease-activity';
 import { DiscountBreakdown } from '@/components/discount-breakdown';
 import { Badge, textLink } from '@/components/ui';
 import { isoDateSchema } from '@/data/schemas';
-import { loadVatRates } from '@/data/load';
+import { loadCoefficientTable, loadPriceLists, loadVatRates } from '@/data/load';
 import { invoicePrice } from '@/domain/contract-pricing';
 import { previousDay } from '@/domain/lease-overview';
 import { formatEuro } from '@/domain/money';
@@ -27,7 +27,7 @@ import { ApiError } from '@/server/api-response';
 import { getAsset } from '@/server/assets';
 import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
-import { contractForSignatory } from '@/server/signatory';
+import { contractForSignatory, signatoryOffer } from '@/server/signatory';
 import { AWAITING_SIGNATURE } from '@/domain/signatory';
 import { readExitView } from '@/server/exit-requests';
 import { getParticipantContract } from '@/server/profile';
@@ -86,11 +86,27 @@ export default async function ContractPage({
         : null,
       loadLeaseActivity(db, id, { id: principal.id, displayName: principal.displayName }),
     ]);
+  const query = await searchParams;
+  const selectedStart = isoDateSchema.safeParse(query.startOn);
+  const currentSignatoryOffer =
+    viewerIsSignatory && awaiting
+      ? await signatoryOffer(
+          db,
+          principal,
+          id,
+          today,
+          {
+            lists: await loadPriceLists(),
+            table: await loadCoefficientTable(),
+            vatRates: vat,
+          },
+          selectedStart.success ? selectedStart.data : undefined
+        )
+      : null;
   const name = assets
     .map((asset, index) => (asset ? `${asset.make} ${asset.model}` : assetIds[index]))
     .join(' + ');
   const grossToday = invoicePrice(contract, vat, today);
-  const query = await searchParams;
   const vatDate = isoDateSchema.safeParse(query.invoiceDate ?? today);
   const vatCheck = vatDate.success ? invoicePrice(contract, vat, vatDate.data) : null;
   const canRate = ratingEligibility({ ...contract, status }, principal.id).ok;
@@ -125,7 +141,10 @@ export default async function ContractPage({
       label: t('leases.buyout'),
       value: t('leases.netOnly', { net: euro(contract.buyoutNetCents) }),
     },
-    { label: t('contractPage.signed'), value: date(contract.signedOn) },
+    {
+      label: awaiting ? t('signatory.sentOn') : t('contractPage.signed'),
+      value: date(contract.signedOn),
+    },
   ];
 
   return (
@@ -161,6 +180,11 @@ export default async function ContractPage({
               }}
               locale={locale}
             />
+            {awaiting ? (
+              <p className="mt-3 text-sm text-orange-800 dark:text-orange-200">
+                {t('signatory.provisionalOffer')}
+              </p>
+            ) : null}
             <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">
               {t('contract.rule')}{' '}
               {contract.priceSource === 'next_life'
@@ -169,7 +193,9 @@ export default async function ContractPage({
               .
             </p>
             <p className="mt-3 text-sm">
-              {document ? (
+              {awaiting ? (
+                t('signatory.documentPending')
+              ) : document ? (
                 <a href={`/documents/contracts/${encodeURIComponent(id)}`} className={textLink}>
                   {t('profile.originalPdf')}
                 </a>
@@ -207,7 +233,20 @@ export default async function ContractPage({
               signatoryEmail={contract.signatoryEmail}
               companyName={contract.actor}
               sentOn={contract.signedOn}
+              today={today}
+              startOn={selectedStart.success ? selectedStart.data : contract.startOn}
               viewer={viewerIsSignatory ? 'signatory' : 'applicant'}
+              currentOffer={
+                currentSignatoryOffer
+                  ? currentSignatoryOffer.ok
+                    ? {
+                        snapshot: currentSignatoryOffer.snapshot,
+                        note: currentSignatoryOffer.note,
+                        offerChanged: currentSignatoryOffer.offerChanged,
+                      }
+                    : { unavailable: true }
+                  : undefined
+              }
             />
           ) : null}
           {awaiting ? null : (

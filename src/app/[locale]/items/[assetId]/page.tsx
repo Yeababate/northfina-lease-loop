@@ -167,6 +167,9 @@ export default async function ItemPage({
             table={table}
             discountRules={discountRules}
             listPriceCents={price.priceCents}
+            assetId={asset.id}
+            priceListVersion={price.priceListVersion}
+            priceSource={price.priceSource ?? 'price_list'}
             vatRatePercent={vat.rate.rate_percent}
             vatRates={vatRates}
             nextVatChange={

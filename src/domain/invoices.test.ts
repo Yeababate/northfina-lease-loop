@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { loadVatRates } from '@/data/load';
-import { calculateInvoices, invoiceSchedule } from './invoices';
+import { calculateInvoices, explainInvoiceChange, invoiceSchedule } from './invoices';
 
 let vat: Awaited<ReturnType<typeof loadVatRates>>;
 beforeAll(async () => {
@@ -97,4 +97,42 @@ it('rejects invalid dates, terms and fractional cents', () => {
     expect(() =>
       calculateInvoices({ signedOn: '2026-01-01', termMonths: 12, monthlyNetCents }, vat)
     ).toThrow();
+});
+
+it('explains a saved gross change caused only by invoice-date VAT', () => {
+  expect(
+    explainInvoiceChange(
+      {
+        invoiceDate: '2026-12-31',
+        netCents: 10_730,
+        vatPercent: 25.5,
+        vatCents: 2_736,
+        grossCents: 13_466,
+      },
+      {
+        invoiceDate: '2027-01-31',
+        netCents: 10_730,
+        vatPercent: 26,
+        vatCents: 2_790,
+        grossCents: 13_520,
+      }
+    )
+  ).toEqual({
+    reason: 'vat_rate_changed',
+    oldVatPercent: 25.5,
+    newVatPercent: 26,
+    differenceCents: 54,
+  });
+  expect(
+    explainInvoiceChange(
+      { invoiceDate: '2026-12-31', netCents: 100, vatPercent: 25.5, vatCents: 26, grossCents: 126 },
+      { invoiceDate: '2027-01-31', netCents: 101, vatPercent: 26, vatCents: 26, grossCents: 127 }
+    )
+  ).toBeNull();
+  expect(
+    explainInvoiceChange(
+      { invoiceDate: '2026-12-31', netCents: 100, vatPercent: 25.5, vatCents: 1, grossCents: 101 },
+      { invoiceDate: '2027-01-31', netCents: 100, vatPercent: 26, vatCents: 26, grossCents: 126 }
+    )
+  ).toBeNull();
 });

@@ -48,15 +48,36 @@ export default async function SignPage({
   const principal = await currentPrincipal();
   const today = todayIso();
   const query = await searchParams;
-  const { termMonths, startDate } = parseCatalogueQuery(query, {
+  const parsed = parseCatalogueQuery(query, {
     today,
     terms: availableTerms(table),
     defaultTerm: DEFAULT_TERM_MONTHS,
   });
+  const quoteId = typeof query.quoteId === 'string' ? query.quoteId : undefined;
+  const savedQuote = quoteId ? await db.quote.findUnique({ where: { id: quoteId } }) : null;
+  const quoteConfigMatches = savedQuote
+    ? principal?.id === savedQuote.renterId &&
+      savedQuote.assetId === asset.id &&
+      query.term === String(savedQuote.termMonths) &&
+      query.down === String(savedQuote.downPaymentCents) &&
+      query.start === savedQuote.startOn
+    : !quoteId;
+  const termMonths = savedQuote && quoteConfigMatches ? savedQuote.termMonths : parsed.termMonths;
+  const startDate = savedQuote && quoteConfigMatches ? savedQuote.startOn : parsed.startDate;
   const downText = typeof query.down === 'string' ? query.down : '0';
-  const downPaymentCents = /^\d{1,12}$/.test(downText) ? Number(downText) : -1;
+  const downPaymentCents =
+    savedQuote && quoteConfigMatches
+      ? savedQuote.downPaymentCents
+      : /^\d{1,12}$/.test(downText)
+        ? Number(downText)
+        : -1;
   const quotedText = typeof query.quoted === 'string' ? query.quoted : '';
-  const quotedOn = isIsoDate(quotedText) && quotedText <= today ? quotedText : today;
+  const quotedOn =
+    savedQuote && quoteConfigMatches
+      ? savedQuote.quotedOn
+      : isIsoDate(quotedText) && quotedText <= today
+        ? quotedText
+        : today;
 
   const leaseParams = new URLSearchParams({
     term: String(termMonths),
@@ -64,7 +85,9 @@ export default async function SignPage({
     start: startDate,
     quoted: quotedOn,
   });
-  const applyHref = `/${locale}/items/${asset.id}/apply?${leaseParams}`;
+  const applyHref = `/${locale}/items/${asset.id}/apply?${leaseParams}${
+    savedQuote && quoteConfigMatches ? `&quoteId=${encodeURIComponent(savedQuote.id)}` : ''
+  }`;
   const euro = (cents: number) => formatEuro(cents, intlLocale[locale]);
 
   // Today's price is the one that locks; the quote is only compared with it.
@@ -72,7 +95,7 @@ export default async function SignPage({
   const override = assetPriceOverride(assetRow);
   const locked = priceContract(lists, table, pricing, today, discountRules, override);
   const startVat = vatRateOn(vatRates.rates, startDate);
-  if (!isLeasable(asset) || !locked.ok || !startVat.ok) {
+  if (!quoteConfigMatches || !isLeasable(asset) || !locked.ok || !startVat.ok) {
     return (
       <div className="mx-auto max-w-xl px-4 py-8 sm:px-6">
         <Link href={applyHref} className={textLink}>
@@ -81,7 +104,11 @@ export default async function SignPage({
         <div className="mt-6">
           <InfoBox>
             <p role="status">
-              {isLeasable(asset) ? t('sign.unavailable') : unavailableMessage(asset, t)}
+              {!quoteConfigMatches
+                ? t('quote.invalid')
+                : isLeasable(asset)
+                  ? t('sign.unavailable')
+                  : unavailableMessage(asset, t)}
             </p>
           </InfoBox>
         </div>
@@ -91,7 +118,38 @@ export default async function SignPage({
 
   const price = locked.price;
   const quoted = priceContract(lists, table, pricing, quotedOn, discountRules, override);
-  const note = quoted.ok ? priceLockNote(quoted.price, price) : null;
+  const comparison = savedQuote
+    ? {
+        priceListVersion: savedQuote.priceListVersion,
+        monthlyNetCents: savedQuote.monthlyNetCents,
+        priceSource: savedQuote.priceSource as typeof price.priceSource,
+      }
+    : quoted.ok
+      ? quoted.price
+      : null;
+  const note = comparison ? priceLockNote(comparison, price) : null;
+  const quoteDetailsChanged =
+    savedQuote !== null &&
+    (price.listPriceCents !== savedQuote.listPriceCents ||
+      price.originalMonthlyNetCents !== savedQuote.originalMonthlyNetCents ||
+      price.monthlyDiscountCents !== savedQuote.monthlyDiscountCents ||
+      price.discountBps !== savedQuote.discountBps ||
+      price.discountRuleId !== savedQuote.discountRuleId ||
+      price.discountRuleRevision !== savedQuote.discountRuleRevision ||
+      price.buyoutNetCents !== savedQuote.buyoutNetCents ||
+      price.coefficientVersion !== savedQuote.coefficientVersion ||
+      price.coefficientId !== savedQuote.coefficientId ||
+      price.band !== savedQuote.band ||
+      price.factor !== savedQuote.factor);
+  const shouldExplainPrice = Boolean(
+    note && (note.listChanged || note.direction !== 'same' || quoteDetailsChanged)
+  );
+  const listVersionChanged = Boolean(
+    note?.listChanged &&
+    (comparison?.priceSource ?? 'price_list') === 'price_list' &&
+    price.priceSource === 'price_list' &&
+    comparison?.priceListVersion !== price.priceListVersion
+  );
   const listDate = lists.find((list) => list.version === price.priceListVersion)?.valid_from;
   const nowVat = vatRateOn(vatRates.rates, today);
   const nextVat = nextVatChangeAfter(vatRates.rates, today);
@@ -108,14 +166,20 @@ export default async function SignPage({
                 date: listDate ? formatIsoDate(listDate, locale) : '–',
               })}
         </p>
-        {note?.listChanged && price.priceSource === 'price_list' ? (
+        {note && shouldExplainPrice ? (
           <p className="mt-1">
             {t(
-              note.direction === 'lower'
-                ? 'sign.listChangedLower'
-                : note.direction === 'higher'
-                  ? 'sign.listChangedHigher'
-                  : 'sign.listChangedSame',
+              listVersionChanged
+                ? note.direction === 'lower'
+                  ? 'sign.listChangedLower'
+                  : note.direction === 'higher'
+                    ? 'sign.listChangedHigher'
+                    : 'sign.listChangedSame'
+                : note.direction === 'lower'
+                  ? 'sign.offerChangedLower'
+                  : note.direction === 'higher'
+                    ? 'sign.offerChangedHigher'
+                    : 'sign.offerChangedSame',
               {
                 quoted: formatIsoDate(quotedOn, locale),
                 difference: euro(note.differenceCents),
@@ -177,6 +241,11 @@ export default async function SignPage({
             priceListVersion: price.priceListVersion,
             priceSource: price.priceSource,
             listPriceCents: price.listPriceCents,
+            coefficientVersion: price.coefficientVersion,
+            coefficientId: price.coefficientId,
+            band: price.band,
+            factor: price.factor,
+            financedCents: price.financedCents,
           }}
           storageKey={applicationStorageKey(
             asset.id,
@@ -198,6 +267,7 @@ export default async function SignPage({
           }
           explanations={explanations}
           applyHref={applyHref}
+          quoteId={savedQuote?.id}
         />
       </div>
     </div>
