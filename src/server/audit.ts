@@ -54,15 +54,27 @@ export type AuditLogEntry = {
   details: unknown;
 };
 
+/** Narrows the trail to one entity type, one entity id, or both. */
+export type AuditFilter = { entityType?: string; entityId?: string };
+
 /** The newest audit rows first. */
 export async function listAuditLog(
   db: PrismaClient,
   limit = 50,
-  audience: 'internal' | 'public' = 'internal'
+  audience: 'internal' | 'public' = 'internal',
+  filter: AuditFilter = {}
 ): Promise<AuditLogEntry[]> {
+  // Moderation evidence and private actors belong only to capability-scoped queries, so the
+  // public audience never sees rating reports, even when a filter asks for them.
+  const hidden = audience === 'public' ? ['rating_report'] : [];
   const rows = await db.auditLog.findMany({
-    // Moderation evidence and private actors belong only to capability-scoped queries.
-    where: audience === 'public' ? { entity_type: { not: 'rating_report' } } : {},
+    where: {
+      AND: [
+        hidden.length > 0 ? { entity_type: { notIn: hidden } } : {},
+        filter.entityType ? { entity_type: filter.entityType } : {},
+        filter.entityId ? { entity_id: filter.entityId } : {},
+      ],
+    },
     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     take: limit,
   });

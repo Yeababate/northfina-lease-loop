@@ -342,6 +342,14 @@ export default async function ContractPage({
 
           <Section id="activity" title={t('activity.title')} intro={t('activity.intro')}>
             <LeaseActivity items={activity} locale={locale} t={t} />
+            <p className="mt-4 text-sm">
+              <Link
+                href={`/${locale}/audit?entityType=contract&entityId=${encodeURIComponent(id)}`}
+                className={textLink}
+              >
+                {t('audit.contractLink')}
+              </Link>
+            </p>
           </Section>
         </div>
       </div>

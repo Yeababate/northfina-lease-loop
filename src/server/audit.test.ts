@@ -119,4 +119,27 @@ describe('listAuditLog', () => {
     await withAudit(db, { ...entry, details: undefined }, reserve);
     expect((await listAuditLog(db))[0]?.details).toBeNull();
   });
+
+  it('filters by entity type and id, newest first', async () => {
+    await withAudit(db, entry, reserve);
+    await withAudit(db, { ...entry, entityType: 'contract', entityId: 'c-1' }, reserve);
+    await withAudit(db, { ...entry, entityType: 'contract', entityId: 'c-2' }, reserve);
+
+    const contracts = await listAuditLog(db, 50, 'internal', { entityType: 'contract' });
+    expect(contracts.map((row) => row.entity_id)).toEqual(['c-2', 'c-1']);
+    const one = await listAuditLog(db, 50, 'internal', { entityId: 'c-1' });
+    expect(one.map((row) => row.entity_id)).toEqual(['c-1']);
+    expect(
+      await listAuditLog(db, 50, 'internal', { entityType: 'asset', entityId: 'c-1' })
+    ).toEqual([]);
+  });
+
+  it('never shows rating reports to the public, even when filtered for', async () => {
+    await withAudit(db, { ...entry, entityType: 'rating_report', entityId: 'r-1' }, reserve);
+    await withAudit(db, entry, reserve);
+
+    expect(await listAuditLog(db, 50, 'public')).toHaveLength(1);
+    expect(await listAuditLog(db, 50, 'public', { entityType: 'rating_report' })).toEqual([]);
+    expect(await listAuditLog(db, 50, 'internal', { entityType: 'rating_report' })).toHaveLength(1);
+  });
 });
