@@ -599,5 +599,8 @@
   "passport.ending.returned": "Palautettu",
   "passport.ending.bought_out": "Lunastettu",
   "passport.ending.exited_early": "Päättynyt ennenaikaisesti",
-  "passport.ending.passed_on": "Siirretty seuraavalle"
+  "passport.ending.passed_on": "Siirretty seuraavalle",
+  "exit.return.how": "Puolet jäljellä olevista {months} kuukausivuokrasta: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "Jäljellä olevat {months} vuokraa ({months} × {rent}) sekä {buyout} lunastushinta sopimuksen lopussa. Sopimuksen lopussa jää vain lunastushinta.",
+  "footer.demoDate": "Demopäivä: {date}"
 }

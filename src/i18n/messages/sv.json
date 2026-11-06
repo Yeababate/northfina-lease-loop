@@ -599,5 +599,8 @@
   "passport.ending.returned": "Returnerad",
   "passport.ending.bought_out": "Utköpt",
   "passport.ending.exited_early": "Avslutad i förtid",
-  "passport.ending.passed_on": "Överlåten"
+  "passport.ending.passed_on": "Överlåten",
+  "exit.return.how": "Hälften av de {months} återstående månadshyrorna: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "De {months} återstående hyrorna ({months} × {rent}) plus inlösenpriset {buyout} vid avtalets slut. Vid avtalets slut återstår bara inlösenpriset.",
+  "footer.demoDate": "Demodatum: {date}"
 }

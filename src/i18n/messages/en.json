@@ -599,5 +599,8 @@
   "passport.ending.returned": "Returned",
   "passport.ending.bought_out": "Bought out",
   "passport.ending.exited_early": "Ended early",
-  "passport.ending.passed_on": "Passed on"
+  "passport.ending.passed_on": "Passed on",
+  "exit.return.how": "Half of the {months} remaining monthly rents: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "The {months} remaining rents ({months} × {rent}) plus the {buyout} end-of-term buyout. At the end of the lease, this leaves just the buyout.",
+  "footer.demoDate": "Demo date: {date}"
 }

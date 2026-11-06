@@ -599,5 +599,8 @@
   "passport.ending.returned": "Tagastatud",
   "passport.ending.bought_out": "Välja ostetud",
   "passport.ending.exited_early": "Ennetähtaegselt lõpetatud",
-  "passport.ending.passed_on": "Edasi antud"
+  "passport.ending.passed_on": "Edasi antud",
+  "exit.return.how": "Pool järelejäänud {months} kuumaksest: {months} × {rent} ÷ 2.",
+  "exit.buyout.how": "Järelejäänud {months} makset ({months} × {rent}) pluss {buyout} väljaostuhind lepingu lõpus. Lepingu lõpus jääb alles ainult väljaostuhind.",
+  "footer.demoDate": "Demokuupäev: {date}"
 }
