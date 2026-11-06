@@ -1,5 +1,6 @@
 // One catalogue item. A server component: it renders to HTML and ships no JavaScript.
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import {
   catalogueBadge,
   isLeasable,
@@ -30,11 +31,13 @@ type AssetCardProps = {
   provider?: ProviderBadge;
   /** The best long-term discount on this item, if its provider offers one. */
   deal?: BestDeal;
+  /** Can the signed-in user lease it straight away (#52)? Rendered by the page. */
+  readiness?: ReactNode;
   locale: Locale;
   t: Translate;
 };
 
-export function AssetCard({ item, href, provider, deal, locale, t }: AssetCardProps) {
+export function AssetCard({ item, href, provider, deal, readiness, locale, t }: AssetCardProps) {
   const { asset, listPriceCents } = item;
   const headingId = `asset-${asset.id}`;
   const badge = catalogueBadge(asset);
@@ -64,6 +67,7 @@ export function AssetCard({ item, href, provider, deal, locale, t }: AssetCardPr
       </div>
       {provider ? <ProviderLine provider={provider} locale={locale} t={t} /> : null}
       <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">{facts.join(' · ')}</p>
+      {readiness ? <div className="mt-2">{readiness}</div> : null}
       {deal && isLeasable(asset) ? (
         <p className="mt-2">
           <Badge tone="green">

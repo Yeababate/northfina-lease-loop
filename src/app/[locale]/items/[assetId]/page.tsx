@@ -181,6 +181,20 @@ export default async function ItemPage({
             applyPath={`/${locale}/items/${asset.id}/apply`}
             summary={summary}
             afterApply={leftExtras}
+            liveReadiness={signedIn}
+            readinessHint={
+              signedIn ? null : (
+                <p className="mt-4 text-sm text-stone-700 dark:text-stone-300">
+                  {t('readiness.hintSignedOut')}{' '}
+                  <Link
+                    href={`/${locale}/sign-in?next=${encodeURIComponent(`/${locale}/items/${asset.id}`)}`}
+                    className={textLink}
+                  >
+                    {t('nav.signIn')}
+                  </Link>
+                </p>
+              )
+            }
           />
         )}
       </div>

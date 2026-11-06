@@ -21,6 +21,9 @@ import { assetPriceOverride, toAsset } from '@/server/assets';
 import { providerBadgesForAssets } from '@/server/reputation';
 import { dealBadgesForAssets, providerOffer } from '@/server/deals';
 import { textLink } from '@/components/ui';
+import { ReadinessBadge, ReadinessHint } from '@/components/readiness-badge';
+import { catalogueReadiness } from '@/server/catalogue-readiness';
+import { currentPrincipal } from '@/server/current-principal';
 import { db } from '@/server/db';
 import { todayIso } from '@/server/today';
 
@@ -66,9 +69,12 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
     query
   );
   const shownIds = shown.map((item) => item.asset.id);
-  const [providers, deals] = await Promise.all([
+  const principal = await currentPrincipal();
+  const [providers, deals, readiness] = await Promise.all([
     providerBadgesForAssets(db, shownIds),
     dealBadgesForAssets(db, shownIds, terms),
+    // Signed out: no badges (#52), only the hint to sign in.
+    principal ? catalogueReadiness(db, principal.id, shownIds, query.termMonths, today) : null,
   ]);
   const leaseParams = new URLSearchParams({
     term: String(query.termMonths),
@@ -93,6 +99,13 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">{t('catalogue.heading')}</h1>
         <p className="mt-2 text-stone-700 dark:text-stone-300">{t('catalogue.intro')}</p>
+        <ReadinessHint
+          signedIn={principal !== null}
+          hasProfile={readiness?.profileKey != null}
+          locale={locale}
+          t={t}
+          signInHref={`/${locale}/sign-in?next=${encodeURIComponent(`/${locale}`)}`}
+        />
         {offer && providerParam ? (
           <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-green-50 px-4 py-2.5 text-sm dark:bg-green-950/50">
             <span className="font-medium">{t('deals.showingProvider', { name: offer.name })}</span>
@@ -126,6 +139,15 @@ export default async function CataloguePage({ params, searchParams }: PageProps<
                   href={`/${locale}/items/${item.asset.id}?${leaseParams}`}
                   provider={providers.get(item.asset.id)}
                   deal={deals.get(item.asset.id)}
+                  readiness={
+                    readiness ? (
+                      <ReadinessBadge
+                        readiness={readiness.byAssetId.get(item.asset.id)}
+                        locale={locale}
+                        t={t}
+                      />
+                    ) : null
+                  }
                   locale={locale}
                   t={t}
                 />
