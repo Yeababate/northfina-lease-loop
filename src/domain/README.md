@@ -36,6 +36,9 @@ ESLint enforces rules 1 and 2 for this folder (see `eslint.config.mjs`).
 | `answer-check.ts`         | Checks one application answer against its question type.                         |
 | `question-flow.ts`        | Picks the next question and drops answers that stop applying.                    |
 | `eligibility.ts`          | Approved, declined or manual review, with the checks behind it.                  |
+| `answer-scope.ts`         | Which answers a profile may remember, profile keys, dropping stale answers.      |
+| `lease-readiness.ts`      | Per item: ready, questions missing, or already manual review / declined.         |
+| `profile-flags.ts`        | Remembered answers that affect every deal (PEP, under 18, country, signatory).   |
 | `refurbishment-rules.ts`  | Required work for a returned item, from the data-pack rules (no costs).          |
 | `next-life.ts`            | Returned item state machine: receipt, inspection, work, guarded relist.          |
 | `demo-participant.ts`     | Canonical participant key for a demo sign-in name; reads one cookie.             |
